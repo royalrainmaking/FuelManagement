@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการน้ำมัน - คลังน้ำมัน</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="inventory-style.css">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="img/logo.png" alt="Logo" class="navbar-logo me-2">
+                <div>
+                    <div class="fw-bold">ระบบจัดการน้ำมัน</div>
+                    <small class="opacity-75">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</small>
+                </div>
+            </a>
+            <div class="navbar-nav ms-auto d-flex flex-row gap-2">
+                <button class="btn btn-outline-light btn-sm" id="refreshDataBtn" type="button">
+                    <i class="fas fa-sync-alt me-1"></i> รีเฟรช
+                </button>
+                <a href="price-management.html" class="btn btn-warning btn-sm" target="_blank" title="จัดการราคา (Admin)">
+                    <i class="fas fa-cog me-1"></i> จัดการราคา
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">กำลังโหลด...</div>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <!-- Main Content Area -->
+            <div class="col-lg-8 col-xl-9">
+                <!-- สรุปภาพรวม -->
+                <div class="row mb-3 g-2">
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-lg overview-card h-100" style="background: linear-gradient(135deg, #fff8e7 0%, #ffffff 100%);">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="overview-icon-wrapper bg-warning bg-opacity-10 rounded-circle">
+                                        <i class="fas fa-money-bill-wave text-warning"></i>
+                                    </div>
+                                    <div class="overview-trend text-warning">
+                                        <i class="fas fa-arrow-up fa-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="overview-content">
+                                    <p class="text-muted mb-2 fw-medium">ยอดเงินที่ซื้อจาก ปตท.</p>
+                                    <div class="d-flex align-items-baseline">
+                                        <h2 class="mb-0 fw-bold text-warning me-2" id="totalPurchaseAmount" style="font-size: 2rem;">0</h2>
+                                        <span class="text-muted fs-6">บาท</span>
+                                    </div>
+                                </div>
+                                <div class="overview-border-accent bg-warning"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-lg overview-card h-100" style="background: linear-gradient(135deg, #e7f3ff 0%, #ffffff 100%);">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="overview-icon-wrapper bg-primary bg-opacity-10 rounded-circle">
+                                        <i class="fas fa-gas-pump text-primary"></i>
+                                    </div>
+                                    <div class="overview-trend text-primary">
+                                        <i class="fas fa-arrow-up fa-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="overview-content">
+                                    <p class="text-muted mb-2 fw-medium">จำนวนลิตรที่ซื้อจาก ปตท.</p>
+                                    <div class="d-flex align-items-baseline">
+                                        <h2 class="mb-0 fw-bold text-primary me-2" id="totalPurchaseVolume" style="font-size: 2rem;">0</h2>
+                                        <span class="text-muted fs-6">ลิตร</span>
+                                    </div>
+                                </div>
+                                <div class="overview-border-accent bg-primary"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-lg overview-card h-100" style="background: linear-gradient(135deg, #e8f5e8 0%, #ffffff 100%);">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="overview-icon-wrapper bg-success bg-opacity-10 rounded-circle">
+                                        <i class="fas fa-tachometer-alt text-success"></i>
+                                    </div>
+                                    <div class="overview-trend text-success">
+                                        <i class="fas fa-chart-line fa-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="overview-content">
+                                    <p class="text-muted mb-2 fw-medium">ความจุคงเหลือทั้งหมด</p>
+                                    <div class="d-flex align-items-baseline">
+                                        <h2 class="mb-0 fw-bold text-success me-2" id="totalCurrentStock" style="font-size: 2rem;">0</h2>
+                                        <span class="text-muted fs-6">ลิตร</span>
+                                    </div>
+                                </div>
+                                <div class="overview-border-accent bg-success"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- แหล่งน้ำมัน -->
+                <div class="card shadow-sm">
+                    <div class="card-body p-2">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-oil-can me-2"></i>
+                                แหล่งน้ำมัน
+                            </h5>
+
+                        </div>
+                        <div id="fuelCards" class="fuel-cards-container">
+                            <!-- Cards จะถูกสร้างโดย JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar - Activity Log -->
+            <div class="col-lg-4 col-xl-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-dark text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-history me-2"></i>
+                                การดำเนินการล่่าสุด 
+                            </h6>
+                            <div class="d-flex align-items-center">
+                                <div class="text-success me-2">
+                                    <i class="fas fa-circle fa-xs"></i>
+                                </div>
+                                <small class="text-muted">Real-time</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 position-relative" style="height: 500px; overflow-y: auto;">
+                        <div id="activityLog" class="activity-log">
+                            <!-- Logs จะถูกเพิ่มแบบ real-time -->
+                            <div class="log-item initial">
+                                <div class="log-main">
+                                    <div class="log-icon bg-primary">
+                                        <i class="fas fa-play"></i>
+                                    </div>
+                                    <div class="log-content">
+                                        <div class="log-message">
+                                            <strong>ระบบเริ่มต้น</strong>
+                                        </div>
+                                        <div class="log-details success">เชื่อมต่อกับฐานข้อมูลสำเร็จ</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Auto-scroll indicator -->
+                        <div id="autoScrollIndicator" class="position-absolute bottom-0 start-50 translate-middle-x mb-2">
+                            <small class="badge bg-secondary rounded-pill">
+                                <i class="fas fa-arrow-down fa-xs me-1"></i>
+                                Auto-scroll: ON
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">ล่าสุด: <span id="lastLogTime">กำลังโหลด...</span></small>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary" id="clearLogBtn" title="ล้าง Log">
+                                    <i class="fas fa-trash fa-xs"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="pauseLogBtn" title="หยุด/เริ่ม Auto-scroll">
+                                    <i class="fas fa-pause fa-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal สำหรับการทำรายการ -->
+    <div id="transactionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">การทำรายการ</h2>
+            
+            <form id="transactionForm">
+                <div class="form-group">
+                    <label for="operatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="operatorName" name="operatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="operatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="operatingUnit" name="operatingUnit" required>
+                </div>
+                
+                <!-- แบบฟอร์มเติมเข้า -->
+                <div id="refillForm" class="transaction-form" style="display: none;">
+                    <h3>ซื้อเข้า</h3>
+                    <p style="color: #007aff; font-weight: 500; margin-bottom: 1rem;">การซื้อเข้าทั้งหมดจะถูกบันทึกเป็นการซื้อจาก ปตท.</p>
+
+                    <input type="hidden" id="refillType" name="refillType" value="ptt">
+
+                    <!-- ฟิลด์สำหรับถัง 200L -->
+                    <div id="drumRefillFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="refillDrums">จำนวนถัง (1 ถัง = 200 ลิตร):</label>
+                            <input type="number" id="refillDrums" name="refillDrums" step="1" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>จำนวนลิตรรวม:</label>
+                            <div id="drumTotalLiters" class="calculated-amount">0 ลิตร</div>
+                        </div>
+                    </div>
+                    
+                    <!-- ฟิลด์เฉพาะสำหรับซื้อจาก ปตท. -->
+                    <div id="pttPurchaseFields" class="ptt-section">
+                        <div class="form-group">
+                            <label for="pttDestinationType">ประเภทปลายทาง:</label>
+                            <select id="pttDestinationType" name="pttDestinationType">
+                                <option value="aircraft">เครื่องบิน</option>
+                                <option value="tank">แหล่งน้ำมันอื่น</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="pttAircraftDestination">
+                            <label for="pttAircraftSelect">เลือกเครื่องบิน:</label>
+                            <select id="pttAircraftSelect" name="pttAircraftSelect">
+                                <option value="">เลือกเครื่องบิน</option>
+                                <optgroup label="CARAVAN C208">
+                                    <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                                    <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                                    <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                                    <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                                    <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                                    <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                                </optgroup>
+                                <optgroup label="CARAVAN GRAND C208B">
+                                    <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                                    <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                                </optgroup>
+                                <optgroup label="CARAVAN GRAND EX">
+                                    <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                                    <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                                    <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                                    <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                                    <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                                </optgroup>
+                                <optgroup label="CASA - 300">
+                                    <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                                    <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                                    <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                                    <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                                    <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                                </optgroup>
+                                <optgroup label="CASA - 400">
+                                    <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                                    <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                                    <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                                </optgroup>
+                                <optgroup label="NC212i">
+                                    <option value="NC212i : 1544">NC212i : 1544</option>
+                                    <option value="NC212i : 1545">NC212i : 1545</option>
+                                    <option value="NC212i : 1546">NC212i : 1546</option>
+                                    <option value="NC212i : 1547">NC212i : 1547</option>
+                                </optgroup>
+                                <optgroup label="skycourier">
+                                    <option value="skycourier : 2511">skycourier : 2511</option>
+                                    <option value="skycourier : 2512">skycourier : 2512</option>
+                                </optgroup>
+                                <optgroup label="L410">
+                                    <option value="L410 : 2611">L410 : 2611</option>
+                                    <option value="L410 : 2612">L410 : 2612</option>
+                                </optgroup>
+                                <optgroup label="SKA - 350">
+                                    <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                                    <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                                    <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                                    <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                                </optgroup>
+                                <optgroup label="CN - 235">
+                                    <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                                    <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                                </optgroup>
+                                <optgroup label="BELL 206B3">
+                                    <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                                </optgroup>
+                                <optgroup label="BELL 407">
+                                    <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                                </optgroup>
+                                <optgroup label="BELL 407GXP">
+                                    <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                                    <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                                </optgroup>
+                                <optgroup label="BELL 412 EP">
+                                    <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                                </optgroup>
+                                <optgroup label="AS350 B2">
+                                    <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                                </optgroup>
+                                <optgroup label="H130 T2">
+                                    <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                                </optgroup>
+                                <optgroup label="AW139">
+                                    <option value="AW139 : 2711">AW139 : 2711</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group" id="pttTankDestination" style="display: none;">
+                            <label for="pttTankSelect">เลือกแหล่งน้ำมัน:</label>
+                            <select id="pttTankSelect" name="pttTankSelect">
+                                <option value="">เลือกแหล่งน้ำมัน</option>
+                                <!-- จะถูกเติมโดย JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="pttDispenseLiters">จำนวนลิตร:</label>
+                            <input type="number" id="pttDispenseLiters" name="pttDispenseLiters" step="0.01" min="0">
+                        </div>
+                    </div>
+                    
+                    <!-- ฟิลด์ Book No. และ Receipt No. (แสดงเฉพาะเมื่อซื้อจาก ปตท.) -->
+                    <div id="pttDocumentFields" class="document-fields">
+                        <h4 class="section-title">ข้อมูลเอกสาร</h4>
+                        <div class="form-group">
+                            <label for="bookNo">Book No.:</label>
+                            <input type="text" id="bookNo" name="bookNo" placeholder="กรอกหมายเลข Book">
+                        </div>
+                        <div class="form-group">
+                            <label for="receiptNo">Receipt No.:</label>
+                            <input type="text" id="receiptNo" name="receiptNo" placeholder="กรอกหมายเลข Receipt">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="submitRefill" class="submit-btn">ยืนยันการซื้อเข้า</button>
+                </div>
+                
+                <!-- แบบฟอร์มจ่ายออก -->
+                <div id="dispenseForm" class="transaction-form" style="display: none;">
+                    <h3>เติมน้ำมัน</h3>
+                    
+                    <div class="form-group">
+                        <label for="destinationType">ประเภทปลายทาง:</label>
+                        <select id="destinationType" name="destinationType">
+                            <option value="aircraft">เครื่องบิน</option>
+                            <option value="tank">แหล่งน้ำมันอื่น</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="aircraftDestination">
+                        <label for="aircraftSelect">เลือกเครื่องบิน:</label>
+                        <select id="aircraftSelect" name="aircraftSelect">
+                            <option value="">เลือกเครื่องบิน</option>
+                            <optgroup label="CARAVAN C208">
+                                <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                                <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                                <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                                <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                                <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                                <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                            </optgroup>
+                            <optgroup label="CARAVAN GRAND C208B">
+                                <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                                <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                            </optgroup>
+                            <optgroup label="CARAVAN GRAND EX">
+                                <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                                <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                                <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                                <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                                <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                            </optgroup>
+                            <optgroup label="CASA - 300">
+                                <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                                <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                                <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                                <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                                <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                            </optgroup>
+                            <optgroup label="CASA - 400">
+                                <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                                <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                                <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                            </optgroup>
+                            <optgroup label="NC212i">
+                                <option value="NC212i : 1544">NC212i : 1544</option>
+                                <option value="NC212i : 1545">NC212i : 1545</option>
+                                <option value="NC212i : 1546">NC212i : 1546</option>
+                                <option value="NC212i : 1547">NC212i : 1547</option>
+                            </optgroup>
+                            <optgroup label="skycourier">
+                                <option value="skycourier : 2511">skycourier : 2511</option>
+                                <option value="skycourier : 2512">skycourier : 2512</option>
+                            </optgroup>
+                            <optgroup label="L410">
+                                <option value="L410 : 2611">L410 : 2611</option>
+                                <option value="L410 : 2612">L410 : 2612</option>
+                            </optgroup>
+                            <optgroup label="SKA - 350">
+                                <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                                <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                                <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                                <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                            </optgroup>
+                            <optgroup label="CN - 235">
+                                <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                                <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                            </optgroup>
+                            <optgroup label="BELL 206B3">
+                                <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                            </optgroup>
+                            <optgroup label="BELL 407">
+                                <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                            </optgroup>
+                            <optgroup label="BELL 407GXP">
+                                <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                                <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                            </optgroup>
+                            <optgroup label="BELL 412 EP">
+                                <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                            </optgroup>
+                            <optgroup label="AS350 B2">
+                                <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                            </optgroup>
+                            <optgroup label="H130 T2">
+                                <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                            </optgroup>
+                            <optgroup label="AW139">
+                                <option value="AW139 : 2711">AW139 : 2711</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group" id="tankDestination" style="display: none;">
+                        <label for="tankSelect">เลือกแหล่งน้ำมัน:</label>
+                        <select id="tankSelect" name="tankSelect">
+                            <option value="">เลือกแหล่งน้ำมัน</option>
+                            <!-- จะถูก populate โดย JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <!-- ฟิลด์สำหรับถัง 200L -->
+                    <div id="drumDispenseFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="dispenseDrums">จำนวนถัง (1 ถัง = 200 ลิตร):</label>
+                            <input type="number" id="dispenseDrums" name="dispenseDrums" step="1" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>จำนวนลิตรรวม:</label>
+                            <div id="drumDispenseLiters" class="calculated-amount">0 ลิตร</div>
+                        </div>
+                    </div>
+                    
+                    <!-- ฟิลด์สำหรับลิตรปกติ -->
+                    <div id="literDispenseFields">
+                        <div class="form-group">
+                            <label for="dispenseLiters">จำนวนลิตร:</label>
+                            <input type="number" id="dispenseLiters" name="dispenseLiters" step="0.01" min="0">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="submitDispense" class="submit-btn">ยืนยันการจ่ายออก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal สำหรับการซื้อน้ำมัน ปตท. -->
+    <div id="pttPurchaseModal" class="modal">
+        <div class="modal-content">
+            <span class="close-ptt">&times;</span>
+            <h2>บันทึกการซื้อน้ำมัน ปตท.</h2>
+            
+            <form id="pttPurchaseForm">
+                <div class="form-group">
+                    <label for="pttOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="pttOperatorName" name="pttOperatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pttOperatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="pttOperatingUnit" name="pttOperatingUnit" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pttDestinationSelect">ซื้อเข้าไปยัง:</label>
+                    <select id="pttDestinationSelect" name="pttDestinationSelect" required>
+                        <option value="">เลือกแหล่งเก็บ</option>
+                    </select>
+                </div>
+                
+                <!-- สำหรับลิตรปกติ (แท๊งก์, รถ) -->
+                <div class="form-group" id="pttLitersGroup">
+                    <label for="pttLiters">จำนวนลิตร:</label>
+                    <input type="number" id="pttLiters" name="pttLiters" step="0.01" min="0">
+                </div>
+                
+                <!-- สำหรับถัง 200L -->
+                <div class="form-group" id="pttDrumsGroup" style="display: none;">
+                    <label for="pttDrums">จำนวนถัง:</label>
+                    <input type="number" id="pttDrums" name="pttDrums" step="1" min="0">
+                    <small style="color: #666;">1 ถัง = 200 ลิตร</small>
+                </div>
+                
+                <!-- ฟิลด์ Book No. และ Receipt No. สำหรับ PTT Purchase -->
+                <div id="pttPurchaseDocumentFields" class="document-fields">
+                    <h4 class="section-title">ข้อมูลเอกสาร</h4>
+                    <div class="form-group">
+                        <label for="pttBookNo">Book No.:</label>
+                        <input type="text" id="pttBookNo" name="pttBookNo" placeholder="กรอกหมายเลข Book">
+                    </div>
+                    <div class="form-group">
+                        <label for="pttReceiptNo">Receipt No.:</label>
+                        <input type="text" id="pttReceiptNo" name="pttReceiptNo" placeholder="กรอกหมายเลข Receipt">
+                    </div>
+                </div>
+                
+                <button type="submit" id="submitPttPurchase" class="submit-btn">ยืนยันการซื้อ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal แสดง UID หลังทำรายการสำเร็จ -->
+    <div id="uidModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" id="closeUidModal">&times;</span>
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 3rem; color: #28a745; margin-bottom: 15px;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h2 style="color: #28a745; margin-bottom: 10px;">บันทึกรายการสำเร็จ!</h2>
+                <p style="color: #666; margin-bottom: 25px;">กรุณาจดบันทึก Transaction ID เพื่อใช้ในการตรวจสอบย้อนกลับ</p>
+                
+                <!-- Transaction ID Display -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                    <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 5px;">Transaction ID</div>
+                    <div id="transactionUID" style="color: white; font-size: 2.5rem; font-weight: bold; letter-spacing: 3px; font-family: 'Courier New', monospace;">
+                        FT0001
+                    </div>
+                </div>
+                
+                <!-- Transaction Summary -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: left; margin-bottom: 20px;">
+                    <h5 style="margin-bottom: 15px; color: #333;">
+                        <i class="fas fa-file-alt me-2"></i>สรุปรายการ
+                    </h5>
+                    <div style="display: grid; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ประเภท:</span>
+                            <strong id="uidTransactionType">-</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">แหล่ง:</span>
+                            <strong id="uidSource">-</strong>
+                        </div>
+                        <div id="uidDestinationRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ปลายทาง:</span>
+                            <strong id="uidDestination">-</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ปริมาณ:</span>
+                            <strong id="uidVolume">-</strong>
+                        </div>
+                        <div id="uidBookNoRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">Book No.:</span>
+                            <strong id="uidBookNo">-</strong>
+                        </div>
+                        <div id="uidReceiptNoRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">Receipt No.:</span>
+                            <strong id="uidReceiptNo">-</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ผู้ทำรายการ:</span>
+                            <strong id="uidOperator">-</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                            <span style="color: #666;">เวลา:</span>
+                            <strong id="uidTimestamp">-</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="copyUidBtn" class="btn btn-primary" style="padding: 10px 25px;">
+                        <i class="fas fa-copy me-2"></i>คัดลอก UID
+                    </button>
+                    <button id="printUidBtn" class="btn btn-secondary" style="padding: 10px 25px;">
+                        <i class="fas fa-print me-2"></i>พิมพ์
+                    </button>
+                    <button id="closeUidBtn" class="btn btn-success" style="padding: 10px 25px;">
+                        <i class="fas fa-check me-2"></i>เสร็จสิ้น
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    
+    <!-- Custom Scripts -->
+    <script src="inventory.js"></script>
+    
+    <!-- Activity Log Real-time Script -->
+    <script>
+        // Activity Log Management
+        class ActivityLogger {
+            constructor() {
+                this.logContainer = document.getElementById('activityLog');
+                this.lastLogTime = document.getElementById('lastLogTime');
+                this.autoScroll = true;
+                this.maxLogs = 100; // จำกัดจำนวน log ไม่ให้เกิน 100 รายการ
+                this.processedLogIds = new Set(); // เก็บ ID ของ logs ที่ถูกประมวลผลแล้ว
+                
+                this.setupEventListeners();
+                this.startRealTimeLogging();
+            }
+            
+            setupEventListeners() {
+                // Clear log button
+                document.getElementById('clearLogBtn').addEventListener('click', () => {
+                    this.clearLogs();
+                });
+                
+                // Pause/Resume auto-scroll button
+                document.getElementById('pauseLogBtn').addEventListener('click', () => {
+                    this.toggleAutoScroll();
+                });
+                
+                // Manual scroll detection
+                this.logContainer.parentElement.addEventListener('scroll', (e) => {
+                    const element = e.target;
+                    const isAtBottom = element.scrollHeight - element.scrollTop === element.clientHeight;
+                    if (!isAtBottom && this.autoScroll) {
+                        this.autoScroll = false;
+                        this.updateAutoScrollIndicator();
+                    }
+                });
+            }
+            
+            addLog(message, type = 'info', details = '', customTimestamp = null, prepend = false) {
+                // ใช้เวลาที่ส่งมา หรือเวลาปัจจุบันถ้าไม่มี
+                const now = new Date();
+                const timestamp = customTimestamp || now.toLocaleTimeString('th-TH');
+                const dateString = now.toLocaleDateString('th-TH', { 
+                    day: '2-digit', 
+                    month: '2-digit' 
+                });
+                
+                const logItem = document.createElement('div');
+                logItem.className = `log-item new-log ${type}`;
+                
+                let iconClass, bgClass, detailsClass;
+                switch(type) {
+                    case 'success':
+                        iconClass = 'fas fa-check-circle';
+                        bgClass = 'bg-success';
+                        detailsClass = 'success';
+                        break;
+                    case 'warning':
+                        iconClass = 'fas fa-exclamation-triangle';
+                        bgClass = 'bg-warning';
+                        detailsClass = 'warning';
+                        break;
+                    case 'error':
+                        iconClass = 'fas fa-times-circle';
+                        bgClass = 'bg-danger';
+                        detailsClass = 'error';
+                        break;
+                    case 'purchase':
+                        iconClass = 'fas fa-shopping-cart';
+                        bgClass = 'bg-primary';
+                        detailsClass = '';
+                        break;
+                    case 'refuel':
+                        iconClass = 'fas fa-gas-pump';
+                        bgClass = 'bg-info';
+                        detailsClass = '';
+                        break;
+                    default:
+                        iconClass = 'fas fa-info-circle';
+                        bgClass = 'bg-secondary';
+                        detailsClass = '';
+                }
+                
+                logItem.innerHTML = `
+                    <div class="log-main">
+                        <div class="log-icon ${bgClass}">
+                            <i class="${iconClass}"></i>
+                        </div>
+                        <div class="log-content">
+                            <div class="log-message">
+                                <strong>${message}</strong>
+                            </div>
+                            ${details ? `<div class="log-details ${detailsClass}">${details}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                if (prepend && this.logContainer.firstChild) {
+                    this.logContainer.insertBefore(logItem, this.logContainer.firstChild);
+                } else {
+                    this.logContainer.appendChild(logItem);
+                }
+                this.lastLogTime.textContent = timestamp;
+                
+                // Limit number of logs (ลบจากด้านล่างเมื่อเพิ่มไว้ด้านบน)
+                while (this.logContainer.children.length > this.maxLogs) {
+                    if (prepend) {
+                        this.logContainer.removeChild(this.logContainer.lastChild);
+                    } else {
+                        this.logContainer.removeChild(this.logContainer.firstChild);
+                    }
+                }
+                
+                // Auto-scroll เฉพาะเมื่อไม่ได้เพิ่มไว้ด้านบน
+                if (this.autoScroll && !prepend) {
+                    setTimeout(() => {
+                        this.scrollToBottom();
+                    }, 100);
+                }
+                
+                // Animate new log
+                setTimeout(() => {
+                    logItem.classList.remove('new-log');
+                }, 300);
+            }
+            
+            clearLogs() {
+                this.logContainer.innerHTML = '';
+                this.processedLogIds = new Set(); // รีเซ็ต processed logs
+                this.addLog('Log ถูกล้างแล้ว', 'info');
+            }
+            
+            clearOldDataAndReload() {
+                // ล้างข้อมูล localStorage เก่า
+                console.log('🧹 ล้างข้อมูล localStorage เก่า...');
+                localStorage.removeItem('transactionLogs');
+                
+                // ล้าง activity logs
+                this.logContainer.innerHTML = '';
+                this.processedLogIds = new Set();
+                
+                // โหลดข้อมูลใหม่จาก Google Sheets
+                if (typeof loadTransactionLogsFromSheets === 'function') {
+                    loadTransactionLogsFromSheets();
+                }
+                
+                this.addLog('ล้างข้อมูลเก่าและโหลดข้อมูลใหม่จาก Google Sheets', 'info');
+            }
+            
+            reloadLogs() {
+                // ล้าง logs ปัจจุบันทั้งหมด
+                this.logContainer.innerHTML = '';
+                this.processedLogIds = new Set(); // รีเซ็ต processed logs
+                
+                // โหลด transaction logs ใหม่
+                this.loadTransactionLogs();
+            }
+            
+            toggleAutoScroll() {
+                this.autoScroll = !this.autoScroll;
+                this.updateAutoScrollIndicator();
+                
+                if (this.autoScroll) {
+                    this.scrollToBottom();
+                }
+            }
+            
+            updateAutoScrollIndicator() {
+                const indicator = document.getElementById('autoScrollIndicator');
+                const pauseBtn = document.getElementById('pauseLogBtn');
+                
+                if (this.autoScroll) {
+                    indicator.innerHTML = `
+                        <small class="badge bg-secondary rounded-pill">
+                            <i class="fas fa-arrow-down fa-xs me-1"></i>
+                            Auto-scroll: ON
+                        </small>
+                    `;
+                    pauseBtn.innerHTML = '<i class="fas fa-pause fa-xs"></i>';
+                    pauseBtn.title = 'หยุด Auto-scroll';
+                } else {
+                    indicator.innerHTML = `
+                        <small class="badge bg-warning rounded-pill">
+                            <i class="fas fa-pause fa-xs me-1"></i>
+                            Auto-scroll: OFF
+                        </small>
+                    `;
+                    pauseBtn.innerHTML = '<i class="fas fa-play fa-xs"></i>';
+                    pauseBtn.title = 'เริ่ม Auto-scroll';
+                }
+            }
+            
+            scrollToBottom() {
+                const container = this.logContainer.parentElement;
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            startRealTimeLogging() {
+                // ไม่แสดงข้อความระบบ - แสดงเฉพาะข้อมูลจาก Google Sheets เท่านั้น
+                
+                // ตรวจสอบการอัพเดท transaction logs ทุก 10 วินาที
+                setInterval(() => {
+                    this.checkForNewTransactions();
+                }, 10000);
+            }
+            
+            loadTransactionLogs() {
+                // ดึงข้อมูล transaction logs จากตัวแปร global
+                if (typeof transactionLogs !== 'undefined' && Array.isArray(transactionLogs)) {
+                    console.log(`📥 โหลด Transaction Logs: ${transactionLogs.length} รายการ`);
+                    
+                    // เรียงลำดับจากใหม่ไปเก่า และแสดงแค่ 20 รายการล่าสุด
+                    const recentLogs = [...transactionLogs]
+                        .sort((a, b) => {
+                            const dateA = new Date(`${a.date} ${a.time}`);
+                            const dateB = new Date(`${b.date} ${b.time}`);
+                            return dateB - dateA; // เรียงจากใหม่ไปเก่า
+                        })
+                        .slice(0, 20);
+                    
+                    // แสดง logs โดยตรวจสอบไม่ให้ซ้ำ (รายการใหม่อยู่ด้านบน)
+                    let newLogsAdded = 0;
+                    recentLogs.slice().reverse().forEach(log => {
+                        if (!this.processedLogIds.has(log.id)) {
+                            this.addTransactionLog(log, true);
+                            this.processedLogIds.add(log.id);
+                            newLogsAdded++;
+                        }
+                    });
+                    
+                    console.log(`✅ เพิ่ม Transaction Logs ใหม่: ${newLogsAdded} รายการ`);
+                    
+                    // อัปเดต lastLogTime ด้วยเวลาจาก Google Sheets ถ้ามี
+                    if (window.lastTransactionTimestamp) {
+                        this.lastLogTime.textContent = window.lastTransactionTimestamp;
+                        console.log(`🕐 อัปเดตเวลาล่าสุด: ${window.lastTransactionTimestamp}`);
+                    }
+                    
+                    // เก็บจำนวน logs ปัจจุบันไว้เช็คการอัพเดท
+                    this.lastLogCount = transactionLogs.length;
+                } else {
+                    console.log('⚠️ ยังไม่มีข้อมูล Transaction Logs');
+                }
+            }
+            
+            checkForNewTransactions() {
+                // ตรวจสอบว่ามี transaction ใหม่หรือไม่
+                if (typeof transactionLogs !== 'undefined' && Array.isArray(transactionLogs)) {
+                    if (this.lastLogCount !== undefined && transactionLogs.length > this.lastLogCount) {
+                        // มี transaction ใหม่
+                        const newLogs = transactionLogs.slice(this.lastLogCount);
+                        console.log(`🆕 พบ Transaction ใหม่: ${newLogs.length} รายการ`);
+                        
+                        let actualNewLogs = 0;
+                        newLogs.forEach(log => {
+                            if (!this.processedLogIds.has(log.id)) {
+                                this.addTransactionLog(log);
+                                this.processedLogIds.add(log.id);
+                                actualNewLogs++;
+                            }
+                        });
+                        
+                        console.log(`✅ เพิ่ม Transaction ใหม่จริง: ${actualNewLogs} รายการ`);
+                        this.lastLogCount = transactionLogs.length;
+                    }
+                }
+            }
+            
+            addTransactionLog(log, prepend = false) {
+                // Debug: ตรวจสอบข้อมูล log ที่เข้ามา
+                console.log('🔍 Processing log:', {
+                    id: log.id,
+                    date: log.date,
+                    time: log.time,
+                    transactionType: log.transactionType,
+                    hasValidDateTime: !!(log.date && log.time)
+                });
+                
+                // ตรวจสอบว่าเป็นข้อมูลจริงจาก Google Sheets หรือไม่
+                const hasValidDate = log.date && log.date !== '' && log.date !== 'undefined' && 
+                                   log.date.toString() !== 'undefined' && log.date.toString().trim() !== '';
+                const hasValidTime = log.time && log.time !== '' && log.time !== 'undefined' && 
+                                   log.time.toString() !== 'undefined' && log.time.toString().trim() !== '';
+                const hasValidData = log.liters && log.liters > 0;
+                
+                if (!hasValidDate || !hasValidTime || !hasValidData) {
+                    console.warn('⚠️ ข้อมูลไม่ครบถ้วนหรือไม่ถูกต้อง - ข้ามการแสดงผล:', {
+                        date: log.date,
+                        time: log.time,
+                        liters: log.liters,
+                        hasValidDate,
+                        hasValidTime,
+                        hasValidData
+                    });
+                    return;
+                }
+                
+                // แปลง transaction log เป็น activity log format
+                let message = '';
+                let type = 'info';
+                let details = '';
+                
+                // สร้าง timestamp string สำหรับแสดงต่อท้าย message
+                let timestampSuffix = '';
+                try {
+                    const dateParts = log.date.toString().split('-');
+                    const timeParts = log.time.toString().split(':');
+                    
+                    if (dateParts.length === 3 && timeParts.length >= 2) {
+                        const [year, month, day] = dateParts;
+                        const [hours, minutes, seconds = '00'] = timeParts;
+                        
+                        if (year && month && day && hours && minutes) {
+                            // แปลงปีเป็น พ.ศ. (เฉพาะส่วนที่แสดง)
+                            const buddhist_year = parseInt(year) + 543;
+                            timestampSuffix = ` ${day}/${month}/${buddhist_year} ${hours}:${minutes}:${seconds}`;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('ไม่สามารถแปลง timestamp ได้:', e);
+                    timestampSuffix = '';
+                }
+                
+                // กำหนด message และ type ตามประเภท transaction
+                if (log.transactionType === 'refill' || log.transactionType === 'fuel-card') {
+                    // การซื้อน้ำมัน
+                    message = `ซื้อน้ำมันจาก ปตท.${timestampSuffix}`;
+                    type = 'purchase';
+                    details = `${log.liters ? log.liters.toLocaleString() : '0'} ลิตร`;
+                    if (log.totalAmount) {
+                        details += ` | ${log.totalAmount.toLocaleString()} บาท`;
+                    }
+                    if (log.destinationName) {
+                        details += ` → ${log.destinationName}`;
+                    }
+                } else if (log.transactionType === 'dispense') {
+                    // การจ่ายน้ำมัน - แสดงเฉพาะเมื่อมีข้อมูลวันที่และเวลา
+                    if (timestampSuffix) {
+                        message = `จ่ายน้ำมัน${timestampSuffix}`;
+                        type = 'refuel';
+                        details = `${log.liters ? log.liters.toLocaleString() : '0'} ลิตร`;
+                        if (log.sourceName) {
+                            details += ` จาก ${log.sourceName}`;
+                        }
+                        if (log.destinationName) {
+                            details += ` → ${log.destinationName}`;
+                        }
+                    } else {
+                        // ถ้าไม่มีข้อมูลวันที่และเวลา ให้ข้ามรายการนี้
+                        return;
+                    }
+                } else if (log.transactionType === 'transfer') {
+                    // การโอนย้าย
+                    message = `โอนย้ายน้ำมัน${timestampSuffix}`;
+                    type = 'info';
+                    details = `${log.liters ? log.liters.toLocaleString() : '0'} ลิตร`;
+                    if (log.sourceName && log.destinationName) {
+                        details += ` จาก ${log.sourceName} → ${log.destinationName}`;
+                    }
+                } else {
+                    // ประเภทอื่นๆ
+                    message = `${log.transactionType || 'ทำรายการ'}${timestampSuffix}`;
+                    type = 'info';
+                    details = `${log.liters ? log.liters.toLocaleString() : '0'} ลิตร`;
+                }
+                
+                // เพิ่มข้อมูลผู้ปฏิบัติงาน
+                if (log.operatorName) {
+                    details += ` | โดย ${log.operatorName}`;
+                }
+                
+                // แสดง log โดยไม่ส่ง customTimestamp (จะใช้เวลาปัจจุบันในฟังก์ชัน addLog)
+                console.log(`✅ แสดง log จริงจาก Google Sheets: ${message}`);
+                this.addLog(message, type, details, null, prepend);
+            }
+        }
+        
+        // Initialize activity logger when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('lastLogTime').textContent = 'กำลังโหลด...';
+            
+            window.activityLogger = new ActivityLogger();
+        });
+    </script>
+</body>
+</html>

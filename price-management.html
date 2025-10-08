@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการราคาน้ำมัน - Backend</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Sarabun', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .management-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-header i {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .login-header h2 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .login-header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .price-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .price-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .price-card h5 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .price-card i {
+            color: #667eea;
+        }
+        
+        .input-group-text {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border: none;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-logout {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            border: none;
+            padding: 10px 25px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(235, 51, 73, 0.4);
+        }
+        
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .management-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .management-header h2 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .management-header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .last-updated {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Form -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-header">
+            <i class="fas fa-lock"></i>
+            <h2>จัดการราคาน้ำมัน</h2>
+            <p>กรุณาใส่รหัสผ่านเพื่อเข้าสู่ระบบ</p>
+        </div>
+        
+        <div id="loginAlert" class="alert alert-danger alert-custom hidden" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <span id="loginAlertText">รหัสผ่านไม่ถูกต้อง</span>
+        </div>
+        
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="password" class="form-label">รหัสผ่าน</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-key"></i>
+                    </span>
+                    <input type="password" class="form-control" id="password" placeholder="ใส่รหัสผ่าน" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-login btn-primary w-100">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                เข้าสู่ระบบ
+            </button>
+        </form>
+        
+        <div class="text-center mt-3">
+            <a href="index.html" class="text-decoration-none text-muted">
+                <i class="fas fa-arrow-left me-1"></i>
+                กลับสู่หน้าหลัก
+            </a>
+        </div>
+    </div>
+    
+    <!-- Price Management Form -->
+    <div id="managementContainer" class="management-container hidden">
+        <div class="management-header">
+            <h2><i class="fas fa-cog me-2"></i>จัดการราคาน้ำมัน</h2>
+            <p>ตั้งค่าราคาน้ำมันสำหรับการคำนวณในระบบ</p>
+        </div>
+        
+        <div id="successAlert" class="alert alert-success alert-custom hidden" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            <span id="successAlertText">บันทึกราคาสำเร็จ!</span>
+        </div>
+        
+        <form id="priceForm">
+            <!-- ราคาต่อลิตร -->
+            <div class="price-card">
+                <h5>
+                    <i class="fas fa-gas-pump"></i>
+                    ราคาน้ำมันต่อลิตร
+                </h5>
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text">฿</span>
+                    <input type="number" class="form-control" id="pricePerLiter" 
+                           placeholder="0.0000" step="0.0001" min="0" required>
+                    <span class="input-group-text">บาท/ลิตร</span>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    ใช้สำหรับการซื้อน้ำมันเป็นลิตร (แท๊งก์, รถบรรทุก)
+                </small>
+            </div>
+            
+            <!-- ราคาต่อถัง -->
+            <div class="price-card">
+                <h5>
+                    <i class="fas fa-drum"></i>
+                    ราคาน้ำมันต่อถัง 200L
+                </h5>
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text">฿</span>
+                    <input type="number" class="form-control" id="pricePerDrum" 
+                           placeholder="0.0000" step="0.0001" min="0" required>
+                    <span class="input-group-text">บาท/ถัง</span>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    ใช้สำหรับการซื้อน้ำมันเป็นถัง 200 ลิตร
+                </small>
+            </div>
+            
+            <div class="d-flex gap-2 justify-content-between">
+                <button type="button" class="btn btn-logout btn-danger" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt me-2"></i>
+                    ออกจากระบบ
+                </button>
+                <button type="submit" class="btn btn-save btn-success">
+                    <i class="fas fa-save me-2"></i>
+                    บันทึกราคา
+                </button>
+            </div>
+        </form>
+        
+        <!-- Admin Tools Section -->
+        <div class="mt-4 pt-4" style="border-top: 2px solid #e0e0e0;">
+            <h5 class="mb-3">
+                <i class="fas fa-tools me-2" style="color: #667eea;"></i>
+                เครื่องมือสำหรับ Admin
+            </h5>
+            <div class="d-grid gap-2 d-none">
+                <button type="button" class="btn btn-outline-primary" id="createPriceSheetBtn">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    สร้าง Price_History Sheet ใหม่
+                </button>
+                <button type="button" class="btn btn-outline-info" id="checkSheetsBtn">
+                    <i class="fas fa-search me-2"></i>
+                    ตรวจสอบ Sheets ที่มีอยู่
+                </button>
+            </div>
+        </div>
+        
+        <div class="last-updated">
+            <i class="fas fa-clock me-1"></i>
+            อัพเดทล่าสุด: <span id="lastUpdated">-</span>
+        </div>
+        
+        <div class="text-center mt-3">
+            <a href="index.html" class="text-decoration-none text-muted">
+                <i class="fas fa-arrow-left me-1"></i>
+                กลับสู่หน้าหลัก
+            </a>
+        </div>
+    </div>
+    
+    <!-- Load Configuration -->
+    <script src="config.js"></script>
+    
+    <script>
+        // ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+        // ตรวจสอบว่า config ถูกโหลดหรือยัง
+        if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
+            console.error('❌ config.js ยังไม่ถูกโหลด!');
+            alert('เกิดข้อผิดพลาด: ไม่สามารถโหลดไฟล์ config.js ได้');
+        }
+        
+        // สำหรับ backward compatibility
+        const SHEETS_ID = GOOGLE_SHEETS_ID;
+        
+        // Elements
+        const loginContainer = document.getElementById('loginContainer');
+        const managementContainer = document.getElementById('managementContainer');
+        const loginForm = document.getElementById('loginForm');
+        const priceForm = document.getElementById('priceForm');
+        const loginAlert = document.getElementById('loginAlert');
+        const successAlert = document.getElementById('successAlert');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        // Check if already logged in
+        if (sessionStorage.getItem('priceManagementAuth') === 'true') {
+            showManagementPanel();
+        }
+        
+        // Login Form Submit
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            
+            if (password === ADMIN_PASSWORD) {
+                sessionStorage.setItem('priceManagementAuth', 'true');
+                showManagementPanel();
+            } else {
+                showLoginError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+            }
+        });
+        
+        // Price Form Submit
+        priceForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const pricePerLiter = parseFloat(document.getElementById('pricePerLiter').value);
+            const pricePerDrum = parseFloat(document.getElementById('pricePerDrum').value);
+            
+            // Validate input
+            if (isNaN(pricePerLiter) || isNaN(pricePerDrum)) {
+                showLoginError('กรุณากรอกราคาให้ถูกต้อง');
+                return;
+            }
+            
+            // Disable submit button
+            const submitBtn = priceForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังบันทึก...';
+            
+            try {
+                // 1. Save to localStorage first (fast)
+                const priceData = {
+                    pricePerLiter: pricePerLiter,
+                    pricePerDrum: pricePerDrum,
+                    lastUpdated: new Date().toLocaleString('th-TH')
+                };
+                
+                localStorage.setItem('fuelPrices', JSON.stringify(priceData));
+                
+                // 2. Save to Google Sheets
+                await savePricesToSheets(pricePerLiter, pricePerDrum);
+                showSuccess('✅ บันทึกราคาสำเร็จ! (บันทึกทั้ง localStorage และ Google Sheets)');
+                
+                updateLastUpdatedDisplay();
+                
+            } catch (error) {
+                console.error('Error saving prices:', error);
+                showLoginError('⚠️ บันทึกใน localStorage สำเร็จ แต่บันทึกไป Google Sheets ไม่สำเร็จ: ' + error.message);
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+        
+        // Logout Button
+        logoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('priceManagementAuth');
+            location.reload();
+        });
+        
+        // Create Price Sheet Button
+        document.getElementById('createPriceSheetBtn').addEventListener('click', async () => {
+            if (!confirm('คุณต้องการสร้าง Price_History Sheet ใหม่หรือไม่?\n\n⚠️ หากมี Sheet อยู่แล้ว จะไม่สร้างซ้ำ')) {
+                return;
+            }
+            
+            const btn = document.getElementById('createPriceSheetBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังสร้าง...';
+            
+            try {
+                // ใช้ config จาก config.js
+                const url = `${GOOGLE_SCRIPT_URL}?action=createPriceSheet&sheetsId=${GOOGLE_SHEETS_ID}`;
+                
+                console.log('Creating Price Sheet with URL:', url);
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('✅ สร้าง Price_History Sheet สำเร็จ!');
+                    console.log('Sheet created:', result);
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error creating sheet:', error);
+                showLoginError('❌ เกิดข้อผิดพลาด: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+        
+        // Check Sheets Button
+        document.getElementById('checkSheetsBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('checkSheetsBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังตรวจสอบ...';
+            
+            try {
+                // ใช้ config จาก config.js
+                const url = `${GOOGLE_SCRIPT_URL}?action=getCurrentPrices&sheetsId=${GOOGLE_SHEETS_ID}`;
+                
+                console.log('Checking sheets with URL:', url);
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const info = `✅ ตรวจสอบสำเร็จ!\n\nPrice_History Sheet พบแล้ว\n\nราคาปัจจุบัน:\n- ราคาต่อลิตร: ${result.data.pricePerLiter || 0} บาท\n- ราคาต่อถัง: ${result.data.pricePerDrum || 0} บาท\n- อัพเดทล่าสุด: ${result.data.lastUpdated || '-'}`;
+                    alert(info);
+                    showSuccess('✅ ตรวจสอบ Sheets สำเร็จ!');
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                console.error('Error checking sheets:', error);
+                alert('❌ เกิดข้อผิดพลาด: ' + error.message + '\n\nอาจเป็นเพราะ:\n1. ยังไม่มี Price_History Sheet\n2. Google Apps Script ยังไม่ได้ Deploy\n3. URL หรือ Sheets ID ไม่ถูกต้อง');
+                showLoginError('❌ ตรวจสอบไม่สำเร็จ: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+        
+        // Functions
+        function showManagementPanel() {
+            loginContainer.classList.add('hidden');
+            managementContainer.classList.remove('hidden');
+            loadCurrentPrices();
+            updateLastUpdatedDisplay();
+        }
+        
+        function showLoginError(message) {
+            document.getElementById('loginAlertText').textContent = message;
+            loginAlert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                loginAlert.classList.add('hidden');
+            }, 3000);
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('successAlertText').textContent = message;
+            successAlert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                successAlert.classList.add('hidden');
+            }, 3000);
+        }
+        
+        async function loadCurrentPrices() {
+            // Try to load from Google Sheets first (if configured)
+            if (GOOGLE_SCRIPT_URL && SHEETS_ID) {
+                try {
+                    const prices = await fetchCurrentPricesFromSheets();
+                    if (prices) {
+                        document.getElementById('pricePerLiter').value = prices.pricePerLiter || '';
+                        document.getElementById('pricePerDrum').value = prices.pricePerDrum || '';
+                        
+                        // Also update localStorage
+                        const priceData = {
+                            pricePerLiter: prices.pricePerLiter,
+                            pricePerDrum: prices.pricePerDrum,
+                            lastUpdated: prices.lastUpdated || new Date().toLocaleString('th-TH')
+                        };
+                        localStorage.setItem('fuelPrices', JSON.stringify(priceData));
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('Failed to load prices from Sheets, falling back to localStorage:', error);
+                }
+            }
+            
+            // Fallback to localStorage
+            const savedPrices = localStorage.getItem('fuelPrices');
+            
+            if (savedPrices) {
+                const priceData = JSON.parse(savedPrices);
+                document.getElementById('pricePerLiter').value = priceData.pricePerLiter || '';
+                document.getElementById('pricePerDrum').value = priceData.pricePerDrum || '';
+            }
+        }
+        
+        function updateLastUpdatedDisplay() {
+            const savedPrices = localStorage.getItem('fuelPrices');
+            
+            if (savedPrices) {
+                const priceData = JSON.parse(savedPrices);
+                document.getElementById('lastUpdated').textContent = priceData.lastUpdated || '-';
+            } else {
+                document.getElementById('lastUpdated').textContent = 'ยังไม่มีข้อมูล';
+            }
+        }
+        
+        /**
+         * Save prices to Google Sheets
+         */
+        async function savePricesToSheets(pricePerLiter, pricePerDrum) {
+            const url = `${GOOGLE_SCRIPT_URL}?action=updatePrices&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PRICE_HISTORY}&data=${encodeURIComponent(JSON.stringify({
+                pricePerLiter: pricePerLiter,
+                pricePerDrum: pricePerDrum,
+                updatedBy: 'Admin',
+                notes: 'Updated via Price Management'
+            }))}`;
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save prices to Sheets');
+            }
+            
+            return result;
+        }
+        
+        /**
+         * Fetch current prices from Google Sheets
+         */
+        async function fetchCurrentPricesFromSheets() {
+            const url = `${GOOGLE_SCRIPT_URL}?action=getCurrentPrices&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PRICE_HISTORY}`;
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch prices from Sheets');
+            }
+            
+            return result.data;
+        }
+    </script>
+</body>
+</html>

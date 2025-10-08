@@ -1,0 +1,3011 @@
+// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+// ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
+// ตรวจสอบว่า config ถูกโหลดหรือยัง
+if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
+    console.error('❌ config.js ยังไม่ถูกโหลด! กรุณาเพิ่ม <script src="config.js"></script> ใน HTML');
+}
+
+// สำหรับ backward compatibility (ถ้ามีการใช้ตัวแปรเก่า)
+const INVENTORY_SHEET_GID = SHEET_GIDS.INVENTORY;
+
+// ข้อมูลแหล่งน้ำมัน (จะถูกโหลดจาก Google Sheets)
+let fuelSources = [];
+
+// Default fuel sources template (fallback เมื่อไม่สามารถโหลดจาก Google Sheets ได้)
+const defaultFuelSources = [
+    {
+        id: 'purchase',
+        name: 'จัดซื้อจาก ปตท.',
+        capacity: null, // ไม่จำกัด
+        currentStock: 0,
+        type: 'purchase'
+    },
+    {
+        id: 'nakhonsawan_tank1',
+        name: 'สนามบินนครสวรรค์ แท๊ง 1',
+        capacity: 20000,
+        currentStock: 0,
+        type: 'tank'
+    },
+    {
+        id: 'nakhonsawan_tank2',
+        name: 'สนามบินนครสวรรค์ แท๊ง 2',
+        capacity: 20000,
+        currentStock: 0,
+        type: 'tank'
+    },
+    {
+        id: 'khlong_luang_tank1',
+        name: 'สนามบินคลองหลวง แท๊ก 1',
+        capacity: 15000,
+        currentStock: 0,
+        type: 'tank'
+    },
+    {
+        id: 'truck_96_0677',
+        name: '96-0677 กทม.',
+        capacity: 7000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_97_9769',
+        name: '97-9769 กทม.',
+        capacity: 12000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_50_9109',
+        name: '50-9109 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_52_4018',
+        name: '52-4018 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_53_1224',
+        name: '53-1224 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_53_1225',
+        name: '53-1225 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_54_3780',
+        name: '54-3780 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_54_3781',
+        name: '54-3781 กทม.',
+        capacity: 16000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'truck_2320',
+        name: 'สฝษ/บ. 2320-036-0001/001',
+        capacity: 8000,
+        currentStock: 0,
+        type: 'truck'
+    },
+    {
+        id: 'drum_nakhonsawan',
+        name: 'สนามบินนครสวรรค์ - ถัง 200L',
+        capacity: null, // ไม่จำกัด
+        currentStock: 0,
+        type: 'drum'
+    },
+    {
+        id: 'drum_khlong_luang',
+        name: 'สนามบินคลองหลวง - ถัง 200L',
+        capacity: null, // ไม่จำกัด
+        currentStock: 0,
+        type: 'drum'
+    }
+];
+
+// ข้อมูล log สำหรับการแสดงสรุป
+let transactionLogs = [];
+let currentSelectedSource = null;
+let latestSummaryData = null;
+
+// ตั้งค่า Transaction Log Sheet ID
+const TRANSACTION_LOG_SHEET_GID = '1578547125'; // GID จริงของ Transaction_Log sheet
+
+// ค่าคงที่สำหรับถัง 200L
+const DRUM_CAPACITY_LITERS = 200; // 1 ถัง = 200 ลิตร
+
+// ===== UID Management =====
+// ฟังก์ชันสร้าง UID แบบ FT0001, FT0002, ...
+function generateUID() {
+    // โหลด UID ล่าสุดจาก localStorage
+    let lastUID = localStorage.getItem('lastTransactionUID');
+    let uidNumber = 1;
+    
+    if (lastUID) {
+        // แยกเลขออกจาก UID (เช่น FT0001 -> 1)
+        const match = lastUID.match(/FT(\d+)/);
+        if (match) {
+            uidNumber = parseInt(match[1]) + 1;
+        }
+    }
+    
+    // สร้าง UID ใหม่ในรูปแบบ FT0001 (4 หลัก)
+    const newUID = `FT${String(uidNumber).padStart(4, '0')}`;
+    
+    // บันทึก UID ล่าสุด
+    localStorage.setItem('lastTransactionUID', newUID);
+    
+    return newUID;
+}
+
+// ===== Price Management =====
+// ฟังก์ชันโหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
+async function loadFuelPrices() {
+    // Try to load from Google Sheets first
+    try {
+        const prices = await fetchCurrentPricesFromSheets();
+        if (prices && (prices.pricePerLiter > 0 || prices.pricePerDrum > 0)) {
+            // Update localStorage with latest prices from Sheets
+            const priceData = {
+                pricePerLiter: prices.pricePerLiter,
+                pricePerDrum: prices.pricePerDrum,
+                lastUpdated: new Date().toLocaleString('th-TH')
+            };
+            localStorage.setItem('fuelPrices', JSON.stringify(priceData));
+            
+            console.log('✅ Loaded prices from Google Sheets:', prices);
+            return {
+                pricePerLiter: prices.pricePerLiter || 0,
+                pricePerDrum: prices.pricePerDrum || 0
+            };
+        }
+    } catch (error) {
+        console.warn('⚠️ Failed to load prices from Google Sheets, using localStorage:', error);
+    }
+    
+    // Fallback to localStorage
+    const savedPrices = localStorage.getItem('fuelPrices');
+    
+    if (savedPrices) {
+        try {
+            const priceData = JSON.parse(savedPrices);
+            return {
+                pricePerLiter: priceData.pricePerLiter || 0,
+                pricePerDrum: priceData.pricePerDrum || 0
+            };
+        } catch (error) {
+            console.warn('ไม่สามารถโหลดราคาได้:', error);
+            return { pricePerLiter: 0, pricePerDrum: 0 };
+        }
+    }
+    
+    return { pricePerLiter: 0, pricePerDrum: 0 };
+}
+
+/**
+ * Fetch current prices from Google Sheets
+ */
+async function fetchCurrentPricesFromSheets() {
+    // ตรวจสอบว่า config ถูกโหลดหรือไม่
+    console.log('🔍 Debug Config:');
+    console.log('  - GOOGLE_SCRIPT_URL:', typeof GOOGLE_SCRIPT_URL, GOOGLE_SCRIPT_URL);
+    console.log('  - GOOGLE_SHEETS_ID:', typeof GOOGLE_SHEETS_ID, GOOGLE_SHEETS_ID);
+    console.log('  - GOOGLE_SHEETS_ID length:', GOOGLE_SHEETS_ID ? GOOGLE_SHEETS_ID.length : 'null/undefined');
+    
+    // ตรวจสอบว่า GOOGLE_SHEETS_ID มีค่าหรือไม่
+    if (!GOOGLE_SHEETS_ID || GOOGLE_SHEETS_ID === 'YOUR_SHEETS_ID') {
+        throw new Error('❌ GOOGLE_SHEETS_ID ไม่ถูกตั้งค่า! กรุณาตรวจสอบไฟล์ config.js');
+    }
+    
+    const url = `${GOOGLE_SCRIPT_URL}?action=getCurrentPrices&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PRICE_HISTORY}`;
+    
+    console.log('🔍 Fetching prices from:', url);
+    
+    try {
+        const response = await fetch(url);
+        
+        // ตรวจสอบ HTTP status
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('📦 Response from Google Sheets:', result);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to fetch prices from Sheets');
+        }
+        
+        // ตรวจสอบว่ามีข้อมูลราคาหรือไม่
+        if (!result.data) {
+            throw new Error('ไม่พบข้อมูลราคาใน response');
+        }
+        
+        return result.data;
+    } catch (error) {
+        console.error('❌ Error in fetchCurrentPricesFromSheets:', error);
+        throw error; // ส่ง error ต่อไปให้ caller จัดการ
+    }
+}
+
+// ===== UID Modal Management =====
+// ฟังก์ชันแสดง UID Modal หลังทำรายการสำเร็จ
+function showUIDModal(transactionData) {
+    const modal = document.getElementById('uidModal');
+    
+    // แสดง UID
+    document.getElementById('transactionUID').textContent = transactionData.uid;
+    
+    // แสดงประเภทธุรกรรม - รองรับหลายรูปแบบ
+    let transactionTypeText;
+    if (transactionData.type) {
+        transactionTypeText = transactionData.type;
+    } else if (transactionData.transactionType === 'refill') {
+        transactionTypeText = 'ซื้อเข้า';
+    } else if (transactionData.transactionType === 'dispense') {
+        transactionTypeText = 'เติมน้ำมัน';
+    } else {
+        transactionTypeText = transactionData.transactionType || '-';
+    }
+    document.getElementById('uidTransactionType').textContent = transactionTypeText;
+    
+    // แสดงแหล่ง - รองรับหลายรูปแบบ
+    const sourceText = transactionData.source || transactionData.sourceName || '-';
+    document.getElementById('uidSource').textContent = sourceText;
+    
+    // แสดงปลายทาง (ถ้ามี) - รองรับหลายรูปแบบ
+    const destinationRow = document.getElementById('uidDestinationRow');
+    const destinationText = transactionData.destination || transactionData.destinationName || null;
+    if (destinationText) {
+        document.getElementById('uidDestination').textContent = destinationText;
+        destinationRow.style.display = 'flex';
+    } else {
+        destinationRow.style.display = 'none';
+    }
+    
+    // แสดงปริมาณ - รองรับหลายรูปแบบ
+    const volumeText = transactionData.volume || (transactionData.liters ? `${transactionData.liters} ลิตร` : '-');
+    document.getElementById('uidVolume').textContent = volumeText;
+    
+    // แสดง Book No. และ Receipt No. (ถ้ามี)
+    const bookNoRow = document.getElementById('uidBookNoRow');
+    const receiptNoRow = document.getElementById('uidReceiptNoRow');
+    
+    if (transactionData.bookNo) {
+        document.getElementById('uidBookNo').textContent = transactionData.bookNo;
+        bookNoRow.style.display = 'flex';
+    } else {
+        bookNoRow.style.display = 'none';
+    }
+    
+    if (transactionData.receiptNo) {
+        document.getElementById('uidReceiptNo').textContent = transactionData.receiptNo;
+        receiptNoRow.style.display = 'flex';
+    } else {
+        receiptNoRow.style.display = 'none';
+    }
+    
+    // แสดงผู้ทำรายการ - รองรับหลายรูปแบบ
+    const operatorText = transactionData.operator || transactionData.operatorName || '-';
+    document.getElementById('uidOperator').textContent = operatorText;
+    
+    // แสดงเวลา - ใช้เวลาที่ส่งมา หรือเวลาปัจจุบัน
+    const timestamp = transactionData.timestamp || new Date().toLocaleString('th-TH');
+    document.getElementById('uidTimestamp').textContent = timestamp;
+    
+    // แสดง modal
+    modal.style.display = 'block';
+    
+    // Setup event listeners
+    setupUIDModalListeners(transactionData);
+}
+
+// ฟังก์ชัน setup event listeners สำหรับ UID Modal
+function setupUIDModalListeners(transactionData) {
+    // ปุ่มปิด
+    const closeButtons = [
+        document.getElementById('closeUidModal'),
+        document.getElementById('closeUidBtn')
+    ];
+    
+    closeButtons.forEach(btn => {
+        if (btn) {
+            btn.onclick = () => {
+                document.getElementById('uidModal').style.display = 'none';
+            };
+        }
+    });
+    
+    // ปุ่มคัดลอก UID
+    const copyBtn = document.getElementById('copyUidBtn');
+    if (copyBtn) {
+        copyBtn.onclick = () => {
+            const uid = transactionData.uid;
+            navigator.clipboard.writeText(uid).then(() => {
+                // เปลี่ยนข้อความปุ่มชั่วคราว
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check me-2"></i>คัดลอกแล้ว!';
+                copyBtn.classList.add('btn-success');
+                copyBtn.classList.remove('btn-primary');
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.classList.remove('btn-success');
+                    copyBtn.classList.add('btn-primary');
+                }, 2000);
+            }).catch(err => {
+                console.error('ไม่สามารถคัดลอกได้:', err);
+                alert('ไม่สามารถคัดลอก UID ได้');
+            });
+        };
+    }
+    
+    // ปุ่มพิมพ์
+    const printBtn = document.getElementById('printUidBtn');
+    if (printBtn) {
+        printBtn.onclick = () => {
+            // สร้างหน้าพิมพ์
+            const printWindow = window.open('', '_blank');
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Transaction Receipt - ${transactionData.uid}</title>
+                    <style>
+                        body {
+                            font-family: 'Sarabun', Arial, sans-serif;
+                            padding: 40px;
+                            max-width: 600px;
+                            margin: 0 auto;
+                        }
+                        h1 {
+                            text-align: center;
+                            color: #333;
+                            border-bottom: 3px solid #667eea;
+                            padding-bottom: 15px;
+                        }
+                        .uid-box {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 20px;
+                            text-align: center;
+                            border-radius: 10px;
+                            margin: 20px 0;
+                        }
+                        .uid-box .label {
+                            font-size: 14px;
+                            opacity: 0.8;
+                        }
+                        .uid-box .uid {
+                            font-size: 36px;
+                            font-weight: bold;
+                            letter-spacing: 3px;
+                            font-family: 'Courier New', monospace;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 20px 0;
+                        }
+                        td {
+                            padding: 12px;
+                            border-bottom: 1px solid #ddd;
+                        }
+                        td:first-child {
+                            color: #666;
+                            width: 40%;
+                        }
+                        td:last-child {
+                            font-weight: bold;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 40px;
+                            color: #666;
+                            font-size: 12px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>ใบรับรองการทำรายการ</h1>
+                    <div class="uid-box">
+                        <div class="label">Transaction ID</div>
+                        <div class="uid">${transactionData.uid}</div>
+                    </div>
+                    <table>
+                        <tr>
+                            <td>ประเภท:</td>
+                            <td>${transactionData.transactionType === 'refill' ? 'ซื้อเข้า' : 'เติมน้ำมัน'}</td>
+                        </tr>
+                        <tr>
+                            <td>แหล่ง:</td>
+                            <td>${transactionData.sourceName || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>ปริมาณ:</td>
+                            <td>${transactionData.volume || '-'}</td>
+                        </tr>
+                        ${transactionData.bookNo ? `
+                        <tr>
+                            <td>Book No.:</td>
+                            <td>${transactionData.bookNo}</td>
+                        </tr>
+                        ` : ''}
+                        ${transactionData.receiptNo ? `
+                        <tr>
+                            <td>Receipt No.:</td>
+                            <td>${transactionData.receiptNo}</td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td>ผู้ทำรายการ:</td>
+                            <td>${transactionData.operatorName || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>เวลา:</td>
+                            <td>${new Date().toLocaleString('th-TH')}</td>
+                        </tr>
+                    </table>
+                    <div class="footer">
+                        <p>ระบบจัดการน้ำมัน - กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</p>
+                        <p>พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            
+            // รอให้โหลดเสร็จแล้วพิมพ์
+            printWindow.onload = () => {
+                printWindow.print();
+            };
+        };
+    }
+}
+
+// ฟังก์ชันช่วยสำหรับการจัดการถัง 200L
+function isDrumSource(source) {
+    return source && source.type === 'drum';
+}
+
+function drumsToLiters(drums) {
+    return drums * DRUM_CAPACITY_LITERS;
+}
+
+function litersToDrums(liters) {
+    return liters / DRUM_CAPACITY_LITERS;
+}
+
+function formatDrumDisplay(liters) {
+    const drums = litersToDrums(liters);
+    return `${drums.toLocaleString()} ถัง (${liters.toLocaleString()} ลิตร)`;
+}
+
+// Unified Loading utility functions
+const LoadingManager = {
+    show(text = 'กำลังโหลด...') {
+        const overlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        if (overlay && loadingText) {
+            loadingText.textContent = text;
+            overlay.classList.add('active');
+        }
+    },
+    
+    hide() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    },
+    
+    setButton(buttonId, isLoading = true) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.classList.toggle('loading', isLoading);
+            button.disabled = isLoading;
+        }
+    }
+};
+
+// Unified Modal Manager
+const ModalManager = {
+    activeModals: new Set(),
+    
+    open(modalId, config = {}) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return false;
+        
+        // Set title if provided
+        if (config.title) {
+            const titleElement = modal.querySelector('h2') || modal.querySelector('.modal-title');
+            if (titleElement) titleElement.textContent = config.title;
+        }
+        
+        // Reset form if it exists
+        const form = modal.querySelector('form');
+        if (form) form.reset();
+        
+        modal.style.display = 'block';
+        this.activeModals.add(modalId);
+        
+        // Setup close handlers if not already set
+        if (!modal.hasEventListeners) {
+            this.setupModalHandlers(modalId);
+            modal.hasEventListeners = true;
+        }
+        
+        return true;
+    },
+    
+    close(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            this.activeModals.delete(modalId);
+        }
+    },
+    
+    closeAll() {
+        this.activeModals.forEach(modalId => this.close(modalId));
+    },
+    
+    setupModalHandlers(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        
+        // Close button handler
+        const closeBtn = modal.querySelector('.close, .close-ptt');
+        if (closeBtn) {
+            closeBtn.onclick = () => this.close(modalId);
+        }
+        
+        // Outside click handler
+        modal.onclick = (event) => {
+            if (event.target === modal) {
+                this.close(modalId);
+            }
+        };
+    }
+};
+
+// Legacy functions for compatibility
+const showLoading = LoadingManager.show;
+const hideLoading = LoadingManager.hide;
+const setButtonLoading = LoadingManager.setButton;
+
+// แสดง/ซ่อน loading state สำหรับ summary section
+function showSummaryLoading(isLoading = true, isFirstLoad = false) {
+    const summaryCards = document.querySelectorAll('.summary-card');
+    summaryCards.forEach(card => {
+        if (isLoading) {
+            card.classList.add('loading');
+            if (isFirstLoad) {
+                card.classList.add('first-load');
+            }
+        } else {
+            card.classList.remove('loading', 'first-load');
+        }
+    });
+}
+
+// Cache functions สำหรับ Summary Data
+function saveSummaryToCache(summaryData) {
+    try {
+        const cacheData = {
+            data: summaryData,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('summaryCache', JSON.stringify(cacheData));
+        console.log('💾 บันทึกข้อมูลสรุปลง cache');
+    } catch (error) {
+        console.warn('⚠️ ไม่สามารถบันทึก cache:', error);
+    }
+}
+
+function loadSummaryFromCache() {
+    try {
+        const cached = localStorage.getItem('summaryCache');
+        if (!cached) return null;
+        
+        const cacheData = JSON.parse(cached);
+        const cacheAge = Date.now() - cacheData.timestamp;
+        const maxAge = 5 * 60 * 1000; // 5 นาที
+        
+        // ถ้า cache เก่าเกิน 5 นาที ให้ลบทิ้ง
+        if (cacheAge > maxAge) {
+            localStorage.removeItem('summaryCache');
+            console.log('🗑️ ลบ cache ที่หมดอายุ');
+            return null;
+        }
+        
+        console.log(`📦 โหลดข้อมูลจาก cache (อายุ ${Math.round(cacheAge / 1000)} วินาที)`);
+        return cacheData.data;
+    } catch (error) {
+        console.warn('⚠️ ไม่สามารถโหลด cache:', error);
+        return null;
+    }
+}
+
+// โหลดข้อมูลจาก localStorage
+function loadData() {
+    const savedSources = localStorage.getItem('fuelSources');
+    
+    if (savedSources) {
+        const parsedSources = JSON.parse(savedSources);
+        // อัพเดท currentStock จากข้อมูลที่บันทึกไว้
+        fuelSources.forEach((source, index) => {
+            const savedSource = parsedSources.find(s => s.id === source.id);
+            if (savedSource) {
+                fuelSources[index].currentStock = savedSource.currentStock || 0;
+            }
+        });
+    }
+    
+    // ไม่โหลด transactionLogs จาก localStorage - ใช้เฉพาะข้อมูลจาก Google Sheets
+}
+
+// ฟังก์ชั่นเชื่อมต่อ Google Sheets
+async function loadInventoryFromSheets() {
+    try {
+        showLoading('กำลังโหลดข้อมูลจาก Google Sheets...');
+        
+        // โหลดข้อมูล master data (structure และ current stock)
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getMasterData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data && Array.isArray(result.data)) {
+            // แปลงข้อมูลจาก Google Sheets มาเป็น fuelSources format
+            fuelSources = result.data.map(row => {
+                return {
+                    id: row.id || generateId(row.name),
+                    name: row.name || row.source_name || '',
+                    capacity: row.capacity ? (row.capacity === 'ไม่จำกัด' ? null : parseInt(row.capacity)) : null,
+                    currentStock: parseFloat(row.current_stock) || 0,
+                    type: row.type || inferType(row.name || row.source_name || '')
+                };
+            }).filter(source => source.name); // กรองเอาเฉพาะที่มี name
+            
+            console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ:', fuelSources.length, 'รายการ');
+        } else {
+            // ถ้า Google Apps Script ส่ง error กลับมา
+            const errorMsg = result.error || 'ไม่สามารถโหลดข้อมูลได้หรือข้อมูลไม่ถูกต้อง';
+            console.warn('Google Apps Script Error:', errorMsg);
+            
+            // ถ้าเป็น "Invalid action" อาจหมายถึงต้องอัพเดต script deployment
+            if (errorMsg === 'Invalid action') {
+                console.warn('คำแนะนำ: Google Apps Script อาจต้องการการ deploy ใหม่เพื่อรองรับ getMasterData action');
+                
+                // ลองใช้ action เก่าแทน
+                console.log('กำลังลอง fallback เป็น getInventory action...');
+                try {
+                    const fallbackResponse = await fetch(`${GOOGLE_SCRIPT_URL}?action=getInventory&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`);
+                    const fallbackResult = await fallbackResponse.json();
+                    
+                    if (fallbackResult.success && fallbackResult.data) {
+                        // แปลง format จาก getInventory เป็น fuelSources
+                        fuelSources = defaultFuelSources.map(source => ({
+                            ...source,
+                            currentStock: fallbackResult.data[source.name]?.currentStock || 0
+                        }));
+                        
+                        console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ (fallback):', fuelSources.length, 'รายการ');
+                        return; // ออกจากฟังก์ชัน เพราะได้ข้อมูลแล้ว
+                    }
+                } catch (fallbackError) {
+                    console.warn('Fallback ก็ล้มเหลวเช่นกัน:', fallbackError);
+                }
+            }
+            
+            throw new Error(errorMsg);
+        }
+    } catch (error) {
+        console.error('Error loading from Google Sheets:', error);
+        
+        // ใช้ข้อมูลสำรองแบบออฟไลน์โดยตรง (ไม่ถามผู้ใช้)
+        console.log('ใช้ข้อมูลสำรองแบบออฟไลน์');
+        showLoading('กำลังโหลดข้อมูลสำรอง...');
+        
+        // ใช้ default fuel sources แทน
+        fuelSources = [...defaultFuelSources];
+        
+        // พยายามโหลดจาก localStorage ถ้ามี
+        loadData(); // อัปเดต stock จาก localStorage
+    }
+}
+
+// ฟังก์ชั่นสำหรับสร้าง ID จากชื่อ
+function generateId(name) {
+    if (!name) return 'unknown_' + Date.now();
+    
+    // ตรวจสอบว่าเป็น string จริงๆ
+    const nameStr = typeof name === 'string' ? name : String(name);
+    
+    return nameStr
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^\w\u0E00-\u0E7F]/g, '')
+        .substring(0, 50);
+}
+
+// ฟังก์ชั่นสำหรับคาดเดาประเภทจากชื่อ
+function inferType(name) {
+    if (!name) return 'unknown';
+    
+    // ตรวจสอบว่าเป็น string จริงๆ
+    const nameStr = typeof name === 'string' ? name : String(name);
+    const lowerName = nameStr.toLowerCase();
+    
+    if (lowerName.includes('จัดซื้อ') || lowerName.includes('ปตท')) return 'purchase';
+    if (lowerName.includes('แท๊ง') || lowerName.includes('tank')) return 'tank';
+    if (lowerName.includes('ถัง') && lowerName.includes('200')) return 'drum';
+    // รถบรรทุกน้ำมัน: ทะเบียนรถ (XX-XXXX) หรือ กทม. หรือ สฝษ
+    if (/\d{2}-\d{4}/.test(name) || lowerName.includes('กทม') || lowerName.includes('สฝษ')) return 'truck';
+    
+    return 'other';
+}
+
+// ฟังก์ชั่นโหลดข้อมูล Transaction Log จาก Google Sheets
+async function loadTransactionLogsFromSheets() {
+    try {
+        console.log('กำลังโหลด Transaction Logs จาก Google Sheets...');
+        showLoading('กำลังโหลด Transaction Logs...');
+        
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data && Array.isArray(result.data)) {
+            console.log(`📥 ข้อมูลดิบจาก Google Sheets: ${result.data.length} แถว`);
+            
+            // Debug: ดูข้อมูลดิบแถวแรก
+            if (result.data.length > 0) {
+                console.log('🔍 ตัวอย่างข้อมูลดิบแถวแรก:');
+                console.log(result.data[0]);
+                console.log('🔍 Keys ที่มีในข้อมูล:');
+                console.log(Object.keys(result.data[0]));
+            }
+            
+            // แปลงข้อมูลจาก Google Sheets มาเป็น transactionLogs format
+            const logsFromSheets = result.data.map((row, index) => {
+                // ตรวจสอบว่า row มีข้อมูลหรือไม่ (skip header และแถวว่าง)
+                if (!row.date && !row.time && !row.transaction_type) {
+                    return null;
+                }
+                
+                // แปลง transaction type จากภาษาไทยเป็น internal format
+                let transactionType = 'unknown';
+                if (row.transaction_type) {
+                    if (row.transaction_type.includes('fuel-card') || row.transaction_type.includes('Fuel-card')) {
+                        transactionType = 'fuel-card';
+                    } else if (row.transaction_type.includes('ซื้อ') || row.transaction_type.includes('เติมเข้า') || row.transaction_type.includes('ซื้อ/เติมเข้า') || row.transaction_type.includes('ซื้อจาก ปตท.')) {
+                        transactionType = 'refill';
+                    } else if (row.transaction_type.includes('จ่าย') || row.transaction_type.includes('ออก')) {
+                        transactionType = 'dispense';
+                    }
+                }
+                
+                // สร้าง unique ID ที่เสถียร (ไม่ใช้ Date.now())
+                const uniqueId = row.id || `${row.date || 'no_date'}_${row.time || 'no_time'}_${row.transaction_type || 'no_type'}_${row.source_name || ''}_${row.volume || '0'}_${index}`;
+                
+                return {
+                    id: uniqueId,
+                    date: row.date || '',
+                    time: row.time || '',
+                    transactionType: transactionType,
+                    sourceName: row.source_name || '',
+                    destinationName: row.destination_name || '',
+                    destinationType: row.destination_type || '',
+                    liters: parseFloat(row.volume) || 0, // ใช้ row.volume แทน row.liters
+                    pricePerLiter: parseFloat(row.price_per_liter) || 0,
+                    totalAmount: parseFloat(row.total_cost) || 0, // ใช้ row.total_cost แทน row.total_amount
+                    operatorName: row.operator_name || '',
+                    operatingUnit: row.unit || '', // ใช้ row.unit แทน row.operating_unit
+                    timestamp: row.timestamp || Date.now()
+                };
+            }).filter(log => log !== null); // กรองเอาเฉพาะ log ที่มีข้อมูล
+            
+            console.log(`✅ แปลงข้อมูลสำเร็จ: ${logsFromSheets.length} รายการ`);
+            
+            // กำจัดข้อมูลซ้ำใน logsFromSheets ด้วย Set และ JSON.stringify เพื่อเปรียบเทียบข้อมูลเดียวกัน
+            const uniqueLogsFromSheets = [];
+            const seenLogSignatures = new Set();
+            
+            logsFromSheets.forEach(log => {
+                // สร้าง signature เพื่อระบุข้อมูลที่เหมือนกัน
+                const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
+                
+                if (!seenLogSignatures.has(signature)) {
+                    seenLogSignatures.add(signature);
+                    uniqueLogsFromSheets.push(log);
+                } else {
+                    console.warn(`🚫 ข้ามข้อมูลซ้ำ: ${signature}`);
+                }
+            });
+            
+            console.log(`🔍 หลังกรองข้อมูลซ้ำ: ${uniqueLogsFromSheets.length} รายการ (กรองออก ${logsFromSheets.length - uniqueLogsFromSheets.length} รายการซ้ำ)`);
+            
+            // ใช้เฉพาะข้อมูลจาก Google Sheets เท่านั้น (ไม่รวม localStorage)
+            const oldTransactionLogsCount = transactionLogs ? transactionLogs.length : 0;
+            transactionLogs = [...uniqueLogsFromSheets];
+            
+            console.log(`📊 สรุปข้อมูลสุดท้าย: ${uniqueLogsFromSheets.length} รายการจาก Google Sheets`);
+            console.log(`📈 เปลี่ยนแปลง: จาก ${oldTransactionLogsCount} รายการ เป็น ${transactionLogs.length} รายการ`);
+            
+            // เก็บเวลาล่าสุดจาก Google Sheets
+            if (result.lastTimestamp) {
+                window.lastTransactionTimestamp = result.lastTimestamp;
+                console.log(`🕐 เวลาล่าสุดจาก Google Sheets: ${result.lastTimestamp}`);
+            }
+            
+            // รีเฟรช Activity Logger เพื่อแสดงข้อมูลใหม่
+            if (window.activityLogger) {
+                console.log('🔄 รีเฟรช Activity Logger...');
+                window.activityLogger.reloadLogs();
+            }
+        } else {
+            throw new Error(result.error || 'ไม่สามารถโหลด Transaction Logs ได้');
+        }
+    } catch (error) {
+        console.error('Error loading Transaction Logs from Google Sheets:', error);
+        console.log('⚠️ ไม่สามารถโหลด Transaction Logs จาก Google Sheets ได้');
+        
+        // ไม่ใช้ข้อมูลจาก localStorage - ตั้งค่าเป็นอาร์เรย์ว่าง
+        transactionLogs = [];
+        console.log('ไม่มีข้อมูล Transaction Logs (ใช้เฉพาะข้อมูลจาก Google Sheets เท่านั้น)');
+    }
+}
+
+async function saveInventoryToSheets() {
+    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        showLoading('กำลังบันทึกข้อมูลแบบ Local...');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate loading
+        saveData(); // fallback ไปใช้ localStorage
+        return;
+    }
+    
+    try {
+        showLoading('กำลังบันทึกข้อมูลไปยัง Google Sheets...');
+        
+        // เตรียมข้อมูลสำหรับอัพเดต
+        const updateData = {};
+        fuelSources.forEach(source => {
+            updateData[source.name] = source.currentStock;
+        });
+        
+        // ใช้ GET request แทน POST เพื่อหลีกเลี่ยง CORS preflight
+        const params = new URLSearchParams({
+            action: 'updateInventory',
+            data: JSON.stringify(updateData),
+            sheetsId: GOOGLE_SHEETS_ID,
+            gid: INVENTORY_SHEET_GID
+        });
+        
+        const urlWithParams = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
+        const response = await fetch(urlWithParams, {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('บันทึกข้อมูลไปยัง Google Sheets สำเร็จ');
+        } else {
+            throw new Error(result.error || 'ไม่สามารถบันทึกข้อมูลได้');
+        }
+        
+        // บันทึกข้อมูล local ด้วย (สำหรับ backup)
+        saveData();
+        
+    } catch (error) {
+        console.error('Error saving to Google Sheets:', error);
+        showLoading('กำลังบันทึกข้อมูลแบบ Local...');
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate loading
+        saveData(); // fallback ไปใช้ localStorage
+    }
+}
+
+async function logTransactionToSheets(logEntry) {
+    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        return; // ถ้าไม่มี URL ให้ข้าม
+    }
+    
+    try {
+        showLoading('กำลังบันทึก Transaction Log...');
+        
+        // เตรียมข้อมูลสำหรับ log
+        let transactionType = '';
+        let sourceName = '';
+        let destinationName = '';
+        
+        if (logEntry.transactionType === 'refill') {
+            transactionType = 'ซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท.');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else if (logEntry.transactionType === 'fuel-card') {
+            transactionType = 'Fuel-card จัดซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท. (Fuel-card)');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else {
+            transactionType = 'จ่ายออก';
+            sourceName = String(logEntry.source || logEntry.sourceName || '');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        }
+        
+        // ดึงข้อมูลเครื่องบินจาก destination (รองรับทั้ง destination และ destinationName)
+        let aircraftDestination = logEntry.destination || logEntry.destinationName || '';
+        // ตรวจสอบว่าเป็น string จริงๆ
+        if (typeof aircraftDestination !== 'string') {
+            aircraftDestination = String(aircraftDestination || '');
+        }
+        const isAircraft = logEntry.destinationType === 'aircraft';
+        
+        // ตรวจสอบว่าเป็นถัง 200L หรือไม่
+        const isDrum = logEntry.drums !== null && logEntry.drums !== undefined;
+        
+        // จัดรูปแบบ Volume: ถ้าเป็นถัง 200L แสดง "X ถัง (Y ลิตร)" ถ้าไม่ใช่แสดง "Y ลิตร"
+        let volumeDisplay;
+        if (isDrum) {
+            volumeDisplay = `${logEntry.drums} ถัง (${logEntry.liters} ลิตร)`;
+            console.log('📦 บันทึกถัง 200L:', volumeDisplay);
+        } else {
+            volumeDisplay = `${logEntry.liters} ลิตร`;
+            console.log('📦 บันทึกลิตร:', volumeDisplay);
+        }
+        
+        // ถ้า logEntry มี volume อยู่แล้ว ให้ใช้ค่านั้น (จาก handlePttPurchaseSubmit, handleRefillSubmit, handleDispenseSubmit)
+        if (logEntry.volume) {
+            volumeDisplay = logEntry.volume;
+            console.log('📦 ใช้ volume ที่ส่งมา:', volumeDisplay);
+        }
+        
+        const transactionData = {
+            uid: logEntry.uid || '',
+            timestamp: logEntry.timestamp,
+            type: transactionType,
+            source: sourceName,
+            destination: destinationName,
+            volume: volumeDisplay, // แสดง "5 ถัง (1000 ลิตร)" หรือ "1000 ลิตร"
+            volumeLiters: logEntry.liters, // เก็บค่าลิตรไว้คำนวณ
+            drums: logEntry.drums || null, // เก็บจำนวนถัง (null ถ้าไม่ใช่ถัง)
+            pricePerLiter: logEntry.pricePerLiter || 0,
+            pricePerDrum: logEntry.pricePerDrum || null, // ✅ เพิ่มราคาต่อถัง (null ถ้าไม่ใช่ถัง)
+            totalCost: logEntry.totalAmount || 0,
+            operatorName: logEntry.operatorName || '',
+            unit: logEntry.operatingUnit || '',
+            aircraftType: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[0] || '' : '',
+            aircraftNumber: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[1] || '' : '',
+            notes: logEntry.notes || '',
+            bookNo: logEntry.bookNo || '',
+            receiptNo: logEntry.receiptNo || ''
+        };
+        
+        // ใช้ GET request แทน POST เพื่อหลีกเลี่ยง CORS preflight
+        const params = new URLSearchParams({
+            action: 'logTransaction',
+            data: JSON.stringify(transactionData),
+            sheetsId: GOOGLE_SHEETS_ID
+        });
+        
+        const urlWithParams = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
+        const response = await fetch(urlWithParams, {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('บันทึก log ไปยัง Google Sheets สำเร็จ');
+        } else {
+            throw new Error(result.error || 'ไม่สามารถบันทึก log ได้');
+        }
+        
+    } catch (error) {
+        console.error('Error logging to Google Sheets:', error);
+    }
+}
+
+// บันทึกข้อมูลลง localStorage (เก็บไว้เป็น fallback)
+function saveData() {
+    localStorage.setItem('fuelSources', JSON.stringify(fuelSources));
+    // ไม่บันทึก transactionLogs ลง localStorage - ใช้เฉพาะข้อมูลจาก Google Sheets
+}
+
+// ฟังก์ชันเลือกไอคอนตาม type
+function getIconForType(type) {
+    const iconMap = {
+        'purchase': 'img/ptt.png',
+        'tank': 'img/tankfarm.png',
+        'truck': 'img/truck.png',
+        'drum': 'img/drum.png',
+        'other': 'img/tankfarm.png'
+    };
+    
+    return iconMap[type] || 'img/tankfarm.png';
+}
+
+// ฟังก์ชันเลือกสีตาม type สำหรับธีม iOS
+function getColorForType(type) {
+    const colorMap = {
+        'purchase': '#007AFF', // iOS Blue
+        'tank': '#34C759', // iOS Green  
+        'truck': '#FF9500', // iOS Orange
+        'drum': '#FF2D92', // iOS Pink
+        'other': '#8E8E93' // iOS Gray
+    };
+    
+    return colorMap[type] || '#8E8E93';
+}
+
+// สร้าง fuel cards แบบแบ่งหมวดหมู่
+function createFuelCards() {
+    const container = document.getElementById('fuelCards');
+    container.innerHTML = '';
+    
+    // แบ่งหมวดหมู่
+    const categories = {
+        'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> จัดซื้อจาก ปตท.', sources: [] },
+        'tank': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">propane_tank</span> แท๊งค์น้ำมัน', sources: [] },
+        'truck': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">local_shipping</span> รถบรรทุกน้ำมัน', sources: [] },
+        'drum': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">water_bottle_large</span> ถัง 200 ลิตร', sources: [] }
+    };
+    
+    // จัดกลุ่มแหล่งน้ำมันตามประเภท
+    fuelSources.forEach(source => {
+        if (categories[source.type]) {
+            categories[source.type].sources.push(source);
+        }
+    });
+    
+    // สร้าง cards แยกตามหมวดหมู่
+    Object.keys(categories).forEach(categoryKey => {
+        const category = categories[categoryKey];
+        
+        if (category.sources.length === 0) return; // ข้ามหมวดที่ไม่มีข้อมูล
+        
+        // สร้าง category header
+        const categoryHeader = document.createElement('div');
+        categoryHeader.className = 'category-header';
+        categoryHeader.innerHTML = `<h3>${category.title}</h3>`;
+        container.appendChild(categoryHeader);
+        
+        // สร้าง category grid
+        const categoryGrid = document.createElement('div');
+        categoryGrid.className = 'category-grid';
+        
+        category.sources.forEach(source => {
+            const card = document.createElement('div');
+            card.className = 'fuel-card';
+            card.onclick = () => openTransactionModal(source);
+            
+            const capacityText = source.capacity ? source.capacity.toLocaleString() : 'ไม่จำกัด';
+            const stockPercentage = source.capacity ? (source.currentStock / source.capacity * 100) : 0;
+            const iconSrc = getIconForType(source.type);
+            const themeColor = getColorForType(source.type);
+            
+            // สำหรับ ปตท. แสดง "ซื้อไปแล้วทั้งหมด" แต่ใช้ค่าจาก currentStock
+            let stockLabel, stockValue, capacityDisplay;
+            
+            if (source.type === 'purchase') {
+                stockLabel = 'ซื้อไปแล้วทั้งหมด';
+                stockValue = source.currentStock.toLocaleString();
+                capacityDisplay = '';
+            } else if (isDrumSource(source)) {
+                // สำหรับถัง 200L แสดงเป็นถังและลิตร
+                stockLabel = 'คงเหลือ';
+                const drums = litersToDrums(source.currentStock);
+                stockValue = `${drums.toLocaleString()} ถัง`;
+                capacityDisplay = source.capacity ? source.capacity.toLocaleString() : '';
+            } else {
+                stockLabel = 'คงเหลือ';
+                stockValue = source.currentStock.toLocaleString();
+                capacityDisplay = source.capacity ? source.capacity.toLocaleString() : '';
+            }
+            
+            // สร้าง progress tank HTML (แนวตั้ง)
+            let progressTankHTML = '';
+            if (source.capacity && source.type !== 'purchase') {
+                const percentage = Math.min(stockPercentage, 100);
+                const statusClass = percentage > 70 ? 'high' : percentage > 30 ? 'medium' : 'low';
+                
+                progressTankHTML = `
+                    <div class="stock-progress">
+                        <div class="progress-tank ${statusClass}">
+                            <div class="progress-fill" style="height: ${percentage}%"></div>
+                        </div>
+                        <div class="progress-label">
+                            <span class="percentage">${percentage.toFixed(1)}%</span>
+                            <span class="status-text">${getStatusText(percentage)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // สร้าง HTML สำหรับแสดงคงเหลือ/ความจุ
+            const stockDisplayHTML = source.type === 'purchase' ? `
+                <div class="stock-display">
+                    <div class="stock-label">${stockLabel}</div>
+                    <div class="stock-value">${stockValue} <span style="font-size: 0.6em;">ลิตร</span></div>
+                </div>
+            ` : `
+                <div class="stock-display">
+                    <div class="stock-label">${stockLabel}</div>
+                    <div class="stock-value">${stockValue}</div>
+                    ${capacityDisplay ? `<div class="stock-capacity"><span class="stock-separator">/</span>${capacityDisplay} <span style="font-size: 0.9em;">ลิตร</span></div>` : ''}
+                </div>
+            `;
+            
+            card.innerHTML = `
+                <div class="card-content-wrapper">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <img src="${iconSrc}" alt="${source.type}" />
+                        </div>
+                        <div class="card-title">
+                            <h3>${source.name}</h3>
+                            <span class="card-type">${getTypeDisplayName(source.type)}</span>
+                        </div>
+                    </div>
+                    <div class="fuel-info-section">
+                        <div class="fuel-info">
+                            ${stockDisplayHTML}
+                        </div>
+                        ${progressTankHTML}
+                    </div>
+                </div>
+            `;
+            
+            // ใส่สี accent สำหรับ card border
+            card.style.setProperty('--accent-color', themeColor);
+            
+            categoryGrid.appendChild(card);
+        });
+        
+        container.appendChild(categoryGrid);
+    });
+}
+
+// ฟังก์ชันแสดงสถานะตาม %
+function getStatusText(percentage) {
+    if (percentage > 70) return 'เต็ม';
+    if (percentage > 30) return 'ปานกลาง';
+    return 'ต่ำ';
+}
+
+// ฟังก์ชันแสดงชื่อประเภทภาษาไทย
+function getTypeDisplayName(type) {
+    const nameMap = {
+        'purchase': 'จัดซื้อ',
+        'tank': 'แท๊งค์',
+        'truck': 'รถบรรทุก',
+        'drum': 'ถัง 200L',
+        'other': 'อื่นๆ'
+    };
+    
+    return nameMap[type] || 'อื่นๆ';
+}
+
+// อัพเดทสรุปภาพรวม (ใช้ logic แบบใหม่ + Cache)
+async function updateSummary() {
+    console.log('🔄 เริ่มอัพเดทสรุปภาพรวม...');
+    
+    // โหลดข้อมูลจาก cache ก่อน (ถ้ามี) เพื่อแสดงทันที
+    const cachedData = loadSummaryFromCache();
+    const isFirstLoad = !cachedData;
+    
+    if (cachedData) {
+        console.log('📦 แสดงข้อมูลจาก cache ก่อน');
+        updateSummaryUI(cachedData);
+    }
+    
+    // แสดง loading state (แบบ subtle ถ้ามี cache, แบบเต็มถ้าไม่มี)
+    showSummaryLoading(true, isFirstLoad);
+    
+    try {
+        // ขั้นตอนที่ 1: รวบรวมข้อมูลจากหลายแหล่ง
+        const summaryData = await calculateComprehensiveSummary();
+
+        // เก็บข้อมูลสรุปล่าสุดสำหรับใช้ในฟังก์ชันอื่น
+        latestSummaryData = summaryData;
+        
+        // บันทึกลง cache
+        saveSummaryToCache(summaryData);
+
+        // ขั้นตอนที่ 2: อัพเดท UI พร้อมการแสดงสถานะ
+        updateSummaryUI(summaryData);
+
+        // ขั้นตอนที่ 3: แสดงรายละเอียดใน console สำหรับการตรวจสอบ
+        displaySummaryDetails(summaryData);
+        
+    } catch (error) {
+        console.error('❌ Error updating summary:', error);
+        // ถ้ามี cache ให้ใช้ต่อ ไม่แสดง error
+        if (!cachedData) {
+            displayErrorState();
+        }
+    } finally {
+        // ซ่อน loading state
+        showSummaryLoading(false);
+    }
+}
+
+// ฟังก์ชันคำนวณสรุปแบบครอบคลุม
+async function calculateComprehensiveSummary() {
+    console.log('📊 กำลังคำนวณสรุปข้อมูลแบบครอบคลุม...');
+    
+    // เก็บข้อมูลจากหลายแหล่ง
+    const dataSources = {
+        sheets: null,
+        transactions: null,
+        inventory: null
+    };
+    
+    // พยายามอ่านจาก Google Sheets
+    try {
+        dataSources.sheets = await getSummaryFromSheets();
+        console.log('✅ ข้อมูลจาก Google Sheets:', dataSources.sheets);
+    } catch (error) {
+        console.warn('⚠️ ไม่สามารถอ่านจาก Google Sheets:', error.message);
+    }
+    
+    // คำนวณจาก Transaction Logs
+    dataSources.transactions = calculateFromTransactions();
+    console.log('✅ ข้อมูลจาก Transactions:', dataSources.transactions);
+    
+    // คำนวณจาก Inventory Sources
+    dataSources.inventory = calculateFromInventory();
+    console.log('✅ ข้อมูลจาก Inventory:', dataSources.inventory);
+    
+    // รวมและเลือกข้อมูลที่เชื่อถือได้ที่สุด
+    return selectBestData(dataSources);
+}
+
+// คำนวณจาก Transaction Logs
+function calculateFromTransactions() {
+    // กรองรายการซื้อจาก ปตท.
+    const pttTransactions = transactionLogs.filter(log => 
+        (log.transactionType === 'refill' || log.transactionType === 'fuel-card') &&
+        (log.fromSource === 'จัดซื้อจาก ปตท.' || log.fromSource?.includes('ปตท'))
+    );
+    
+    console.log(`📝 พบรายการซื้อจาก ปตท. ${pttTransactions.length} รายการ`);
+    
+    // คำนวณยอดเงิน
+    const totalAmount = pttTransactions.reduce((sum, log) => {
+        const amount = log.totalAmount || (log.liters * log.pricePerLiter) || 0;
+        return sum + amount;
+    }, 0);
+    
+    // คำนวณจำนวนลิตร
+    const totalVolume = pttTransactions.reduce((sum, log) => {
+        return sum + (log.liters || 0);
+    }, 0);
+    
+    return {
+        totalPurchaseAmount: totalAmount,
+        totalPurchaseVolume: totalVolume,
+        transactionCount: pttTransactions.length,
+        averagePrice: totalVolume > 0 ? totalAmount / totalVolume : 0
+    };
+}
+
+// คำนวณจาก Inventory Sources
+function calculateFromInventory() {
+    // คำนวณความจุคงเหลือ (รวมเฉพาะแหล่งที่มีความจุจำกัด - rows 3-14)
+    const totalStock = fuelSources.reduce((sum, source) => {
+        // รวมเฉพาะแหล่งที่มี capacity ไม่เป็น null (แหล่งที่มีความจุจำกัด)
+        if (source.capacity !== null) {
+            return sum + (source.currentStock || 0);
+        }
+        return sum;
+    }, 0);
+    
+    // หา PTT Purchase Source
+    const pttSource = fuelSources.find(source => 
+        source.id === 'purchase' || source.name?.includes('ปตท')
+    );
+    
+    return {
+        totalCurrentStock: totalStock,
+        pttSourceStock: pttSource?.currentStock || 0,
+        totalSources: fuelSources.length
+    };
+}
+
+// เลือกข้อมูลที่เชื่อถือได้ที่สุด
+function selectBestData(dataSources) {
+    const result = {
+        totalPurchaseAmount: 0,
+        totalPurchaseVolume: 0,
+        totalCurrentStock: 0,
+        dataQuality: 'unknown',
+        sources: []
+    };
+    
+    // สำหรับ Purchase Amount: ลำดับความน่าเชื่อถือ Sheets > Transactions
+    if (dataSources.sheets?.totalPurchaseAmount > 0) {
+        result.totalPurchaseAmount = dataSources.sheets.totalPurchaseAmount;
+        result.sources.push('sheets-amount');
+    } else if (dataSources.transactions?.totalPurchaseAmount > 0) {
+        result.totalPurchaseAmount = dataSources.transactions.totalPurchaseAmount;
+        result.sources.push('transactions-amount');
+    }
+    
+    // สำหรับ Purchase Volume: ลำดับความน่าเชื่อถือ Sheets > Transactions
+    if (dataSources.sheets?.totalPurchaseVolume > 0) {
+        result.totalPurchaseVolume = dataSources.sheets.totalPurchaseVolume;
+        result.sources.push('sheets-volume');
+    } else if (dataSources.transactions?.totalPurchaseVolume > 0) {
+        result.totalPurchaseVolume = dataSources.transactions.totalPurchaseVolume;
+        result.sources.push('transactions-volume');
+    }
+    
+    // สำหรับ Current Stock: ลำดับความน่าเชื่อถือ Sheets > Inventory
+    if (dataSources.sheets?.totalCurrentStock >= 0) {
+        result.totalCurrentStock = dataSources.sheets.totalCurrentStock;
+        result.sources.push('sheets-stock');
+    } else if (dataSources.inventory?.totalCurrentStock >= 0) {
+        result.totalCurrentStock = dataSources.inventory.totalCurrentStock;
+        result.sources.push('inventory-stock');
+    }
+    
+    // กำหนด Data Quality
+    if (result.sources.some(s => s.startsWith('sheets'))) {
+        result.dataQuality = dataSources.sheets ? 'high' : 'medium';
+    } else {
+        result.dataQuality = 'medium';
+    }
+    
+    // เก็บข้อมูลดิบสำหรับการตรวจสอบ
+    result.rawData = dataSources;
+    
+    return result;
+}
+
+// อัพเดท UI
+function updateSummaryUI(summaryData) {
+    // อัพเดทตัวเลข
+    document.getElementById('totalPurchaseAmount').textContent = 
+        (summaryData.totalPurchaseAmount || 0).toLocaleString();
+    document.getElementById('totalPurchaseVolume').textContent = 
+        (summaryData.totalPurchaseVolume || 0).toLocaleString();
+    document.getElementById('totalCurrentStock').textContent = 
+        (summaryData.totalCurrentStock || 0).toLocaleString();
+    
+    // เพิ่ม indicator สำหรับ data quality
+    updateDataQualityIndicators(summaryData);
+}
+
+// อัพเดท Data Quality Indicators
+function updateDataQualityIndicators(summaryData) {
+    const cards = document.querySelectorAll('.summary-card');
+    
+    cards.forEach(card => {
+        // ลบ class เดิมทั้งหมด
+        card.classList.remove('data-high', 'data-medium', 'data-low');
+        
+        // เพิ่ม class ใหม่ตาม data quality
+        card.classList.add(`data-${summaryData.dataQuality}`);
+        
+        // เพิ่มหรืออัพเดท tooltip
+        let tooltip = card.querySelector('.data-source-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.className = 'data-source-tooltip';
+            card.appendChild(tooltip);
+        }
+        
+        tooltip.textContent = `แหล่งข้อมูล: ${summaryData.sources.join(', ')}`;
+    });
+}
+
+// แสดงรายละเอียดใน Console
+function displaySummaryDetails(summaryData) {
+    console.log(`📋 สรุปข้อมูลระบบจัดการน้ำมัน:
+    
+💰 ยอดเงินที่ซื้อจาก ปตท.: ${summaryData.totalPurchaseAmount.toLocaleString()} บาท
+⛽ จำนวนลิตรที่ซื้อ: ${summaryData.totalPurchaseVolume.toLocaleString()} ลิตร
+📦 ความจุคงเหลือ: ${summaryData.totalCurrentStock.toLocaleString()} ลิตร
+
+📊 ข้อมูลเพิ่มเติม:
+- ราคาเฉลี่ย: ${summaryData.totalPurchaseVolume > 0 ? 
+    (summaryData.totalPurchaseAmount / summaryData.totalPurchaseVolume).toFixed(2) : 'N/A'} บาท/ลิตร
+- คุณภาพข้อมูล: ${summaryData.dataQuality}
+- แหล่งข้อมูล: ${summaryData.sources.join(', ')}
+
+🔍 ข้อมูลดิบ:`, summaryData.rawData);
+}
+
+// แสดง Error State
+function displayErrorState() {
+    document.getElementById('totalPurchaseAmount').textContent = 'ข้อผิดพลาด';
+    document.getElementById('totalPurchaseVolume').textContent = 'ข้อผิดพลาด';
+    document.getElementById('totalCurrentStock').textContent = 'ข้อผิดพลาด';
+    
+    const cards = document.querySelectorAll('.summary-card');
+    cards.forEach(card => {
+        card.classList.add('data-error');
+    });
+}
+
+
+
+// ฟังก์ชันตรวจสอบและแก้ไขความไม่สอดคล้องของข้อมูล
+function validateAndFixTransactionData() {
+    console.log('🔍 กำลังตรวจสอบความถูกต้องของข้อมูลการซื้อน้ำมัน...');
+    
+    // แสดงสถิติข้อมูลทั้งหมดก่อน
+    console.log(`📊 สถิติข้อมูลปัจจุบัน:
+        - ข้อมูลธุรกรรมทั้งหมด: ${transactionLogs.length} รายการ
+        - ข้อมูลการซื้อ/เติม (refill): ${transactionLogs.filter(log => log.transactionType === 'refill').length} รายการ
+        - ข้อมูล fuel-card: ${transactionLogs.filter(log => log.transactionType === 'fuel-card').length} รายการ
+        - ข้อมูลการจ่าย (dispense): ${transactionLogs.filter(log => log.transactionType === 'dispense').length} รายการ
+        - ข้อมูลอื่นๆ: ${transactionLogs.filter(log => !['refill', 'fuel-card', 'dispense'].includes(log.transactionType)).length} รายการ`);
+    
+    const pttTransactions = transactionLogs.filter(log => 
+        log.transactionType === 'refill' || log.transactionType === 'fuel-card'
+    );
+    
+    // ตรวจสอบข้อมูลซ้ำ
+    const transactionSignatures = {};
+    const duplicateTransactions = [];
+    
+    pttTransactions.forEach((log, index) => {
+        const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
+        
+        if (transactionSignatures[signature]) {
+            duplicateTransactions.push({
+                index: index,
+                signature: signature,
+                transaction: log,
+                originalIndex: transactionSignatures[signature].index
+            });
+        } else {
+            transactionSignatures[signature] = { index, transaction: log };
+        }
+    });
+    
+    if (duplicateTransactions.length > 0) {
+        console.warn(`🚨 พบข้อมูลซ้ำ ${duplicateTransactions.length} รายการ:`);
+        duplicateTransactions.forEach(item => {
+            console.log(`- ข้อมูลซ้ำ: ${item.signature}`);
+        });
+    }
+    
+    let fixedCount = 0;
+    const inconsistentTransactions = [];
+    
+    pttTransactions.forEach((log, index) => {
+        const expectedTotalAmount = log.liters * log.pricePerLiter;
+        const actualTotalAmount = log.totalAmount || 0;
+        const difference = Math.abs(expectedTotalAmount - actualTotalAmount);
+        
+        // หากผลต่างมากกว่า 0.01 บาท แสดงว่าไม่สอดคล้อง
+        if (difference > 0.01) {
+            inconsistentTransactions.push({
+                index: index,
+                transaction: log,
+                expected: expectedTotalAmount,
+                actual: actualTotalAmount,
+                difference: difference
+            });
+            
+            // แก้ไขข้อมูลโดยคำนวณ totalAmount ใหม่
+            if (log.liters && log.pricePerLiter) {
+                log.totalAmount = expectedTotalAmount;
+                fixedCount++;
+            }
+        }
+    });
+    
+    if (inconsistentTransactions.length > 0) {
+        console.warn(`⚠️ พบข้อมูลไม่สอดคล้อง ${inconsistentTransactions.length} รายการ:`);
+        inconsistentTransactions.forEach(item => {
+            console.log(`- รายการที่ ${item.index + 1}: คาดหวัง ${item.expected.toFixed(2)} บาท, ได้ ${item.actual.toFixed(2)} บาท (ผลต่าง: ${item.difference.toFixed(2)} บาท)`);
+        });
+        
+        if (fixedCount > 0) {
+            console.log(`✅ แก้ไขข้อมูลแล้ว ${fixedCount} รายการ`);
+            // ไม่บันทึกลง localStorage - ข้อมูลจะถูกบันทึกไปยัง Google Sheets เท่านั้น
+            // อัปเดตการแสดงผล
+            updateSummaryFromLocal();
+        }
+    } else {
+        console.log('✅ ข้อมูลทั้งหมดสอดคล้องกัน');
+    }
+    
+    return {
+        totalTransactions: pttTransactions.length,
+        inconsistentCount: inconsistentTransactions.length,
+        fixedCount: fixedCount,
+        inconsistentTransactions: inconsistentTransactions,
+        duplicateCount: duplicateTransactions.length
+    };
+}
+
+// ฟังก์ชันลบข้อมูลซ้ำ
+function removeDuplicateTransactions() {
+    console.log('🧹 กำลังลบข้อมูลซ้ำ...');
+    
+    const originalCount = transactionLogs.length;
+    const seenSignatures = new Set();
+    const uniqueTransactions = [];
+    
+    transactionLogs.forEach(log => {
+        const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}_${log.totalAmount}`;
+        
+        if (!seenSignatures.has(signature)) {
+            seenSignatures.add(signature);
+            uniqueTransactions.push(log);
+        }
+    });
+    
+    const removedCount = originalCount - uniqueTransactions.length;
+    
+    if (removedCount > 0) {
+        transactionLogs = uniqueTransactions;
+        
+        // ไม่บันทึกลง localStorage - ข้อมูลจะถูกบันทึกไปยัง Google Sheets เท่านั้น
+        
+        console.log(`🧹 ลบข้อมูลซ้ำเสร็จสิ้น: ลบออก ${removedCount} รายการ, เหลือ ${uniqueTransactions.length} รายการ`);
+        
+        // อัปเดตการแสดงผล
+        updateSummaryFromLocal();
+        
+        return { removed: removedCount, remaining: uniqueTransactions.length };
+    } else {
+        console.log('✨ ไม่มีข้อมูลซ้ำ');
+        return { removed: 0, remaining: originalCount };
+    }
+}
+
+// ฟังก์ชันสำหรับตรวจสอบการอ่านข้อมูลซ้ำ - เครื่องมือ Debug
+function debugDataDuplication() {
+    console.log('🔍 === การตรวจสอบการอ่านข้อมูลซ้ำ ===');
+    
+    // ตรวจสอบข้อมูลปัจจุบันใน transactionLogs
+    const pttTransactions = transactionLogs.filter(log => 
+        (log.transactionType === 'refill' || log.transactionType === 'fuel-card') &&
+        (log.sourceName.includes('ปตท') || log.sourceName.includes('PTT'))
+    );
+    
+    console.log(`📊 ข้อมูลการซื้อจาก ปตท. ปัจจุบัน: ${pttTransactions.length} รายการ`);
+    
+    // วิเคราะห์ signature และหาข้อมูลซ้ำ
+    const signatureCount = {};
+    const duplicateGroups = {};
+    
+    pttTransactions.forEach((log, index) => {
+        const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
+        
+        if (!signatureCount[signature]) {
+            signatureCount[signature] = 0;
+            duplicateGroups[signature] = [];
+        }
+        
+        signatureCount[signature]++;
+        duplicateGroups[signature].push({
+            index,
+            id: log.id,
+            timestamp: log.timestamp,
+            totalAmount: log.totalAmount
+        });
+    });
+    
+    // แสดงผลการวิเคราะห์
+    console.log('\n📋 รายละเอียดข้อมูลการซื้อน้ำมัน:');
+    let duplicateFound = false;
+    let totalDuplicates = 0;
+    
+    Object.entries(signatureCount).forEach(([signature, count]) => {
+        console.log(`\n🔹 Signature: ${signature}`);
+        console.log(`   จำนวนครั้ง: ${count} รายการ`);
+        
+        if (count > 1) {
+            duplicateFound = true;
+            totalDuplicates += (count - 1); // นับเฉพาะรายการซ้ำ (ไม่นับรายการแรก)
+            
+            console.log(`   🚨 มีข้อมูลซ้ำ! รายละเอียด:`);
+            duplicateGroups[signature].forEach(item => {
+                console.log(`      - ID: ${item.id}, Index: ${item.index}, Timestamp: ${item.timestamp}, Amount: ${item.totalAmount}`);
+            });
+        }
+    });
+    
+    if (!duplicateFound) {
+        console.log('✅ ไม่พบข้อมูลซ้ำในรายการการซื้อน้ำมัน');
+    } else {
+        console.log(`\n🚨 สรุป: พบข้อมูลซ้ำทั้งหมด ${totalDuplicates} รายการ`);
+        console.log(`📊 จำนวนรายการที่ไม่ซ้ำจริง: ${Object.keys(signatureCount).length} รายการ`);
+        console.log(`📊 จำนวนรายการทั้งหมด (รวมซ้ำ): ${pttTransactions.length} รายการ`);
+    }
+    
+    // ไม่ตรวจสอบข้อมูลใน localStorage - ใช้เฉพาะข้อมูลจาก Google Sheets
+    console.log(`\n📊 ข้อมูลทั้งหมดมาจาก Google Sheets เท่านั้น`);
+    
+    return {
+        currentPttTransactions: pttTransactions.length,
+        uniqueSignatures: Object.keys(signatureCount).length,
+        duplicatesFound: totalDuplicates,
+        signatureAnalysis: signatureCount
+    };
+}
+
+// ฟังก์ชันสำหรับการตรวจสอบรายละเอียดข้อมูลการซื้อ ปตท.
+function generatePTTPurchaseReport() {
+    const pttTransactions = transactionLogs.filter(log => 
+        log.transactionType === 'refill' || log.transactionType === 'fuel-card'
+    );
+    
+    console.log('📋 รายงานการซื้อน้ำมันจาก ปตท.:');
+    console.log('=====================================');
+    
+    let totalAmount = 0;
+    let totalVolume = 0;
+    
+    pttTransactions.forEach((log, index) => {
+        const amount = log.totalAmount || (log.liters * log.pricePerLiter) || 0;
+        totalAmount += amount;
+        totalVolume += log.liters || 0;
+        
+        console.log(`${index + 1}. ${log.timestamp || 'ไม่ระบุวันที่'}
+           ประเภท: ${log.transactionType}
+           จำนวน: ${(log.liters || 0).toLocaleString()} ลิตร
+           ราคา/ลิตร: ${(log.pricePerLiter || 0).toFixed(4)} บาท
+           ยอดรวม: ${amount.toFixed(2)} บาท`);
+    });
+    
+    console.log('=====================================');
+    console.log(`รวม: ${totalAmount.toLocaleString()} บาท, ${totalVolume.toLocaleString()} ลิตร`);
+    console.log(`ราคาเฉลี่ย: ${totalVolume > 0 ? (totalAmount / totalVolume).toFixed(4) : 'N/A'} บาท/ลิตร`);
+    
+    return {
+        totalAmount,
+        totalVolume,
+        transactionCount: pttTransactions.length,
+        averagePrice: totalVolume > 0 ? totalAmount / totalVolume : 0
+    };
+}
+
+// ฟังก์ชันอ่านข้อมูลสรุปจาก Google Sheets ตามตำแหน่งที่กำหนด
+async function getSummaryFromSheets() {
+    try {
+        // เรียกข้อมูลจาก 2 sheets พร้อมกัน (Parallel) เพื่อลดเวลารอ
+        const [transactionResponse, inventoryResponse] = await Promise.all([
+            fetch(`${GOOGLE_SCRIPT_URL}?action=getSummaryData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`),
+            fetch(`${GOOGLE_SCRIPT_URL}?action=getSummaryData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`)
+        ]);
+        
+        if (!transactionResponse.ok || !inventoryResponse.ok) {
+            throw new Error(`HTTP error! Transaction: ${transactionResponse.status}, Inventory: ${inventoryResponse.status}`);
+        }
+        
+        // แปลง response เป็น JSON พร้อมกัน
+        const [transactionResult, inventoryResult] = await Promise.all([
+            transactionResponse.json(),
+            inventoryResponse.json()
+        ]);
+        
+        // รวมข้อมูลจาก 2 sheets
+        if (transactionResult.success && inventoryResult.success) {
+            return {
+                totalPurchaseAmount: parseFloat(transactionResult.data.totalPurchaseAmount) || 0, // จาก Transaction Log Sheet - column G
+                totalPurchaseVolume: parseFloat(inventoryResult.data.totalPurchaseVolume) || 0, // จาก Inventory Sheet - D2
+                totalCurrentStock: parseFloat(inventoryResult.data.totalCurrentStock) || 0 // จาก Inventory Sheet - ผลรวม D3:D14
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error getting summary from sheets:', error);
+        return null;
+    }
+}
+
+// ฟังก์ชันอัพเดท D2 (จำนวนลิตรที่ซื้อจาก ปตท.) ใน Google Sheets
+async function updatePTTPurchaseVolume(additionalLiters) {
+    try {
+        console.log(`กำลังอัพเดท PTT Purchase Volume: +${additionalLiters} ลิตร`);
+        
+        // หา PTT Purchase source และอัพเดท currentStock
+        const pttSource = fuelSources.find(source => source.id === 'purchase' || source.name.includes('ปตท'));
+        if (pttSource) {
+            pttSource.currentStock += additionalLiters;
+            console.log(`PTT Source ใหม่: ${pttSource.currentStock} ลิตร`);
+        } else {
+            console.warn('ไม่พบ PTT Purchase source');
+        }
+        
+        // เตรียมข้อมูลสำหรับอัพเดต
+        const updateData = {};
+        fuelSources.forEach(source => {
+            updateData[source.name] = source.currentStock;
+        });
+        
+        // ใช้ updateInventory action ที่มีอยู่แล้ว
+        const params = new URLSearchParams({
+            action: 'updateInventory',
+            data: JSON.stringify(updateData),
+            sheetsId: GOOGLE_SHEETS_ID,
+            gid: INVENTORY_SHEET_GID
+        });
+        
+        const urlWithParams = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
+        const response = await fetch(urlWithParams, {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('อัพเดท PTT Purchase Volume สำเร็จ:', result.data);
+            
+            // บันทึกข้อมูล local ด้วย (สำหรับ backup)
+            saveData();
+            
+            return true;
+        } else {
+            console.error('Error updating PTT purchase volume:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('Error updating PTT purchase volume:', error);
+        return false;
+    }
+}
+
+// เปิด modal สำหรับทำรายการ
+function openTransactionModal(source) {
+    currentSelectedSource = source;
+    const modal = document.getElementById('transactionModal');
+    const modalTitle = document.getElementById('modalTitle');
+    
+    modalTitle.textContent = `การทำรายการ - ${source.name}`;
+    
+    // Reset form
+    document.getElementById('transactionForm').reset();
+    document.getElementById('refillForm').style.display = 'none';
+    document.getElementById('dispenseForm').style.display = 'none';
+    
+    const refillTypeField = document.getElementById('refillType');
+    if (refillTypeField) {
+        refillTypeField.value = 'ptt';
+    }
+
+    // อัตโนมัติแสดง dispense form หรือ refill form ตามแหล่งน้ำมัน
+    if (source.name.includes('ปตท')) {
+        showRefillForm();
+    } else {
+        showDispenseForm();
+    }
+    updateRefillTypeVisibility();
+    
+    // Populate destination options
+    populateDestinationOptions();
+    
+    modal.style.display = 'block';
+}
+
+// Populate ตัวเลือกปลายทาง
+function populateDestinationOptions() {
+    const tankSelect = document.getElementById('tankSelect');
+    tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
+    
+    fuelSources
+        .filter(source => source.id !== currentSelectedSource.id)
+        .forEach(source => {
+            const option = document.createElement('option');
+            option.value = source.id;
+            option.textContent = source.name;
+            tankSelect.appendChild(option);
+        });
+}
+
+// Event Listeners สำหรับ Modal และ Form controls
+function initializeEventListeners() {
+    // Modal controls
+    const modal = document.getElementById('transactionModal');
+    const closeBtn = document.querySelector('.close');
+    
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
+    
+    window.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+    
+    // Destination type change
+    document.getElementById('destinationType').onchange = function() {
+        const aircraftDestination = document.getElementById('aircraftDestination');
+        const tankDestination = document.getElementById('tankDestination');
+        
+        if (this.value === 'aircraft') {
+            aircraftDestination.style.display = 'block';
+            tankDestination.style.display = 'none';
+        } else {
+            aircraftDestination.style.display = 'none';
+            tankDestination.style.display = 'block';
+        }
+    };
+    
+    // Note: Price calculation is now handled automatically from localStorage
+    // No need for manual price input event listeners
+    
+    // Form submission
+    document.getElementById('transactionForm').onsubmit = function(e) {
+        e.preventDefault();
+        if (document.getElementById('refillForm').style.display !== 'none') {
+            handleRefillSubmit();
+        } else if (document.getElementById('dispenseForm').style.display !== 'none') {
+            handleDispenseSubmit();
+        }
+    };
+    
+    // Admin buttons
+    document.getElementById('refreshDataBtn').onclick = async function() {
+        handleRefreshDataClick();
+    };
+    
+    const pttPurchaseBtn = document.getElementById('pttPurchaseBtn');
+    if (pttPurchaseBtn) {
+        pttPurchaseBtn.onclick = function() {
+            openPttPurchaseModal();
+        };
+    }
+
+
+
+    const validateDataBtn = document.getElementById('validateDataBtn');
+    if (validateDataBtn) {
+        validateDataBtn.onclick = function() {
+            handleValidateDataClick();
+        };
+    }
+
+    const debugDuplicateBtn = document.getElementById('debugDuplicateBtn');
+    if (debugDuplicateBtn) {
+        debugDuplicateBtn.onclick = function() {
+            handleDebugDuplicateClick();
+        };
+    }
+}
+
+function updateRefillTypeVisibility() {
+    const pttFields = document.getElementById('pttPurchaseFields');
+    const pttDocumentFields = document.getElementById('pttDocumentFields');
+
+    if (pttFields) {
+        pttFields.style.display = 'block';
+    }
+    if (pttDocumentFields) {
+        pttDocumentFields.style.display = 'block';
+    }
+
+    const drumRefillFields = document.getElementById('drumRefillFields');
+    const isCurrentSourceDrum = currentSelectedSource ? isDrumSource(currentSelectedSource) : false;
+
+    if (drumRefillFields) {
+        drumRefillFields.style.display = isCurrentSourceDrum ? 'block' : 'none';
+    }
+
+    if (isCurrentSourceDrum) {
+        const refillDrumsInput = document.getElementById('refillDrums');
+        const drumTotalLitersDisplay = document.getElementById('drumTotalLiters');
+
+        if (refillDrumsInput && drumTotalLitersDisplay) {
+            const updateDrumTotalLiters = () => {
+                const drums = parseFloat(refillDrumsInput.value) || 0;
+                const totalLiters = drumsToLiters(drums);
+                drumTotalLitersDisplay.textContent = `${totalLiters.toLocaleString()} ลิตร`;
+            };
+
+            if (!refillDrumsInput.dataset.hasDrumListener) {
+                refillDrumsInput.addEventListener('input', updateDrumTotalLiters);
+                refillDrumsInput.addEventListener('change', updateDrumTotalLiters);
+                refillDrumsInput.dataset.hasDrumListener = 'true';
+            }
+
+            updateDrumTotalLiters();
+        }
+    }
+
+
+    const destinationTypeSelect = document.getElementById('pttDestinationType');
+    const aircraftDestinationSection = document.getElementById('pttAircraftDestination');
+    const tankDestinationSection = document.getElementById('pttTankDestination');
+    const tankSelect = document.getElementById('pttTankSelect');
+
+    const applyDestinationVisibility = () => {
+        const destinationType = destinationTypeSelect ? destinationTypeSelect.value : 'aircraft';
+        if (aircraftDestinationSection) {
+            aircraftDestinationSection.style.display = destinationType === 'aircraft' ? 'block' : 'none';
+        }
+        if (tankDestinationSection) {
+            tankDestinationSection.style.display = destinationType === 'tank' ? 'block' : 'none';
+        }
+    };
+
+    if (destinationTypeSelect) {
+        destinationTypeSelect.onchange = applyDestinationVisibility;
+        applyDestinationVisibility();
+    }
+
+    if (tankSelect) {
+        const previousValue = tankSelect.value;
+        tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
+
+        fuelSources
+            .filter(source => source.id !== (currentSelectedSource ? currentSelectedSource.id : null))
+            .forEach(source => {
+                const option = document.createElement('option');
+                option.value = source.id;
+                option.textContent = source.name;
+                tankSelect.appendChild(option);
+            });
+
+        if (previousValue && fuelSources.some(source => source.id === previousValue && source.id !== (currentSelectedSource ? currentSelectedSource.id : null))) {
+            tankSelect.value = previousValue;
+        } else {
+            tankSelect.value = '';
+        }
+
+        tankSelect.onchange = () => {
+            if (destinationTypeSelect) {
+                destinationTypeSelect.value = 'tank';
+                applyDestinationVisibility();
+            }
+        };
+    }
+}
+
+function showRefillForm() {
+    const refillForm = document.getElementById('refillForm');
+    const dispenseForm = document.getElementById('dispenseForm');
+    const refillTypeSelect = document.getElementById('refillType');
+
+    if (refillForm) {
+        refillForm.style.display = 'block';
+    }
+    if (dispenseForm) {
+        dispenseForm.style.display = 'none';
+    }
+
+    updateRefillTypeVisibility();
+}
+
+function showDispenseForm() {
+    document.getElementById('refillForm').style.display = 'none';
+    document.getElementById('dispenseForm').style.display = 'block';
+    
+    // แสดง/ซ่อนฟิลด์ตามประเภทของแหล่งน้ำมัน
+    const drumDispenseFields = document.getElementById('drumDispenseFields');
+    const literDispenseFields = document.getElementById('literDispenseFields');
+    const tankSelect = document.getElementById('tankSelect');
+    
+    // ฟังก์ชันตรวจสอบและอัพเดทฟิลด์ตามปลายทาง
+    const updateFieldsBasedOnDestination = () => {
+        const destinationType = document.getElementById('destinationType').value;
+        const destinationId = tankSelect.value;
+        
+        // แสดง/ซ่อนฟิลด์ปลายทางตามประเภท
+        const aircraftDestination = document.getElementById('aircraftDestination');
+        const tankDestination = document.getElementById('tankDestination');
+        
+        if (destinationType === 'aircraft') {
+            aircraftDestination.style.display = 'block';
+            tankDestination.style.display = 'none';
+        } else {
+            aircraftDestination.style.display = 'none';
+            tankDestination.style.display = 'block';
+        }
+        
+        // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+        let isDestinationDrum = false;
+        if (destinationType === 'tank' && destinationId) {
+            const destSource = fuelSources.find(s => s.id === destinationId);
+            isDestinationDrum = isDrumSource(destSource);
+        }
+        
+        if (isDestinationDrum) {
+            // ถ้าปลายทางเป็นถัง 200L ให้แสดงฟิลด์ถัง
+            drumDispenseFields.style.display = 'block';
+            literDispenseFields.style.display = 'none';
+            
+            // หมายเหตุ: ฟิลด์ราคาถูกลบออกไปแล้ว (ใช้ราคาจาก localStorage แทน)
+            // ไม่ต้องแสดง/ซ่อนฟิลด์ราคาอีกต่อไป
+            
+            // ตั้งค่า event listener สำหรับคำนวณลิตรอัตโนมัติ
+            const dispenseDrumsInput = document.getElementById('dispenseDrums');
+            
+            const calculateDrumDispense = () => {
+                const drums = parseFloat(dispenseDrumsInput.value) || 0;
+                const totalLiters = drumsToLiters(drums);
+                
+                const drumLitersDisplay = document.getElementById('drumDispenseLiters');
+                if (drumLitersDisplay) {
+                    drumLitersDisplay.textContent = `${totalLiters.toLocaleString()} ลิตร`;
+                }
+            };
+            
+            if (dispenseDrumsInput) {
+                dispenseDrumsInput.oninput = calculateDrumDispense;
+                
+                // Reset ค่า
+                dispenseDrumsInput.value = '';
+                calculateDrumDispense();
+            }
+        } else {
+            // ถ้าไม่ใช่ถัง 200L ให้แสดงฟิลด์ลิตรปกติ
+            drumDispenseFields.style.display = 'none';
+            literDispenseFields.style.display = 'block';
+            
+            // หมายเหตุ: ฟิลด์ราคาถูกลบออกไปแล้ว (ใช้ราคาจาก localStorage แทน)
+            // ไม่ต้องแสดง/ซ่อนฟิลด์ราคาอีกต่อไป
+        }
+    };
+    
+    // เรียกใช้ครั้งแรกเมื่อเปิดฟอร์ม
+    updateFieldsBasedOnDestination();
+    
+    // ตั้งค่า event listener สำหรับเปลี่ยนปลายทาง
+    document.getElementById('destinationType').onchange = updateFieldsBasedOnDestination;
+    tankSelect.onchange = updateFieldsBasedOnDestination;
+}
+
+// หมายเหตุ: ฟังก์ชันเหล่านี้ไม่ได้ใช้งานอีกต่อไป เพราะฟิลด์ราคาถูกลบออกไปแล้ว
+// ราคาถูกจัดการโดยแอดมินผ่านหน้า price-management.html และเก็บใน localStorage
+// function calculateRefillAmount() {
+//     const liters = parseFloat(document.getElementById('refillLiters').value) || 0;
+//     const pricePerLiter = parseFloat(document.getElementById('pricePerLiter').value) || 0;
+//     const totalAmount = liters * pricePerLiter;
+//     
+//     document.getElementById('totalAmount').textContent = totalAmount.toFixed(2) + ' บาท';
+// }
+
+// function calculateDispenseAmount() {
+//     const liters = parseFloat(document.getElementById('dispenseLiters').value) || 0;
+//     const pricePerLiter = parseFloat(document.getElementById('dispensePricePerLiter').value) || 0;
+//     const totalAmount = liters * pricePerLiter;
+//     
+//     document.getElementById('dispenseTotalAmount').textContent = totalAmount.toFixed(2) + ' บาท';
+// }
+
+async function handleRefillSubmit() {
+    const operatorName = document.getElementById('operatorName').value.trim();
+    const operatingUnit = document.getElementById('operatingUnit').value.trim();
+    
+    // ดึง Book No. และ Receipt No.
+    const bookNo = document.getElementById('bookNo').value.trim();
+    const receiptNo = document.getElementById('receiptNo').value.trim();
+    
+    let liters, pricePerLiter, totalAmount, drums = null, pricePerDrum = null;
+    
+    try {
+        setButtonLoading('submitRefill', true);
+        showLoading('กำลังประมวลผลการซื้อจาก ปตท....');
+
+        // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
+        const prices = await loadFuelPrices();
+        
+        // ตรวจสอบว่าเป็นถัง 200L หรือไม่
+        if (isDrumSource(currentSelectedSource)) {
+            // สำหรับถัง 200L
+            drums = parseFloat(document.getElementById('refillDrums').value);
+            pricePerDrum = prices.pricePerDrum; // ใช้ราคาจาก localStorage
+            
+            if (!operatorName || !operatingUnit || !drums) {
+                throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+            }
+
+            // คำนวณลิตรและราคาต่อลิตร
+            liters = drumsToLiters(drums);
+            totalAmount = drums * pricePerDrum;
+            pricePerLiter = totalAmount / liters; // คำนวณราคาต่อลิตรจากราคาต่อถัง (สำหรับคำนวณเท่านั้น)
+        } else {
+            // สำหรับลิตรปกติ
+            const pttDispenseLitersInput = document.getElementById('pttDispenseLiters');
+            liters = pttDispenseLitersInput ? parseFloat(pttDispenseLitersInput.value) : 0;
+            pricePerLiter = prices.pricePerLiter; // ใช้ราคาจาก localStorage
+
+            if (!operatorName || !operatingUnit || !liters) {
+                throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+            }
+
+            totalAmount = liters * pricePerLiter;
+        }
+        
+        // อัพเดท current stock ของปลายทาง
+        const sourceIndex = fuelSources.findIndex(s => s.id === currentSelectedSource.id);
+        if (sourceIndex !== -1) {
+            fuelSources[sourceIndex].currentStock += liters;
+        }
+        
+        // อัพเดท current stock ของ ปตท. (id = 'purchase') ด้วย
+        const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
+        if (pttIndex !== -1) {
+            fuelSources[pttIndex].currentStock += liters;
+        }
+        
+        // จัดรูปแบบ volume สำหรับแสดงผล
+        let volumeDisplay;
+        if (drums) {
+            volumeDisplay = `${drums} ถัง (${liters} ลิตร)`;
+        } else {
+            volumeDisplay = `${liters} ลิตร`;
+        }
+        
+        // สร้าง UID สำหรับธุรกรรมนี้
+        const transactionUID = generateUID();
+        
+        // บันทึก log - ระบุว่าเป็นการซื้อจาก ปตท. เสมอ
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID, // ✅ เพิ่ม UID
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'refill',
+            sourceId: 'purchase', // แหล่งที่มาคือ ปตท. เสมอ
+            sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาคือ ปตท.
+            destinationId: currentSelectedSource.id, // ปลายทางคือแหล่งที่เติมเข้า
+            destinationName: currentSelectedSource.name, // ชื่อปลายทาง
+            destinationType: currentSelectedSource.type,
+            liters: liters,
+            volume: volumeDisplay, // ✅ ส่งข้อมูลที่จัดรูปแบบแล้ว เช่น "5 ถัง (1000 ลิตร)"
+            pricePerLiter: pricePerLiter,
+            pricePerDrum: pricePerDrum, // ✅ เพิ่มราคาต่อถัง (null ถ้าไม่ใช่ถัง)
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: bookNo || null, // ✅ เพิ่ม Book No.
+            receiptNo: receiptNo || null, // ✅ เพิ่ม Receipt No.
+            drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        // บันทึกข้อมูล
+        await saveInventoryToSheets();
+        
+        // บันทึก log ไปยัง Google Sheets
+        await logTransactionToSheets(logEntry);
+        
+        // อัพเดท D2 ใน Google Sheets (จำนวนลิตรที่ซื้อจาก ปตท.)
+        await updatePTTPurchaseVolume(liters);
+        
+        // อัพเดท UI
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        // ปิด modal
+        document.getElementById('transactionModal').style.display = 'none';
+        hideLoading();
+        
+        // แสดง UID Modal แทน alert
+        showUIDModal(logEntry);
+    
+    } catch (error) {
+        console.error('Error in refill transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitRefill', false);
+    }
+}
+
+async function handleDispenseSubmit() {
+    const operatorName = document.getElementById('operatorName').value.trim();
+    const operatingUnit = document.getElementById('operatingUnit').value.trim();
+    const destinationType = document.getElementById('destinationType').value;
+    
+    let liters, pricePerLiter = null, totalAmount = null, drums = null, pricePerDrum = null;
+    
+    // ตรวจสอบปลายทางว่าเป็นถัง 200L หรือไม่
+    let destinationId = null;
+    if (destinationType === 'aircraft') {
+        destinationId = document.getElementById('aircraftSelect').value;
+    } else {
+        destinationId = document.getElementById('tankSelect').value;
+    }
+    
+    const destSource = fuelSources.find(s => s.id === destinationId);
+    const isDestinationDrum = destSource && isDrumSource(destSource);
+    
+    // ดึงราคาจาก Google Sheets ถ้าแหล่งเป็น ปตท.
+    if (currentSelectedSource.type === 'purchase') {
+        try {
+            console.log('🔍 กำลังดึงราคาจาก Google Sheets...');
+            const prices = await fetchCurrentPricesFromSheets();
+            
+            if (!prices || (prices.pricePerLiter === undefined && prices.pricePerDrum === undefined)) {
+                throw new Error('ไม่พบข้อมูลราคาใน Google Sheets');
+            }
+            
+            // ตรวจสอบว่าราคาเป็น 0 (ยังไม่ได้ตั้งค่า)
+            if (prices.pricePerLiter === 0 && prices.pricePerDrum === 0) {
+                alert('ยังไม่มีการตั้งค่าราคาใน Google Sheets\nกรุณาไปที่หน้า "จัดการราคา" เพื่อตั้งค่าราคาก่อน');
+                return;
+            }
+            
+            pricePerLiter = prices.pricePerLiter || 0;
+            pricePerDrum = prices.pricePerDrum || 0;
+            
+            console.log('✅ ดึงราคาสำเร็จ:', { pricePerLiter, pricePerDrum });
+        } catch (error) {
+            console.error('❌ ไม่สามารถดึงราคาจาก Google Sheets:', error);
+            alert('ไม่สามารถดึงราคาจาก Google Sheets ได้\nกรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง\n\nError: ' + error.message);
+            return;
+        }
+    }
+    
+    // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+    if (isDestinationDrum) {
+        // สำหรับถัง 200L
+        drums = parseFloat(document.getElementById('dispenseDrums').value);
+        
+        if (!operatorName || !operatingUnit || !drums) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+            return;
+        }
+        
+        // คำนวณลิตร
+        liters = drumsToLiters(drums);
+        
+        // ถ้าจ่ายจาก ปตท. คำนวณราคา
+        if (currentSelectedSource.type === 'purchase') {
+            if (!pricePerDrum || pricePerDrum <= 0) {
+                alert('ไม่พบราคาต่อถังใน Google Sheets\nกรุณาตั้งค่าราคาในหน้า "จัดการราคา" ก่อน');
+                return;
+            }
+            totalAmount = drums * pricePerDrum;
+            pricePerLiter = totalAmount / liters; // คำนวณราคาต่อลิตรจากราคาต่อถัง
+            console.log(`💰 คำนวณราคา: ${drums} ถัง × ${pricePerDrum} บาท = ${totalAmount} บาท`);
+        }
+    } else {
+        // สำหรับลิตรปกติ
+        liters = parseFloat(document.getElementById('dispenseLiters').value);
+        
+        if (!operatorName || !operatingUnit || !liters) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+            return;
+        }
+        
+        // ถ้าจ่ายจาก ปตท. คำนวณราคา
+        if (currentSelectedSource.type === 'purchase') {
+            if (!pricePerLiter || pricePerLiter <= 0) {
+                alert('ไม่พบราคาต่อลิตรใน Google Sheets\nกรุณาตั้งค่าราคาในหน้า "จัดการราคา" ก่อน');
+                return;
+            }
+            totalAmount = liters * pricePerLiter;
+            console.log(`💰 คำนวณราคา: ${liters} ลิตร × ${pricePerLiter} บาท = ${totalAmount} บาท`);
+        }
+    }
+    
+    // หา destinationName
+    let destinationName = null;
+    if (destinationType === 'aircraft') {
+        destinationName = destinationId;
+    } else {
+        destinationName = destSource ? destSource.name : null;
+    }
+    
+    if (!destinationId) {
+        alert('กรุณาเลือกปลายทาง');
+        return;
+    }
+    
+    // ตรวจสอบ stock (เฉพาะแหล่งที่ไม่ใช่ ปตท.)
+    // หมายเหตุ: ปตท. ไม่ต้องเช็ค stock เพราะเป็นการบันทึกว่าซื้อไปทั้งหมดเท่าไหร่
+    if (currentSelectedSource.type !== 'purchase') {
+        // สำหรับแหล่งน้ำมันทั่วไป (แท๊งค์, รถ, ถัง 200L)
+        if (currentSelectedSource.currentStock < liters) {
+            alert(`น้ำมันไม่เพียงพอ\nคงเหลือ: ${currentSelectedSource.currentStock.toLocaleString()} ลิตร\nต้องการ: ${liters.toLocaleString()} ลิตร`);
+            return;
+        }
+    }
+    
+    try {
+        setButtonLoading('submitDispense', true);
+        showLoading('กำลังประมวลผลการจ่ายออก...');
+        
+        // อัพเดท stock ของแหล่งต้นทาง
+        if (currentSelectedSource.type === 'purchase') {
+            // ถ้าเป็น ปตท. ให้เพิ่ม stock (บันทึกว่าซื้อไปทั้งหมดเท่าไหร่)
+            const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
+            if (pttIndex !== -1) {
+                fuelSources[pttIndex].currentStock += liters;
+            }
+        } else {
+            // ถ้าไม่ใช่ ปตท. ให้ลด stock ปกติ (เช่น แท๊งค์, รถ, ถัง 200L)
+            const sourceIndex = fuelSources.findIndex(s => s.id === currentSelectedSource.id);
+            if (sourceIndex !== -1) {
+                fuelSources[sourceIndex].currentStock -= liters;
+            }
+        }
+        
+        // อัพเดท stock ของปลายทาง (ถ้าเป็นแหล่งน้ำมัน)
+        if (destinationType === 'tank') {
+            const destIndex = fuelSources.findIndex(s => s.id === destinationId);
+            if (destIndex !== -1) {
+                fuelSources[destIndex].currentStock += liters;
+            }
+        }
+        
+        // จัดรูปแบบ volume สำหรับแสดงผล
+        let volumeDisplay;
+        if (drums) {
+            volumeDisplay = `${drums} ถัง (${liters} ลิตร)`;
+        } else {
+            volumeDisplay = `${liters} ลิตร`;
+        }
+        
+        // สร้าง UID สำหรับธุรกรรมนี้
+        const transactionUID = generateUID();
+        
+        // บันทึก log
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID, // ✅ เพิ่ม UID
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'dispense',
+            sourceId: currentSelectedSource.id,
+            sourceName: currentSelectedSource.name,
+            destinationId: destinationId,
+            destinationName: destinationName,
+            destinationType: destinationType,
+            liters: liters,
+            volume: volumeDisplay, // ✅ ส่งข้อมูลที่จัดรูปแบบแล้ว เช่น "5 ถัง (1000 ลิตร)"
+            pricePerLiter: pricePerLiter,
+            pricePerDrum: pricePerDrum, // ✅ เพิ่มราคาต่อถัง (null ถ้าไม่ใช่ถัง)
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        // บันทึกข้อมูล
+        await saveInventoryToSheets();
+        
+        // บันทึก log ไปยัง Google Sheets
+        await logTransactionToSheets(logEntry);
+        
+        // อัพเดท UI
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        // ปิด modal
+        document.getElementById('transactionModal').style.display = 'none';
+        hideLoading();
+        
+        // อัพเดท lastLogCount เพื่อให้ระบบรู้ว่ามี transaction ใหม่ (ไม่แสดงข้อความระบบ)
+        if (window.activityLogger && window.activityLogger.lastLogCount !== undefined) {
+            window.activityLogger.lastLogCount = transactionLogs.length;
+        }
+        
+        // แสดง UID Modal แทน alert
+        showUIDModal(logEntry);
+    
+    } catch (error) {
+        console.error('Error in dispense transaction:', error);
+        alert('เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitDispense', false);
+    }
+}
+
+// ฟังก์ชันสำหรับดาวน์โหลดข้อมูลทั้งหมด (ถ้าต้องการในอนาคต)
+function downloadAllTransactions() {
+    if (transactionLogs.length === 0) {
+        alert('ไม่มีข้อมูลการทำรายการ');
+        return;
+    }
+    
+    // สร้าง CSV content
+    const headers = [
+        'ID',
+        'วันที่',
+        'เวลา',
+        'ประเภทรายการ',
+        'แหล่งต้นทาง',
+        'ปลายทาง',
+        'ประเภทปลายทาง',
+        'จำนวนลิตร',
+        'ราคาต่อลิตร',
+        'จำนวนเงิน',
+        'ผู้ทำรายการ',
+        'หน่วยปฏิบัติการ',
+        'Timestamp'
+    ];
+    
+    let csvContent = headers.join(',') + '\n';
+    
+    transactionLogs.forEach(log => {
+        const row = [
+            log.id,
+            log.date,
+            log.time,
+            log.transactionType === 'refill' ? 'ซื้อจาก ปตท.' : 'จ่ายออก',
+            log.sourceName,
+            log.destinationName || '',
+            log.destinationType || '',
+            log.liters,
+            log.pricePerLiter || '',
+            log.totalAmount || '',
+            log.operatorName,
+            log.operatingUnit,
+            log.timestamp
+        ];
+        csvContent += row.join(',') + '\n';
+    });
+    
+    // ดาวน์โหลดไฟล์
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    const now = new Date();
+    const filename = `fuel_transactions_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// เปิดใช้งานฟังก์ชันนี้ผ่าน console (เรียกใช้เมื่อต้องการเท่านั้น)
+window.downloadAllTransactions = downloadAllTransactions;
+
+// ฟังก์ชันสำหรับ PTT Purchase Modal
+function openPttPurchaseModal() {
+    const modal = document.getElementById('pttPurchaseModal');
+    
+    // Reset form
+    document.getElementById('pttPurchaseForm').reset();
+    document.getElementById('pttTotalAmount').textContent = '0.00 บาท';
+    
+    // Populate destination dropdown (แท๊งก์, รถ, ถัง 200L)
+    const destinationSelect = document.getElementById('pttDestinationSelect');
+    destinationSelect.innerHTML = '<option value="">เลือกแหล่งเก็บ</option>';
+    
+    // กรองเฉพาะแหล่งที่สามารถซื้อเข้าได้ (tank, truck, drum)
+    const validDestinations = fuelSources.filter(source => 
+        source.type === 'tank' || source.type === 'truck' || source.type === 'drum'
+    );
+    
+    validDestinations.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        option.textContent = source.name;
+        option.dataset.type = source.type;
+        destinationSelect.appendChild(option);
+    });
+    
+    // ซ่อนฟอร์มทั้งหมดตอนเปิด modal (จนกว่าจะเลือกปลายทาง)
+    document.getElementById('pttLitersGroup').style.display = 'none';
+    document.getElementById('pttPricePerLiterGroup').style.display = 'none';
+    document.getElementById('pttDrumsGroup').style.display = 'none';
+    document.getElementById('pttPricePerDrumGroup').style.display = 'none';
+    
+    // เมื่อเลือกปลายทาง ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
+    destinationSelect.onchange = function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const destinationType = selectedOption.dataset.type;
+        
+        console.log('เลือกปลายทาง:', selectedOption.textContent, 'ประเภท:', destinationType);
+        
+        // แสดง/ซ่อน input groups
+        const litersGroup = document.getElementById('pttLitersGroup');
+        const pricePerLiterGroup = document.getElementById('pttPricePerLiterGroup');
+        const drumsGroup = document.getElementById('pttDrumsGroup');
+        const pricePerDrumGroup = document.getElementById('pttPricePerDrumGroup');
+        
+        if (destinationType === 'drum') {
+            // แสดงฟอร์มสำหรับถัง 200L
+            console.log('แสดงฟอร์มถัง 200L');
+            litersGroup.style.display = 'none';
+            pricePerLiterGroup.style.display = 'none';
+            drumsGroup.style.display = 'block';
+            pricePerDrumGroup.style.display = 'block';
+            
+            // ล้างค่า input ลิตร
+            document.getElementById('pttLiters').value = '';
+            document.getElementById('pttPricePerLiter').value = '';
+            document.getElementById('pttLiters').removeAttribute('required');
+            document.getElementById('pttPricePerLiter').removeAttribute('required');
+            
+            // เพิ่ม required สำหรับถัง
+            document.getElementById('pttDrums').setAttribute('required', 'required');
+            document.getElementById('pttPricePerDrum').setAttribute('required', 'required');
+        } else {
+            // แสดงฟอร์มสำหรับลิตรปกติ
+            console.log('แสดงฟอร์มลิตรปกติ');
+            litersGroup.style.display = 'block';
+            pricePerLiterGroup.style.display = 'block';
+            drumsGroup.style.display = 'none';
+            pricePerDrumGroup.style.display = 'none';
+            
+            // ล้างค่า input ถัง
+            document.getElementById('pttDrums').value = '';
+            document.getElementById('pttPricePerDrum').value = '';
+            document.getElementById('pttDrums').removeAttribute('required');
+            document.getElementById('pttPricePerDrum').removeAttribute('required');
+            
+            // เพิ่ม required สำหรับลิตร
+            document.getElementById('pttLiters').setAttribute('required', 'required');
+            document.getElementById('pttPricePerLiter').setAttribute('required', 'required');
+        }
+        
+        // คำนวณใหม่
+        calculatePttAmount();
+    };
+    
+    modal.style.display = 'block';
+    
+    // Setup modal controls if not already set
+    if (!modal.hasEventListener) {
+        const closeBtn = document.querySelector('.close-ptt');
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        };
+        
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+        
+        // Calculate total amount for PTT purchase
+        document.getElementById('pttLiters').oninput = calculatePttAmount;
+        document.getElementById('pttPricePerLiter').oninput = calculatePttAmount;
+        document.getElementById('pttDrums').oninput = calculatePttAmount;
+        document.getElementById('pttPricePerDrum').oninput = calculatePttAmount;
+        
+        // Form submission
+        document.getElementById('pttPurchaseForm').onsubmit = function(e) {
+            e.preventDefault();
+            handlePttPurchaseSubmit();
+        };
+        
+        modal.hasEventListener = true;
+    }
+}
+
+function calculatePttAmount() {
+    const destinationSelect = document.getElementById('pttDestinationSelect');
+    const selectedOption = destinationSelect.options[destinationSelect.selectedIndex];
+    const destinationType = selectedOption.dataset.type;
+    
+    let totalAmount = 0;
+    
+    if (destinationType === 'drum') {
+        // คำนวณจากถัง
+        const drums = parseFloat(document.getElementById('pttDrums').value) || 0;
+        const pricePerDrum = parseFloat(document.getElementById('pttPricePerDrum').value) || 0;
+        totalAmount = drums * pricePerDrum;
+    } else {
+        // คำนวณจากลิตร
+        const liters = parseFloat(document.getElementById('pttLiters').value) || 0;
+        const pricePerLiter = parseFloat(document.getElementById('pttPricePerLiter').value) || 0;
+        totalAmount = liters * pricePerLiter;
+    }
+    
+    document.getElementById('pttTotalAmount').textContent = totalAmount.toFixed(2) + ' บาท';
+}
+
+async function handlePttPurchaseSubmit() {
+    const operatorName = document.getElementById('pttOperatorName').value.trim();
+    const operatingUnit = document.getElementById('pttOperatingUnit').value.trim();
+    const destinationId = document.getElementById('pttDestinationSelect').value;
+    
+    // ดึง Book No. และ Receipt No.
+    const bookNo = document.getElementById('pttBookNo').value.trim();
+    const receiptNo = document.getElementById('pttReceiptNo').value.trim();
+    
+    if (!operatorName || !operatingUnit || !destinationId) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+    }
+    
+    try {
+        setButtonLoading('submitPttPurchase', true);
+        showLoading('กำลังบันทึกการซื้อน้ำมัน ปตท...');
+        
+        // หาแหล่งน้ำมัน ปตท.
+        const pttSource = fuelSources.find(source => source.type === 'purchase');
+        if (!pttSource) {
+            throw new Error('ไม่พบข้อมูลแหล่งน้ำมัน ปตท.');
+        }
+        
+        // หาปลายทาง
+        const destination = fuelSources.find(source => source.id === destinationId);
+        if (!destination) {
+            throw new Error('ไม่พบข้อมูลแหล่งเก็บปลายทาง');
+        }
+        
+        // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
+        const prices = await loadFuelPrices();
+        
+        let liters, pricePerLiter, totalAmount, drums = null, pricePerDrum = null;
+        let displayQuantity, displayPrice;
+        
+        // ตรวจสอบว่าเป็นถัง 200L หรือไม่
+        if (isDrumSource(destination)) {
+            // สำหรับถัง 200L
+            drums = parseFloat(document.getElementById('pttDrums').value);
+            pricePerDrum = prices.pricePerDrum; // ใช้ราคาจาก localStorage
+            
+            if (!drums) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+            
+            // คำนวณลิตรและราคาต่อลิตร
+            liters = drumsToLiters(drums);
+            totalAmount = drums * pricePerDrum;
+            pricePerLiter = totalAmount / liters; // คำนวณราคาต่อลิตรจากราคาต่อถัง (สำหรับคำนวณเท่านั้น)
+            
+            displayQuantity = `${drums.toLocaleString()} ถัง (${liters.toLocaleString()} ลิตร)`;
+            displayPrice = `ราคาต่อถัง: ${pricePerDrum.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} บาท`;
+        } else {
+            // สำหรับลิตรปกติ
+            liters = parseFloat(document.getElementById('pttLiters').value);
+            pricePerLiter = prices.pricePerLiter; // ใช้ราคาจาก localStorage
+            
+            if (!liters) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+            
+            totalAmount = liters * pricePerLiter;
+            displayQuantity = `${liters.toLocaleString()} ลิตร`;
+            displayPrice = `ราคาต่อลิตร: ${pricePerLiter.toLocaleString()} บาท`;
+        }
+        
+        // ตรวจสอบความจุ (ถ้ามี)
+        if (destination.capacity !== null) {
+            const newStock = destination.currentStock + liters;
+            if (newStock > destination.capacity) {
+                const available = destination.capacity - destination.currentStock;
+                const availableDisplay = isDrumSource(destination) 
+                    ? `${litersToDrums(available).toLocaleString()} ถัง (${available.toLocaleString()} ลิตร)`
+                    : `${available.toLocaleString()} ลิตร`;
+                    
+                alert(`ไม่สามารถซื้อเข้าได้\nความจุคงเหลือ: ${availableDisplay}`);
+                return;
+            }
+        }
+        
+        // อัปเดตสต็อกปลายทาง
+        destination.currentStock += liters;
+        
+        // สร้าง UID สำหรับธุรกรรมนี้
+        const transactionUID = generateUID();
+        
+        // บันทึก log การซื้อ
+        const currentDateTime = new Date();
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID, // ✅ เพิ่ม UID
+            timestamp: currentDateTime.toISOString(),
+            date: currentDateTime.toLocaleDateString('th-TH'),
+            time: currentDateTime.toLocaleTimeString('th-TH'),
+            transactionType: 'refill',
+            sourceId: pttSource.id,
+            sourceName: pttSource.name,
+            source: pttSource.name,
+            destinationId: destination.id,
+            destinationName: destination.name,
+            destination: destination.name,
+            destinationType: destination.type,
+            liters: liters,
+            volume: displayQuantity, // ✅ ส่งข้อมูลที่จัดรูปแบบแล้ว เช่น "5 ถัง (1000 ลิตร)"
+            pricePerLiter: pricePerLiter,
+            pricePerDrum: pricePerDrum, // ✅ เพิ่มราคาต่อถัง (null ถ้าไม่ใช่ถัง)
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: bookNo || null, // ✅ เพิ่ม Book No.
+            receiptNo: receiptNo || null, // ✅ เพิ่ม Receipt No.
+            drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        // บันทึกข้อมูล
+        await saveInventoryToSheets();
+        
+        // บันทึก log ไปยัง Google Sheets
+        await logTransactionToSheets(logEntry);
+        
+        // อัพเดท D2 ใน Google Sheets (จำนวนลิตรที่ซื้อจาก ปตท.)
+        await updatePTTPurchaseVolume(liters);
+        
+        // อัพเดท UI
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        // ปิด modal
+        document.getElementById('pttPurchaseModal').style.display = 'none';
+        hideLoading();
+        
+        // แสดง UID Modal พร้อมข้อมูลธุรกรรม
+        showUIDModal({
+            uid: transactionUID,
+            type: 'ซื้อจาก ปตท.',
+            source: pttSource.name,
+            destination: destination.name,
+            volume: displayQuantity,
+            bookNo: bookNo,
+            receiptNo: receiptNo,
+            operator: operatorName,
+            timestamp: currentDateTime.toLocaleString('th-TH')
+        });
+    
+    } catch (error) {
+        console.error('Error in PTT purchase:', error);
+        alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
+        hideLoading();
+    } finally {
+        setButtonLoading('submitPttPurchase', false);
+    }
+}
+
+// Admin button handlers
+async function handleRefreshDataClick() {
+    const button = document.getElementById('refreshDataBtn');
+    
+    try {
+        setButtonLoading('refreshDataBtn', true);
+        showLoading('กำลังโหลดข้อมูลใหม่...');
+        
+        // ไม่แสดงข้อความระบบใน Activity Log
+        
+        // โหลดข้อมูลจาก Google Sheets อีกครั้ง (แบบขนาน)
+        await Promise.all([
+            loadInventoryFromSheets(),
+            loadTransactionLogsFromSheets()
+        ]);
+        
+        // อัพเดต UI
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const currentTime = new Date().toLocaleTimeString('th-TH');
+        
+        // รีโหลด activity logs (ไม่แสดงข้อความระบบ)
+        if (window.activityLogger) {
+            window.activityLogger.reloadLogs();
+        }
+        
+        alert(`🔄 โหลดข้อมูลใหม่สำเร็จ\n⏰ เวลา: ${currentTime}\n📊 พบข้อมูล: ${fuelSources.length} รายการ\n📝 Transaction Logs: ${transactionLogs.length} รายการ`);
+        
+    } catch (error) {
+        console.error('Error in handleRefreshDataClick:', error);
+        
+        // ไม่แสดงข้อความ error ใน Activity Log
+        
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณาลองใหม่');
+    } finally {
+        setButtonLoading('refreshDataBtn', false);
+        hideLoading();
+    }
+}
+
+// Handle validate data click
+async function handleValidateDataClick() {
+    try {
+        setButtonLoading('validateDataBtn', true);
+        showLoading('กำลังตรวจสอบความถูกต้องของข้อมูล...');
+        
+        console.log('🔍 เริ่มต้นการตรวจสอบข้อมูลการซื้อน้ำมัน ปตท.');
+        
+        // แสดงรายงานข้อมูลการซื้อ ปตท. ก่อน
+        const reportBefore = generatePTTPurchaseReport();
+        
+        // ตรวจสอบและแก้ไขข้อมูลที่ไม่สอดคล้อง
+        const validationResult = validateAndFixTransactionData();
+        
+        // แสดงรายงานหลังการแก้ไข (ถ้ามีการแก้ไข)
+        let reportAfter = null;
+        if (validationResult.fixedCount > 0) {
+            console.log('\n📋 รายงานหลังการแก้ไข:');
+            reportAfter = generatePTTPurchaseReport();
+        }
+        
+        // อัปเดตการแสดงผล
+        updateSummary();
+        
+        // สร้างข้อความสรุปผลการตรวจสอบ
+        let message = `🔍 ผลการตรวจสอบข้อมูลการซื้อน้ำมัน ปตท.\n\n`;
+        message += `📊 ข้อมูลปัจจุบัน:\n`;
+        message += `- ยอดเงินรวม: ${reportBefore.totalAmount.toLocaleString()} บาท\n`;
+        message += `- จำนวนลิตรรวม: ${reportBefore.totalVolume.toLocaleString()} ลิตร\n`;
+        message += `- ราคาเฉลี่ย: ${reportBefore.averagePrice.toFixed(4)} บาท/ลิตร\n`;
+        message += `- จำนวนครั้งซื้อ: ${reportBefore.transactionCount} ครั้ง\n\n`;
+        
+        if (validationResult.inconsistentCount > 0) {
+            message += `⚠️ พบข้อมูลไม่สอดคล้อง: ${validationResult.inconsistentCount} รายการ\n`;
+            if (validationResult.fixedCount > 0) {
+                message += `✅ แก้ไขแล้ว: ${validationResult.fixedCount} รายการ\n\n`;
+                message += `📊 ข้อมูลหลังการแก้ไข:\n`;
+                message += `- ยอดเงินรวม: ${reportAfter.totalAmount.toLocaleString()} บาท\n`;
+                message += `- จำนวนลิตรรวม: ${reportAfter.totalVolume.toLocaleString()} ลิตร\n`;
+                message += `- ราคาเฉลี่ย: ${reportAfter.averagePrice.toFixed(4)} บาท/ลิตร\n`;
+            } else {
+                message += `❌ ไม่สามารถแก้ไขได้ (ข้อมูลไม่เพียงพอ)\n`;
+            }
+        } else {
+            message += `✅ ข้อมูลทั้งหมดถูกต้องสอดคล้องกัน\n`;
+        }
+        
+        message += `\n💡 ดูรายละเอียดใน Console (F12) สำหรับข้อมูลเพิ่มเติม`;
+        
+        alert(message);
+        
+    } catch (error) {
+        console.error('Error in handleValidateDataClick:', error);
+        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล กรุณาลองใหม่');
+    } finally {
+        setButtonLoading('validateDataBtn', false);
+        hideLoading();
+    }
+}
+
+// Handle debug duplicate data click
+async function handleDebugDuplicateClick() {
+    try {
+        setButtonLoading('debugDuplicateBtn', true);
+        showLoading('กำลังตรวจสอบข้อมูลซ้ำ...');
+        
+        console.log('🐛 เริ่มต้นการตรวจสอบข้อมูลซ้ำ (Debug Mode)');
+        
+        // เรียกใช้ฟังก์ชัน debug
+        const debugResult = debugDataDuplication();
+        
+        // แสดงข้อมูลรายงานการซื้อ ปตท. เพื่อเปรียบเทียบ
+        console.log('\n📋 รายงานการซื้อน้ำมัน:');
+        const pttReport = generatePTTPurchaseReport();
+        
+        // สร้างข้อความสรุปผลการตรวจสอบ
+        let message = `🐛 รายงานการตรวจสอบข้อมูลซ้ำ\n\n`;
+        message += `📊 ข้อมูลปัจจุบันใน transactionLogs:\n`;
+        message += `- รายการซื้อน้ำมันจาก ปตท.: ${debugResult.currentPttTransactions} รายการ\n`;
+        message += `- รายการที่ไม่ซ้ำจริง (Unique Signatures): ${debugResult.uniqueSignatures} รายการ\n`;
+        message += `- รายการซ้ำที่พบ: ${debugResult.duplicatesFound} รายการ\n`;
+        message += `- รายการใน localStorage: ${debugResult.localStoragePttTransactions} รายการ\n\n`;
+        
+        message += `💰 รายงานสรุปการซื้อน้ำมัน:\n`;
+        message += `- ยอดเงินรวม: ${pttReport.totalAmount.toLocaleString()} บาท\n`;
+        message += `- จำนวนลิตรรวม: ${pttReport.totalVolume.toLocaleString()} ลิตร\n`;
+        message += `- ราคาเฉลี่ย: ${pttReport.averagePrice.toFixed(4)} บาท/ลิตร\n`;
+        message += `- จำนวนครั้งซื้อ: ${pttReport.transactionCount} ครั้ง\n\n`;
+        
+        if (debugResult.duplicatesFound > 0) {
+            message += `🚨 ปัญหาที่พบ:\n`;
+            message += `มีข้อมูลซ้ำ ${debugResult.duplicatesFound} รายการ\n`;
+            message += `จำนวนครั้งซื้อแสดง ${pttReport.transactionCount} ครั้ง แต่ข้อมูลจริงควรเป็น ${debugResult.uniqueSignatures} ครั้ง\n\n`;
+            message += `💡 แนะนำ: ใช้ฟังก์ชัน "ตรวจสอบความถูกต้องข้อมูล" เพื่อลบข้อมูลซ้ำ\n`;
+        } else {
+            message += `✅ ไม่พบข้อมูลซ้ำ ข้อมูลถูกต้องแล้ว\n`;
+        }
+        
+        message += `\n📋 ดูรายละเอียดทั้งหมดใน Console (กด F12)`;
+        
+        alert(message);
+        
+    } catch (error) {
+        console.error('Error in handleDebugDuplicateClick:', error);
+        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูลซ้ำ กรุณาลองใหม่');
+    } finally {
+        setButtonLoading('debugDuplicateBtn', false);
+        hideLoading();
+    }
+}
+
+// การเริ่มต้นระบบ
+async function initializeSystem() {
+    try {
+        showLoading('กำลังเริ่มต้นระบบ...');
+        
+        // โหลดข้อมูลจาก Google Sheets แบบขนาน
+        await Promise.all([
+            loadInventoryFromSheets(),
+            loadTransactionLogsFromSheets(),
+            (async () => {
+                showLoading('กำลังโหลดราคาน้ำมัน...');
+                try {
+                    await loadFuelPrices();
+                    console.log('✅ โหลดราคาน้ำมันเสร็จสิ้น');
+                } catch (error) {
+                    console.warn('⚠️ ไม่สามารถโหลดราคาน้ำมันได้:', error);
+                }
+            })()
+        ]);
+        
+        showLoading('กำลังสร้างหน้าจอ...');
+        await new Promise(resolve => setTimeout(resolve, 300)); // ให้เวลา UI โหลด
+        
+        // สร้าง fuel cards
+        createFuelCards();
+        
+        // อัปเดตสรุป
+        updateSummary();
+        
+        // ตั้งค่า event listeners
+        initializeEventListeners();
+        updateRefillTypeVisibility();
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // โหลด activity logs หลังจากโหลด transaction logs เสร็จแล้ว
+        if (window.activityLogger) {
+            window.activityLogger.loadTransactionLogs();
+        }
+        
+        console.log('ระบบจัดการน้ำมันโหลดเสร็จสมบูรณ์');
+        
+    } catch (error) {
+        console.error('Error initializing system:', error);
+        alert('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณารีเฟรชหน้าเว็บ');
+    } finally {
+        hideLoading();
+    }
+}
+
+// เริ่มต้นระบบเมื่อหน้าเว็บโหลดเสร็จ
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initializeSystem, 100); // ให้เวลา DOM โหลดเสร็จก่อน
+});
