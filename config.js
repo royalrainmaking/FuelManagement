@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxne2hk6ZH7crHUPHcB2ONYrm6rVr_031Q3I2wSj-Rh5j9vHSlqoexVdIayRRAR7ZNE/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx8hn15awtHmMPtL7ihqvjYuS_35aSfLJCDbhZBAOQrScME6vva33Caqr43aMCoAUpS/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -35,7 +35,10 @@ const SHEET_GIDS = {
     PRICE_HISTORY: '1959869787',
     
     // Sheet สำหรับเก็บ Transaction History
-    TRANSACTION_HISTORY: '0' // GID 0 คือ Sheet แรก
+    TRANSACTION_HISTORY: '0', // GID 0 คือ Sheet แรก
+    
+    // Sheet สำหรับเก็บข้อมูลงบประมาณที่ได้รับ
+    BUDGET: '1669222330' // Sheet "แผนบรู" และแผนอื่นๆ
 };
 
 /**
@@ -44,7 +47,8 @@ const SHEET_GIDS = {
 const SHEET_NAMES = {
     INVENTORY: 'Inventory',
     PRICE_HISTORY: 'Price_History',
-    TRANSACTION_HISTORY: 'Transaction_History'
+    TRANSACTION_HISTORY: 'Transaction_History',
+    BUDGET: 'Budget'
 };
 
 // ========================================

@@ -132,6 +132,39 @@ const TRANSACTION_LOG_SHEET_GID = '1578547125'; // GID จริงของ Tra
 const DRUM_CAPACITY_LITERS = 200; // 1 ถัง = 200 ลิตร
 
 // ===== UID Management =====
+// ✅ ฟังก์ชันอัพเดท UID ล่าสุดจาก Google Sheets
+function updateLastTransactionUIDFromSheets(transactionLogs) {
+    if (!transactionLogs || transactionLogs.length === 0) {
+        console.log('⚠️ ไม่มี Transaction Logs จาก Google Sheets, ข้ามการอัพเดท UID');
+        return;
+    }
+    
+    // หา UID ที่มีหมายเลขมากที่สุด
+    let maxUIDNumber = 0;
+    let maxUID = null;
+    
+    transactionLogs.forEach(log => {
+        if (log.uid) {
+            const match = log.uid.match(/FT(\d+)/);
+            if (match) {
+                const uidNumber = parseInt(match[1]);
+                if (uidNumber > maxUIDNumber) {
+                    maxUIDNumber = uidNumber;
+                    maxUID = log.uid;
+                }
+            }
+        }
+    });
+    
+    // ถ้าหา UID ได้ ให้อัพเดท localStorage
+    if (maxUID) {
+        localStorage.setItem('lastTransactionUID', maxUID);
+        console.log(`✅ อัพเดท UID ล่าสุดจาก Google Sheets: ${maxUID} (หมายเลข: ${maxUIDNumber})`);
+    } else {
+        console.log('⚠️ ไม่พบ UID ที่ถูกต้องในข้อมูลจาก Google Sheets');
+    }
+}
+
 // ฟังก์ชันสร้าง UID แบบ FT0001, FT0002, ...
 function generateUID() {
     // โหลด UID ล่าสุดจาก localStorage
@@ -818,6 +851,7 @@ async function loadTransactionLogsFromSheets() {
                 
                 return {
                     id: uniqueId,
+                    uid: row.uid || row.transaction_uid || '', // ✅ เพิ่ม UID mapping
                     date: row.date || '',
                     time: row.time || '',
                     transactionType: transactionType,
@@ -859,6 +893,9 @@ async function loadTransactionLogsFromSheets() {
             
             console.log(`📊 สรุปข้อมูลสุดท้าย: ${uniqueLogsFromSheets.length} รายการจาก Google Sheets`);
             console.log(`📈 เปลี่ยนแปลง: จาก ${oldTransactionLogsCount} รายการ เป็น ${transactionLogs.length} รายการ`);
+            
+            // ✅ อัพเดท localStorage ด้วย UID ที่มากที่สุดจาก Google Sheets
+            updateLastTransactionUIDFromSheets(uniqueLogsFromSheets);
             
             // เก็บเวลาล่าสุดจาก Google Sheets
             if (result.lastTimestamp) {
@@ -1096,7 +1133,18 @@ function createFuelCards() {
         // สร้าง category header
         const categoryHeader = document.createElement('div');
         categoryHeader.className = 'category-header';
-        categoryHeader.innerHTML = `<h3>${category.title}</h3>`;
+        let headerHTML = `<h3>${category.title}</h3>`;
+        
+        // เพิ่มปุ่มพิเศษสำหรับหมวด "ถัง 200 ลิตร"
+        if (categoryKey === 'drum') {
+            headerHTML += `
+                <button class="btn btn-success btn-sm ms-auto" onclick="openReturnDrumModal()" title="คืนถังน้ำมัน">
+                    <i class="fas fa-arrow-left me-1"></i> คืนถัง
+                </button>
+            `;
+        }
+        
+        categoryHeader.innerHTML = headerHTML;
         container.appendChild(categoryHeader);
         
         // สร้าง category grid
@@ -1404,6 +1452,80 @@ function updateSummaryUI(summaryData) {
     
     // เพิ่ม indicator สำหรับ data quality
     updateDataQualityIndicators(summaryData);
+    
+    // อัพเดตการแสดงงบประมาณ
+    if (typeof updateBudgetDisplay === 'function') {
+        updateBudgetDisplay();
+    }
+}
+
+/**
+ * ฟังก์ชันสำหรับอัพเดตการแสดงผลงบประมาณ
+ * โหลดข้อมูลจาก Google Sheets และคำนวณเงินคงเหลือ
+ */
+async function updateBudgetDisplay() {
+    try {
+        // เรียก API เพื่อดึงข้อมูลงบประมาณ
+        const response = await fetch(
+            `${GOOGLE_SCRIPT_URL}?action=getBudgetData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.BUDGET}`
+        );
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const { totalBudget, totalPurchaseAmount, remainingBudget } = result.data;
+            
+            // อัพเดตการแสดงผล
+            const remainingBudgetEl = document.getElementById('remainingBudget');
+            const budgetDetailsEl = document.getElementById('budgetDetails');
+            const totalBudgetEl = document.getElementById('totalBudgetAmount');
+            
+            if (remainingBudgetEl) {
+                remainingBudgetEl.textContent = remainingBudget.toLocaleString('th-TH', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+                
+                // เปลี่ยนสีตามสถานะ
+                if (remainingBudget < 0) {
+                    remainingBudgetEl.classList.add('text-danger');
+                    remainingBudgetEl.classList.remove('text-success');
+                } else if (remainingBudget < totalBudget * 0.2) {
+                    remainingBudgetEl.classList.add('text-warning');
+                    remainingBudgetEl.classList.remove('text-danger', 'text-success');
+                } else {
+                    remainingBudgetEl.classList.add('text-success');
+                    remainingBudgetEl.classList.remove('text-danger', 'text-warning');
+                }
+            }
+            
+            if (budgetDetailsEl) {
+                budgetDetailsEl.textContent = 
+                    `งบรวม: ${totalBudget.toLocaleString('th-TH')} บาท | ใช้ไป: ${totalPurchaseAmount.toLocaleString('th-TH')} บาท`;
+            }
+            
+            if (totalBudgetEl) {
+                totalBudgetEl.textContent = totalBudget.toLocaleString('th-TH', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+            }
+            
+            console.log('✅ อัพเดตงบประมาณสำเร็จ:', {
+                totalBudget,
+                totalPurchaseAmount,
+                remainingBudget
+            });
+        } else {
+            console.warn('⚠️ ไม่สามารถดึงข้อมูลงบประมาณ:', result.error);
+        }
+    } catch (error) {
+        console.error('❌ Error updating budget display:', error);
+    }
 }
 
 // อัพเดท Data Quality Indicators
@@ -1836,6 +1958,163 @@ function populateDestinationOptions() {
         });
 }
 
+// ========== Return Drum Functions ==========
+
+// เปิด modal สำหรับคืนถังน้ำมัน
+function openReturnDrumModal() {
+    const modal = document.getElementById('returnDrumModal');
+    const form = document.getElementById('returnDrumForm');
+    
+    // Reset form
+    form.reset();
+    
+    // เติมข้อมูลถัง 200L
+    populateReturnDrumOptions();
+    
+    // อัปเดตการแสดงผลลิตรรวม
+    updateReturnDrumLiterDisplay();
+    
+    modal.style.display = 'block';
+    
+    // สำหรับการแสดง summary
+    console.log('🥁 เปิด modal การคืนถังน้ำมัน');
+}
+
+// ปิด modal สำหรับคืนถังน้ำมัน
+function closeReturnDrumModal() {
+    const modal = document.getElementById('returnDrumModal');
+    modal.style.display = 'none';
+}
+
+// เติมตัวเลือกของถัง 200L ที่มีอยู่
+function populateReturnDrumOptions() {
+    const select = document.getElementById('returnDrumSource');
+    select.innerHTML = '<option value="">-- เลือกแหล่งถัง --</option>';
+    
+    // หา drum sources จาก fuelSources
+    const drumSources = fuelSources.filter(source => isDrumSource(source));
+    
+    if (drumSources.length === 0) {
+        select.innerHTML += '<option value="" disabled>ไม่มีถัง 200L ในระบบ</option>';
+        return;
+    }
+    
+    drumSources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        const drums = litersToDrums(source.currentStock);
+        option.textContent = `${source.name} (คงเหลือ: ${drums} ถัง)`;
+        select.appendChild(option);
+    });
+}
+
+// อัปเดตการแสดงผลจำนวนลิตรรวม
+function updateReturnDrumLiterDisplay() {
+    const drumCount = document.getElementById('returnDrumCount').value;
+    const totalLiters = (drumCount || 0) * DRUM_CAPACITY_LITERS;
+    document.getElementById('returnDrumTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+}
+
+// จัดการการคืนถังน้ำมัน
+async function handleReturnDrumSubmit() {
+    const operatorName = document.getElementById('returnOperatorName').value.trim();
+    const operatingUnit = document.getElementById('returnOperatingUnit').value.trim();
+    const sourceId = document.getElementById('returnDrumSource').value;
+    const drumCount = parseFloat(document.getElementById('returnDrumCount').value);
+    const notes = document.getElementById('returnDrumNotes').value.trim();
+    
+    try {
+        // ตรวจสอบข้อมูล
+        if (!operatorName || !operatingUnit || !sourceId || !drumCount) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        if (drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        setButtonLoading('submitReturnDrum', true);
+        showLoading('กำลังบันทึกการคืนถังน้ำมัน...');
+        
+        // หาแหล่งถัง
+        const drumSource = fuelSources.find(s => s.id === sourceId);
+        if (!drumSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        // คำนวณลิตร
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        
+        // ตรวจสอบว่าไม่เกินความจุขีดจำกัดหรือไม่
+        if (drumSource.capacity !== null && (liters + drumSource.currentStock) > drumSource.capacity) {
+            const maxDrums = litersToDrums(drumSource.capacity - drumSource.currentStock);
+            throw new Error(`จำนวนถังเกินกว่าความจุ (ความจุเหลือ: ${maxDrums} ถัง = ${drumSource.capacity - drumSource.currentStock} ลิตร)`);
+        }
+        
+        // เพิ่มจำนวนลิตรไปยังถัง
+        drumSource.currentStock += liters;
+        
+        // สร้าง UID สำหรับธุรกรรมนี้
+        const transactionUID = generateUID();
+        
+        // สร้าง log entry สำหรับการคืนถัง
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'return_drum', // ประเภทใหม่สำหรับการคืนถัง
+            sourceId: sourceId, // แหล่งที่คืนจาก
+            sourceName: drumSource.name,
+            sourceType: drumSource.type,
+            destinationId: null, // ไม่มีปลายทางสำหรับการคืน
+            destinationName: null,
+            destinationType: null,
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: null,
+            pricePerDrum: null,
+            totalAmount: null,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: null,
+            receiptNo: null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        // บันทึกข้อมูล
+        await saveInventoryToSheets();
+        
+        // บันทึก log ไปยัง Google Sheets
+        await logTransactionToSheets(logEntry);
+        
+        // อัพเดท UI
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        // ปิด modal
+        closeReturnDrumModal();
+        hideLoading();
+        
+        // แสดง UID Modal
+        showUIDModal(logEntry);
+        
+        console.log('✅ คืนถังสำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in return drum transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการคืนถัง กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitReturnDrum', false);
+    }
+}
+
 // Event Listeners สำหรับ Modal และ Form controls
 function initializeEventListeners() {
     // Modal controls
@@ -1846,11 +2125,7 @@ function initializeEventListeners() {
         modal.style.display = 'none';
     };
     
-    window.onclick = function(event) {
-        if (event.target === modal) {
-            modal.style.display = 'none';
-        }
-    };
+    // Window click handler จะถูกจัดการใน initializeBudgetSystem
     
     // Destination type change
     document.getElementById('destinationType').onchange = function() {
@@ -1905,6 +2180,49 @@ function initializeEventListeners() {
         debugDuplicateBtn.onclick = function() {
             handleDebugDuplicateClick();
         };
+    }
+
+    // Budget management
+    const manageBudgetBtn = document.getElementById('manageBudgetBtn');
+    if (manageBudgetBtn) {
+        manageBudgetBtn.onclick = function() {
+            openBudgetModal();
+        };
+    }
+
+    // Budget form submission
+    const budgetForm = document.getElementById('budgetForm');
+    if (budgetForm) {
+        budgetForm.onsubmit = function(e) {
+            e.preventDefault();
+            saveBudget();
+        };
+    }
+    
+    // Return Drum Form Events
+    const returnDrumForm = document.getElementById('returnDrumForm');
+    if (returnDrumForm) {
+        // Event listener สำหรับการเปลี่ยนจำนวนถัง
+        document.getElementById('returnDrumCount').addEventListener('input', function() {
+            updateReturnDrumLiterDisplay();
+        });
+        
+        // Event listener สำหรับ form submission
+        returnDrumForm.onsubmit = function(e) {
+            e.preventDefault();
+            handleReturnDrumSubmit();
+        };
+    }
+    
+    // Modal close button สำหรับ returnDrumModal
+    const returnDrumModal = document.getElementById('returnDrumModal');
+    if (returnDrumModal) {
+        const returnDrumCloseBtn = returnDrumModal.querySelector('.close');
+        if (returnDrumCloseBtn) {
+            returnDrumCloseBtn.onclick = function() {
+                closeReturnDrumModal();
+            };
+        }
     }
 }
 
@@ -2987,6 +3305,9 @@ async function initializeSystem() {
         initializeEventListeners();
         updateRefillTypeVisibility();
         
+        // เริ่มต้นระบบงบประมาณ
+        initializeBudgetSystem();
+        
         showLoading('กำลังอัปเดตหน้าจอ...');
         await new Promise(resolve => setTimeout(resolve, 200));
         
@@ -3009,3 +3330,73 @@ async function initializeSystem() {
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(initializeSystem, 100); // ให้เวลา DOM โหลดเสร็จก่อน
 });
+
+// ======================================
+// Budget Management Functions
+// ======================================
+
+// ข้อมูลงบประมาณ (จะถูกเก็บใน localStorage)
+let budgetData = {
+    bru: 0,
+    yuttaya: 0,
+    dust: 0,
+    hail: 0,
+    lastUpdated: null
+};
+
+// โหลดข้อมูลงบประมาณจาก localStorage
+function loadBudgetData() {
+    try {
+        const saved = localStorage.getItem('budgetData');
+        if (saved) {
+            budgetData = JSON.parse(saved);
+        }
+        console.log('✅ โหลดข้อมูลงบประมาณสำเร็จ:', budgetData);
+    } catch (error) {
+        console.warn('⚠️ ไม่สามารถโหลดข้อมูลงบประมาณได้:', error);
+        budgetData = { bru: 0, yuttaya: 0, dust: 0, hail: 0, lastUpdated: null };
+    }
+}
+
+// บันทึกข้อมูลงบประมาณไปยัง localStorage
+function saveBudgetData() {
+    try {
+        budgetData.lastUpdated = new Date().toISOString();
+        localStorage.setItem('budgetData', JSON.stringify(budgetData));
+        console.log('✅ บันทึกข้อมูลงบประมาณสำเร็จ');
+    } catch (error) {
+        console.error('❌ ไม่สามารถบันทึกข้อมูลงบประมาณได้:', error);
+    }
+}
+
+// ✅ เริ่มต้นระบบงบประมาณ
+function initializeBudgetSystem() {
+    try {
+        loadBudgetData();
+        updateBudgetDisplay();
+        console.log('✅ เริ่มต้นระบบงบประมาณสำเร็จ');
+    } catch (error) {
+        console.error('❌ ไม่สามารถเริ่มต้นระบบงบประมาณได้:', error);
+    }
+}
+
+// เปิด Modal จัดการงบประมาณ
+function openBudgetModal() {
+    loadBudgetData();
+    
+    // อัพเดตค่าในฟอร์ม
+    document.getElementById('budgetBruInput').value = budgetData.bru || 0;
+    document.getElementById('budgetYuttayaInput').value = budgetData.yuttaya || 0;
+    document.getElementById('budgetDustInput').value = budgetData.dust || 0;
+    document.getElementById('budgetHailInput').value = budgetData.hail || 0;
+    
+    document.getElementById('budgetManagementModal').style.display = 'block';
+    
+    // Log
+    if (window.activityLogger) {
+        window.activityLogger.log({
+            type: 'info',
+            message: 'เปิดหน้าจัดการงบประมาณ'
+        });
+    }
+}

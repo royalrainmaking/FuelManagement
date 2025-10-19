@@ -4,6 +4,178 @@
  */
 
 /**
+ * ฟังก์ชันสำหรับอ่านข้อมูลงบประมาณและคำนวณเงินคงเหลือ
+ * ยอดเงินคงเหลือ = รวมงบประมาณทั้ง 4 แผน - ยอดเงินที่ซื้อจาก ปตท.
+ */
+function getBudgetData(sheetsId, budgetGid) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    const worksheets = spreadsheet.getSheets();
+    
+    // หา sheet งบประมาณตาม GID
+    let budgetSheet = null;
+    for (let i = 0; i < worksheets.length; i++) {
+      if (worksheets[i].getSheetId().toString() === budgetGid.toString()) {
+        budgetSheet = worksheets[i];
+        break;
+      }
+    }
+    
+    if (!budgetSheet) {
+      throw new Error('ไม่พบ sheet งบประมาณที่กำหนด');
+    }
+    
+    // หา sheet Transaction Log
+    let transactionSheet = null;
+    for (let i = 0; i < worksheets.length; i++) {
+      if (worksheets[i].getName() === 'Transaction_Log' || worksheets[i].getSheetId().toString() === '0') {
+        transactionSheet = worksheets[i];
+        break;
+      }
+    }
+    
+    if (!transactionSheet) {
+      throw new Error('ไม่พบ sheet Transaction_Log');
+    }
+    
+    // อ่านข้อมูลงบประมาณ - SUM ของคอลัมน์ B
+    const budgetLastRow = budgetSheet.getLastRow();
+    let totalBudget = 0;
+    
+    if (budgetLastRow > 1) {
+      const budgetRange = budgetSheet.getRange('B2:B' + budgetLastRow);
+      const budgetValues = budgetRange.getValues();
+      
+      for (let i = 0; i < budgetValues.length; i++) {
+        const value = parseFloat(budgetValues[i][0]) || 0;
+        totalBudget += value;
+      }
+    }
+    
+    // อ่านข้อมูลยอดเงินที่ซื้อจาก ปตท. - SUM ของคอลัมน์ I ของ Transaction Log
+    // โครงสร้าง: A=วันที่, B=เวลา, C=ชนิด, D=ชื่อ, E=ปลายทาง, F=จำนวน(ลิตร), G=ราคาต่อลิตร, H=ยอดรวม, I=ผู้ปฏิบัติงาน
+    const transLastRow = transactionSheet.getLastRow();
+    let totalPurchaseAmount = 0;
+    
+    if (transLastRow > 1) {
+      // อ่านจากคอลัมน์ H (ยอดรวม) ไม่ใช่ I
+      const amountRange = transactionSheet.getRange('I2:I' + transLastRow);
+      const amountValues = amountRange.getValues();
+      
+      for (let i = 0; i < amountValues.length; i++) {
+        const value = parseFloat(amountValues[i][0]) || 0;
+        totalPurchaseAmount += value;
+      }
+    }
+    
+    // คำนวณเงินคงเหลือ
+    const remainingBudget = totalBudget - totalPurchaseAmount;
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        data: {
+          totalBudget: totalBudget,
+          totalPurchaseAmount: totalPurchaseAmount,
+          remainingBudget: remainingBudget
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    console.error('Error in getBudgetData:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับสร้างข้อมูลตัวอย่างงบประมาณ
+ * เพิ่มข้อมูล 4 แผนของงบประมาณลงใน Budget Sheet
+ */
+function createSampleBudgetData(sheetsId, budgetGid) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    const worksheets = spreadsheet.getSheets();
+    
+    // หา sheet งบประมาณตาม GID
+    let budgetSheet = null;
+    for (let i = 0; i < worksheets.length; i++) {
+      if (worksheets[i].getSheetId().toString() === budgetGid.toString()) {
+        budgetSheet = worksheets[i];
+        break;
+      }
+    }
+    
+    if (!budgetSheet) {
+      throw new Error('ไม่พบ sheet งบประมาณที่กำหนด');
+    }
+    
+    // ลบข้อมูลเก่า (ถ้ามี)
+    const maxRows = budgetSheet.getMaxRows();
+    if (maxRows > 1) {
+      budgetSheet.deleteRows(2, maxRows - 1);
+    }
+    
+    // เพิ่ม header
+    budgetSheet.getRange('A1').setValue('ชื่อแผน');
+    budgetSheet.getRange('B1').setValue('งบประมาณ');
+    
+    // เพิ่มข้อมูล 4 แผน
+    const budgetPlans = [
+      { name: 'แผนบรู', budget: 500000 },
+      { name: 'แผนยุทธ', budget: 750000 },
+      { name: 'แผนฝุ่น', budget: 600000 },
+      { name: 'แผนลูกเห็บ', budget: 400000 }
+    ];
+    
+    for (let i = 0; i < budgetPlans.length; i++) {
+      const row = i + 2;
+      budgetSheet.getRange('A' + row).setValue(budgetPlans[i].name);
+      budgetSheet.getRange('B' + row).setValue(budgetPlans[i].budget);
+    }
+    
+    // จัดรูปแบบ header
+    const headerRange = budgetSheet.getRange('A1:B1');
+    headerRange.setBackground('#1f77d2');
+    headerRange.setFontColor('#ffffff');
+    headerRange.setFontWeight('bold');
+    
+    // จัดรูปแบบคอลัมน์ B (ตัวเลข)
+    budgetSheet.getRange('B2:B5').setNumberFormat('#,##0');
+    
+    // ปรับความกว้าง
+    budgetSheet.setColumnWidth(1, 150);
+    budgetSheet.setColumnWidth(2, 150);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'สร้างข้อมูลตัวอย่างงบประมาณสำเร็จ',
+        data: {
+          plansCreated: budgetPlans.length,
+          totalBudget: budgetPlans.reduce((sum, plan) => sum + plan.budget, 0),
+          plans: budgetPlans
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    console.error('Error in createSampleBudgetData:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
  * ฟังก์ชันสำหรับอ่านข้อมูลสรุปจากตำแหน่งที่กำหนด
  */
 function getSummaryData(sheetsId, gid) {
@@ -162,6 +334,16 @@ function doGet(e) {
         return getPriceHistory(sheetsId);
       case 'createPriceSheet':
         return createPriceHistorySheet(sheetsId);
+      case 'getBudgetData':
+        return getBudgetData(sheetsId, gid);
+      case 'createSampleBudgetData':
+        return createSampleBudgetData(sheetsId, gid);
+      case 'createBudgetSheet':
+        return createBudgetSheet(sheetsId);
+      case 'updateBudgetAllocation':
+        return updateBudgetAllocation(e.parameter.planName, e.parameter.allocatedAmount, sheetsId);
+      case 'updateBudgetUsage':
+        return updateBudgetUsage(e.parameter.totalPurchaseAmount, sheetsId);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1117,6 +1299,204 @@ function getPriceHistory(sheetsId) {
       
   } catch (error) {
     console.error('Error in getPriceHistory:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ========================================
+ * BUDGET MANAGEMENT FUNCTIONS
+ * ========================================
+ */
+
+/**
+ * สร้างชีท Budget สำหรับเก็บข้อมูลงบประมาณ
+ */
+function createBudgetSheet(sheetsId) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // ตรวจสอบว่ามีชีท Budget อยู่แล้วหรือไม่
+    let budgetSheet = spreadsheet.getSheetByName('Budget');
+    
+    if (budgetSheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: true,
+          message: 'Budget sheet already exists',
+          sheetId: budgetSheet.getSheetId()
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // สร้างชีทใหม่
+    budgetSheet = spreadsheet.insertSheet('Budget');
+    
+    // สร้าง Header
+    const headers = [
+      'Plan Name',              // A: ชื่อแผน
+      'Allocated Amount',       // B: งบประมาณที่จัดสรร
+      'Used Amount',           // C: งบประมาณที่ใช้ไป (จะอัปเดตอัตโนมัติ)
+      'Remaining Amount',      // D: งบประมาณคงเหลือ (สูตร B-C)
+      'Last Updated',          // E: วันที่อัปเดตล่าสุด
+      'Notes'                  // F: หมายเหตุ
+    ];
+    
+    budgetSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    
+    // จัดรูปแบบ Header
+    const headerRange = budgetSheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground('#0f9d58');
+    headerRange.setFontColor('#ffffff');
+    headerRange.setFontWeight('bold');
+    headerRange.setHorizontalAlignment('center');
+    
+    // ตั้งค่าความกว้างคอลัมน์
+    budgetSheet.setColumnWidth(1, 150); // Plan Name
+    budgetSheet.setColumnWidth(2, 150); // Allocated Amount
+    budgetSheet.setColumnWidth(3, 120); // Used Amount
+    budgetSheet.setColumnWidth(4, 150); // Remaining Amount
+    budgetSheet.setColumnWidth(5, 150); // Last Updated
+    budgetSheet.setColumnWidth(6, 200); // Notes
+    
+    // Freeze header row
+    budgetSheet.setFrozenRows(1);
+    
+    // เพิ่มแผนต่างๆ
+    const initialBudgetPlans = [
+      ['แผนบรู', 0, 0, '=B2-C2', '', 'งบประมาณสำหรับแผนบรู'],
+      ['แผนยุทธ', 0, 0, '=B3-C3', '', 'งบประมาณสำหรับแผนยุทธศาสตร์'],
+      ['แผนฝุ่น', 0, 0, '=B4-C4', '', 'งบประมาณสำหรับแผนฝุ่น'],
+      ['แผนลูกเห็บ', 0, 0, '=B5-C5', '', 'งบประมาณสำหรับแผนลูกเห็บ']
+    ];
+    
+    for (let i = 0; i < initialBudgetPlans.length; i++) {
+      budgetSheet.getRange(i + 2, 1, 1, initialBudgetPlans[i].length).setValues([initialBudgetPlans[i]]);
+    }
+    
+    // จัดรูปแบบข้อมูล
+    const dataRange = budgetSheet.getRange(2, 1, initialBudgetPlans.length, 6);
+    dataRange.setHorizontalAlignment('center');
+    
+    // จัดรูปแบบคอลัมน์ตัวเลข
+    const numberColumns = budgetSheet.getRange(2, 2, initialBudgetPlans.length, 3);
+    numberColumns.setNumberFormat('#,##0');
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Budget sheet created successfully',
+        sheetId: budgetSheet.getSheetId(),
+        gid: budgetSheet.getSheetId().toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in createBudgetSheet:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * อัปเดตงบประมาณที่จัดสรร
+ */
+function updateBudgetAllocation(planName, allocatedAmount, sheetsId) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let budgetSheet = spreadsheet.getSheetByName('Budget');
+    
+    // ถ้าไม่มีชีท ให้สร้างใหม่
+    if (!budgetSheet) {
+      createBudgetSheet(sheetsId);
+      budgetSheet = spreadsheet.getSheetByName('Budget');
+    }
+    
+    const lastRow = budgetSheet.getLastRow();
+    
+    // หาแถวที่ตรงกับชื่อแผน
+    let targetRow = -1;
+    for (let i = 2; i <= lastRow; i++) {
+      const cellValue = budgetSheet.getRange(i, 1).getValue();
+      if (cellValue === planName) {
+        targetRow = i;
+        break;
+      }
+    }
+    
+    if (targetRow === -1) {
+      throw new Error(`ไม่พบแผน: ${planName}`);
+    }
+    
+    // อัปเดตงบประมาณที่จัดสรร
+    budgetSheet.getRange(targetRow, 2).setValue(parseFloat(allocatedAmount));
+    
+    // อัปเดตวันที่
+    const now = new Date();
+    const timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    budgetSheet.getRange(targetRow, 5).setValue(timestamp);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: `อัปเดตงบประมาณ ${planName} เป็น ${allocatedAmount} บาท สำเร็จ`
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in updateBudgetAllocation:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * อัปเดตงบประมาณที่ใช้ไป (จะถูกเรียกเมื่อมีการซื้อจาก ปตท.)
+ */
+function updateBudgetUsage(totalPurchaseAmount, sheetsId) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let budgetSheet = spreadsheet.getSheetByName('Budget');
+    
+    // ถ้าไม่มีชีท ให้สร้างใหม่
+    if (!budgetSheet) {
+      createBudgetSheet(sheetsId);
+      budgetSheet = spreadsheet.getSheetByName('Budget');
+    }
+    
+    // อัปเดตงบประมาณที่ใช้ไปในทุกแผน (อาจจะต้องปรับตามความต้องการจริง)
+    // ตอนนี้ตั้งให้อัปเดตแค่แผนแรก (แผนบรู) ก่อน
+    const targetRow = 2; // แผนบรู
+    
+    budgetSheet.getRange(targetRow, 3).setValue(parseFloat(totalPurchaseAmount) || 0);
+    
+    // อัปเดตวันที่
+    const now = new Date();
+    const timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    budgetSheet.getRange(targetRow, 5).setValue(timestamp);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'อัปเดตงบประมาณที่ใช้ไปสำเร็จ'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in updateBudgetUsage:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,

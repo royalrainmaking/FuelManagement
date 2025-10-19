@@ -533,6 +533,10 @@ header h1 {
 .category-header {
     margin: 2rem 0 1rem 0;
     padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
 .category-header h3 {
@@ -541,6 +545,7 @@ header h1 {
     color: #1e3c72;
     display: flex;
     align-items: center;
+    margin: 0;
     gap: 0.5rem;
     padding: 0.8rem 1rem;
     background: linear-gradient(to right, rgba(30, 60, 114, 0.08), transparent);
@@ -1834,4 +1839,52 @@ header h1 {
 .summary-card.loading.first-load .amount,
 .summary-card.loading.first-load .unit {
     color: #c7c7cc;
+}
+
+/* Hide individual budget plan cards */
+.card.shadow-sm.mb-3 {
+    display: none !important;
+}
+
+/* Hide ยอดเงินที่ซื้อจาก ปตท. card */
+#totalPurchaseAmount {
+    display: none !important;
+}
+
+/* Hide the parent card containing totalPurchaseAmount */
+#totalPurchaseAmount,
+.overview-content:has(#totalPurchaseAmount),
+.card-body:has(#totalPurchaseAmount),
+.card:has(#totalPurchaseAmount) {
+    display: none !important;
+}
+
+/* Hide budget details (งบรวม | ใช้ไป) */
+#budgetDetails {
+    display: none !important;
+}
+
+/* Hide จำนวนลิตรที่ซื้อจาก ปตท. card */
+#totalPurchaseVolume,
+.overview-content:has(#totalPurchaseVolume),
+.card-body:has(#totalPurchaseVolume),
+.card:has(#totalPurchaseVolume) {
+    display: none !important;
+}
+
+/* Change ความจุคงเหลือทั้งหมด to yellow */
+.card:has(#totalCurrentStock) {
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%) !important;
+}
+
+.card:has(#totalCurrentStock) .bg-success {
+    background-color: #ffc107 !important;
+}
+
+.card:has(#totalCurrentStock) .text-success {
+    color: #ffb300 !important;
+}
+
+.card:has(#totalCurrentStock) .overview-border-accent {
+    background: #ffc107 !important;
 }
