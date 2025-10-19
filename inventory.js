@@ -1,4 +1,4 @@
-// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -1981,6 +1981,10 @@ function openReturnDrumModal() {
 }
 
 // ปิด modal สำหรับคืนถังน้ำมัน
+function closeBudgetModal() {
+    document.getElementById('budgetManagementModal').style.display = 'none';
+}
+
 function closeReturnDrumModal() {
     const modal = document.getElementById('returnDrumModal');
     modal.style.display = 'none';
@@ -2117,13 +2121,40 @@ async function handleReturnDrumSubmit() {
 
 // Event Listeners สำหรับ Modal และ Form controls
 function initializeEventListeners() {
-    // Modal controls
-    const modal = document.getElementById('transactionModal');
-    const closeBtn = document.querySelector('.close');
+    // ===== Universal Modal Close Handler =====
+    // Close modals by clicking on the backdrop (outside modal-content)
+    window.addEventListener('click', function(event) {
+        // Close modal if click is directly on the modal backdrop (not on modal-content)
+        if (event.target.classList && event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
     
-    closeBtn.onclick = function() {
-        modal.style.display = 'none';
-    };
+    // ===== Close Button Event Listeners =====
+    // Main transaction modal
+    const modal = document.getElementById('transactionModal');
+    const closeBtnTransaction = modal.querySelector('.close');
+    if (closeBtnTransaction) {
+        closeBtnTransaction.onclick = function() {
+            modal.style.display = 'none';
+        };
+    }
+    
+    // PTT Purchase modal close button
+    const closePttBtn = document.querySelector('.close-ptt');
+    if (closePttBtn) {
+        closePttBtn.onclick = function() {
+            document.getElementById('pttPurchaseModal').style.display = 'none';
+        };
+    }
+    
+    // UID Modal close button
+    const closeUidBtn = document.getElementById('closeUidModal');
+    if (closeUidBtn) {
+        closeUidBtn.onclick = function() {
+            document.getElementById('uidModal').style.display = 'none';
+        };
+    }
     
     // Window click handler จะถูกจัดการใน initializeBudgetSystem
     
@@ -3368,35 +3399,12 @@ function saveBudgetData() {
         console.error('❌ ไม่สามารถบันทึกข้อมูลงบประมาณได้:', error);
     }
 }
-
-// ✅ เริ่มต้นระบบงบประมาณ
+// Initialize the budget system
 function initializeBudgetSystem() {
     try {
         loadBudgetData();
-        updateBudgetDisplay();
-        console.log('✅ เริ่มต้นระบบงบประมาณสำเร็จ');
+        console.log('✅ Budget system initialized successfully');
     } catch (error) {
-        console.error('❌ ไม่สามารถเริ่มต้นระบบงบประมาณได้:', error);
-    }
-}
-
-// เปิด Modal จัดการงบประมาณ
-function openBudgetModal() {
-    loadBudgetData();
-    
-    // อัพเดตค่าในฟอร์ม
-    document.getElementById('budgetBruInput').value = budgetData.bru || 0;
-    document.getElementById('budgetYuttayaInput').value = budgetData.yuttaya || 0;
-    document.getElementById('budgetDustInput').value = budgetData.dust || 0;
-    document.getElementById('budgetHailInput').value = budgetData.hail || 0;
-    
-    document.getElementById('budgetManagementModal').style.display = 'block';
-    
-    // Log
-    if (window.activityLogger) {
-        window.activityLogger.log({
-            type: 'info',
-            message: 'เปิดหน้าจัดการงบประมาณ'
-        });
+        console.error('❌ Failed to initialize budget system:', error);
     }
 }
