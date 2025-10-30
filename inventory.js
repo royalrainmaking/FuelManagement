@@ -1121,7 +1121,7 @@ function createFuelCards() {
     
     // แบ่งหมวดหมู่
     const categories = {
-        'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> จัดซื้อจาก ปตท.', sources: [] },
+        'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> ส่งมอบน้ำมันจาก ปตท.', sources: [] },
         'tank': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">propane_tank</span> แท๊งค์น้ำมัน', sources: [] },
         'truck': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">local_shipping</span> รถบรรทุกน้ำมัน', sources: [] },
         'drum': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">water_bottle_large</span> ถัง 200 ลิตร', sources: [] }
