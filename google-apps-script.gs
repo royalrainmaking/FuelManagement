@@ -344,6 +344,10 @@ function doGet(e) {
         return updateBudgetAllocation(e.parameter.planName, e.parameter.allocatedAmount, sheetsId);
       case 'updateBudgetUsage':
         return updateBudgetUsage(e.parameter.totalPurchaseAmount, sheetsId);
+      case 'confirmDailyInventory':
+        return confirmDailyInventory(e.parameter.data, sheetsId);
+      case 'logDailyConfirmation':
+        return logDailyConfirmation(e.parameter.data, sheetsId, gid);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1497,6 +1501,190 @@ function updateBudgetUsage(totalPurchaseAmount, sheetsId) {
       
   } catch (error) {
     console.error('Error in updateBudgetUsage:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ========================================
+ * DAILY INVENTORY CONFIRMATION FUNCTIONS
+ * ========================================
+ */
+
+/**
+ * บันทึกการยืนยันยอดคงเหลือรายวัน
+ */
+function confirmDailyInventory(dataString, sheetsId) {
+  try {
+    const confirmationData = JSON.parse(dataString);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // หาหรือสร้าง sheet สำหรับ Daily_Inventory_Confirmation
+    let confirmSheet = null;
+    try {
+      confirmSheet = spreadsheet.getSheetByName('Daily_Inventory_Confirmation');
+      
+      // ตรวจสอบว่า sheet มี header หรือไม่
+      if (!confirmSheet || confirmSheet.getLastRow() === 0) {
+        throw new Error('Sheet ว่างหรือไม่มี header');
+      }
+      
+    } catch (e) {
+      console.log('กำลังสร้าง Daily_Inventory_Confirmation sheet ใหม่...');
+      
+      // ลบ sheet เก่าถ้ามี (แต่ว่าง)
+      try {
+        const oldSheet = spreadsheet.getSheetByName('Daily_Inventory_Confirmation');
+        if (oldSheet && oldSheet.getLastRow() === 0) {
+          spreadsheet.deleteSheet(oldSheet);
+        }
+      } catch (deleteError) {
+        // ไม่ต้องทำอะไร
+      }
+      
+      // สร้าง sheet ใหม่
+      confirmSheet = spreadsheet.insertSheet('Daily_Inventory_Confirmation');
+      
+      // สร้าง header
+      confirmSheet.getRange(1, 1, 1, 6).setValues([[
+        'วันที่', 'เวลา', 'ผู้ทำรายการ', 'แหล่งน้ำมัน', 'จำนวนคงเหลือ(ลิตร)', 'Timestamp'
+      ]]);
+      
+      // จัดรูปแบบ header
+      const headerRange = confirmSheet.getRange(1, 1, 1, 6);
+      headerRange.setFontWeight('bold');
+      headerRange.setBackground('#4CAF50');
+      headerRange.setFontColor('#FFFFFF');
+      
+      confirmSheet.autoResizeColumns(1, 6);
+      confirmSheet.setFrozenRows(1);
+    }
+    
+    // ตรวจสอบอีกครั้งก่อน append
+    if (!confirmSheet) {
+      throw new Error('ไม่สามารถสร้างหรือเข้าถึง Daily_Inventory_Confirmation sheet ได้');
+    }
+    
+    // เพิ่มแถวใหม่
+    const timestamp = confirmationData.timestamp ? new Date(confirmationData.timestamp) : new Date();
+    const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
+    const timestampStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    
+    confirmSheet.appendRow([
+      dateStr,                                 // คอลัมน์ A: วันที่
+      timeStr,                                 // คอลัมน์ B: เวลา
+      confirmationData.operatorName || '',     // คอลัมน์ C: ผู้ทำรายการ
+      confirmationData.sourceName || '',       // คอลัมน์ D: แหล่งน้ำมัน
+      confirmationData.currentStock || 0,      // คอลัมน์ E: จำนวนคงเหลือ(ลิตร)
+      timestampStr                             // คอลัมน์ F: Timestamp
+    ]);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'บันทึกการยืนยันยอดคงเหลือสำเร็จ'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in confirmDailyInventory:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * บันทึกการยืนยันยอดรายวันของแต่ละแหล่งน้ำมัน
+ * ฟังก์ชันนี้จะเก็บบันทึกของปุ่มยืนยันยอดในแต่ละเจอ์ 
+ */
+function logDailyConfirmation(dataString, sheetsId, gid) {
+  try {
+    const confirmationData = JSON.parse(dataString);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // หาหรือสร้าง sheet ตาม gid (1512968674)
+    let confirmSheet = null;
+    try {
+      // หา sheet ตาม GID
+      const allSheets = spreadsheet.getSheets();
+      for (let i = 0; i < allSheets.length; i++) {
+        if (allSheets[i].getSheetId().toString() === gid.toString()) {
+          confirmSheet = allSheets[i];
+          break;
+        }
+      }
+      
+      if (!confirmSheet) {
+        throw new Error('Sheet ที่มี GID ' + gid + ' ไม่พบ');
+      }
+      
+      // ตรวจสอบว่า sheet มี header หรือไม่
+      if (confirmSheet.getLastRow() === 0) {
+        // สร้าง header ถ้า sheet ว่าง
+        confirmSheet.getRange(1, 1, 1, 7).setValues([[
+          'วันที่', 'เวลา', 'ผู้ทำรายการ', 'แหล่งน้ำมัน', 'Source ID', 'จำนวนลิตรปัจจุบัน', 'Timestamp'
+        ]]);
+        
+        // จัดรูปแบบ header
+        const headerRange = confirmSheet.getRange(1, 1, 1, 7);
+        headerRange.setFontWeight('bold');
+        headerRange.setBackground('#27ae60');
+        headerRange.setFontColor('#FFFFFF');
+        
+        confirmSheet.autoResizeColumns(1, 7);
+        confirmSheet.setFrozenRows(1);
+      }
+      
+    } catch (e) {
+      console.error('Error accessing sheet:', e.toString());
+      throw new Error('ไม่สามารถเข้าถึง sheet ได้: ' + e.toString());
+    }
+    
+    // เพิ่มแถวใหม่
+    const timestamp = confirmationData.timestamp ? new Date(confirmationData.timestamp) : new Date();
+    const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
+    const timestampStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    
+    confirmSheet.appendRow([
+      dateStr,                                 // คอลัมน์ A: วันที่
+      timeStr,                                 // คอลัมน์ B: เวลา
+      confirmationData.operatorName || '',     // คอลัมน์ C: ผู้ทำรายการ
+      confirmationData.sourceName || '',       // คอลัมน์ D: แหล่งน้ำมัน
+      confirmationData.sourceId || '',         // คอลัมน์ E: Source ID
+      confirmationData.currentStock || 0,      // คอลัมน์ F: จำนวนลิตรปัจจุบัน
+      timestampStr                             // คอลัมน์ G: Timestamp
+    ]);
+    
+    console.log('✅ บันทึกการยืนยันยอด:', confirmationData);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'บันทึกการยืนยันยอดสำเร็จ',
+        data: {
+          date: dateStr,
+          time: timeStr,
+          operatorName: confirmationData.operatorName,
+          sourceName: confirmationData.sourceName
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in logDailyConfirmation:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,

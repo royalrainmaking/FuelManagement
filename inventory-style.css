@@ -6,11 +6,14 @@
 }
 
 body {
-    font-family: 'Sarabun', 'Segoe UI', 'Tahoma', sans-serif;
+    font-family: 'Noto Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Tahoma', 'Cordia New', 'Trebuchet MS', sans-serif;
     background-color: #f8f9fa;
     min-height: 100vh;
     color: #2c3e50;
-    line-height: 1.6;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 .text-muted {
@@ -623,6 +626,19 @@ header h1 {
     transform: translateY(-1px);
 }
 
+/* ✅ Disabled Card Style - ปิดใช้งานจนกว่าจะยืนยันยอด */
+.fuel-card.disabled-card {
+    opacity: 0.6;
+    pointer-events: none;
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    cursor: not-allowed;
+}
+
+.fuel-card.disabled-card:hover {
+    transform: none;  /* ไม่มี hover effect เมื่อ disabled */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);  /* shadow ปกติ */
+}
+
 /* Card Content Layout */
 .card-content-wrapper {
     flex: 1;
@@ -894,6 +910,50 @@ header h1 {
     color: #ffffff;
 }
 
+/* Daily Confirmation Button - Card Footer Section */
+.card-footer-section {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(224, 230, 237, 0.5);
+}
+
+.btn-confirm-daily {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.25), 0 1px 2px rgba(39, 174, 96, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    letter-spacing: 0.3px;
+    text-transform: none;
+    font-family: inherit;
+    pointer-events: auto;
+}
+
+.btn-confirm-daily:hover {
+    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.35), 0 2px 4px rgba(39, 174, 96, 0.25);
+}
+
+.btn-confirm-daily:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.25);
+}
+
+.btn-confirm-daily i {
+    font-size: 0.95rem;
+}
+
 /* Old Stock Bar (Keep for compatibility) */
 .stock-bar {
     background: rgba(142, 142, 147, 0.2);
@@ -916,6 +976,68 @@ header h1 {
     font-weight: 600;
     color: #8e8e93;
     font-variant-numeric: tabular-nums;
+}
+
+/* Card Footer Section - Confirmation Button */
+.card-footer-section {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(227, 232, 237, 0.5);
+}
+
+.btn-confirm-daily {
+    flex: 1;
+    padding: 0.65rem 0.75rem;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    position: relative;
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.btn-confirm-daily::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: rotate(45deg);
+    transition: all 0.6s ease;
+}
+
+.btn-confirm-daily:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+}
+
+.btn-confirm-daily:hover::before {
+    left: 100%;
+}
+
+.btn-confirm-daily:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+}
+
+.btn-confirm-daily i {
+    font-size: 0.8rem;
 }
 
 /* Modal - iOS Style */

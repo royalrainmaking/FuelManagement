@@ -7,6 +7,7 @@ if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
 
 // สำหรับ backward compatibility (ถ้ามีการใช้ตัวแปรเก่า)
 const INVENTORY_SHEET_GID = SHEET_GIDS.INVENTORY;
+const TRANSACTION_LOG_SHEET_GID = SHEET_GIDS.TRANSACTION_HISTORY;
 
 // ข้อมูลแหล่งน้ำมัน (จะถูกโหลดจาก Google Sheets)
 let fuelSources = [];
@@ -124,9 +125,6 @@ const defaultFuelSources = [
 let transactionLogs = [];
 let currentSelectedSource = null;
 let latestSummaryData = null;
-
-// ตั้งค่า Transaction Log Sheet ID
-const TRANSACTION_LOG_SHEET_GID = '1578547125'; // GID จริงของ Transaction_Log sheet
 
 // ค่าคงที่สำหรับถัง 200L
 const DRUM_CAPACITY_LITERS = 200; // 1 ถัง = 200 ลิตร
@@ -1104,6 +1102,18 @@ function getColorForType(type) {
     return colorMap[type] || '#8E8E93';
 }
 
+function requiresConfirmationForSource(source) {
+    if (!source) {
+        return false;
+    }
+    return source.type !== 'purchase';
+}
+
+function isSourceConfirmedToday(sourceId) {
+    const today = getDateString(new Date());
+    return localStorage.getItem(`confirmed_${sourceId}`) === today;
+}
+
 // สร้าง fuel cards แบบแบ่งหมวดหมู่
 function createFuelCards() {
     const container = document.getElementById('fuelCards');
@@ -1230,6 +1240,11 @@ function createFuelCards() {
                         </div>
                         ${progressTankHTML}
                     </div>
+                    <div class="card-footer-section" id="footer-${source.id}">
+                        <button class="btn-confirm-daily" onclick="event.stopPropagation(); openDailyConfirmationModal('${source.id}', '${source.name}')" id="btn-${source.id}">
+                            <i class="fas fa-check-circle"></i> ยืนยันยอด
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -1241,6 +1256,187 @@ function createFuelCards() {
         
         container.appendChild(categoryGrid);
     });
+}
+
+// ฟังก์ชันเปิด Modal สำหรับยืนยันยอด
+function openDailyConfirmationModal(sourceId, sourceName) {
+    try {
+        let modal = document.getElementById('dailyConfirmationModal');
+        
+        if (!modal) {
+            console.error('❌ dailyConfirmationModal not found in HTML');
+            throw new Error('Modal container not found');
+        }
+        
+        // Store current data globally
+        window.currentDailyConfirmation = {
+            sourceId: sourceId,
+            sourceName: sourceName
+        };
+        
+        // Update modal content - using correct element IDs from HTML
+        const sourceNameElement = document.getElementById('confirmationSourceName');
+        const operatorInput = document.getElementById('confirmationOperatorName');
+        
+        if (!sourceNameElement || !operatorInput) {
+            console.error('❌ Modal elements not found. sourceNameElement:', sourceNameElement, 'operatorInput:', operatorInput);
+            throw new Error('Modal elements not properly created');
+        }
+        
+        sourceNameElement.textContent = sourceName;
+        operatorInput.value = '';
+        operatorInput.focus();
+        
+        // Show modal
+        modal.style.display = 'block';
+    } catch (error) {
+        console.error('❌ Error in openDailyConfirmationModal:', error);
+        alert('เกิดข้อผิดพลาดในการเปิด Modal กรุณารีเฟรชหน้าจอ');
+    }
+}
+
+// ฟังก์ชันปิด Modal
+function closeDailyConfirmationModal() {
+    const modal = document.getElementById('dailyConfirmationModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// ฟังก์ชันส่งข้อมูลยืนยันยอด
+async function submitDailyConfirmation() {
+    const operatorName = document.getElementById('confirmationOperatorName').value.trim();
+    
+    if (!operatorName) {
+        alert('กรุณากรอกชื่อผู้ทำรายการ');
+        return;
+    }
+    
+    try {
+        // Get current fuel amount
+        const sourceId = window.currentDailyConfirmation.sourceId;
+        const fuelSource = fuelSources.find(source => source.id === sourceId);
+        const currentStock = fuelSource ? fuelSource.currentStock : 0;
+        
+        // Prepare data
+        const confirmData = {
+            sourceId: sourceId,
+            sourceName: window.currentDailyConfirmation.sourceName,
+            currentStock: currentStock, // บันทึกจำนวนลิตรปัจจุบัน
+            operatorName: operatorName,
+            confirmDate: new Date().toLocaleString('th-TH'),
+            timestamp: new Date().toISOString()
+        };
+        
+        // Send to Google Apps Script
+        const url = `${GOOGLE_SCRIPT_URL}?action=logDailyConfirmation&sheetsId=${GOOGLE_SHEETS_ID}&gid=1512968674&data=${encodeURIComponent(JSON.stringify(confirmData))}`;
+        
+        console.log('📤 Sending daily confirmation:', confirmData);
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            // Save confirmation status
+            const today = getDateString(new Date());
+            localStorage.setItem(`confirmed_${window.currentDailyConfirmation.sourceId}`, today);
+            
+            console.log('✅ Daily confirmation saved');
+            
+            // Close modal
+            closeDailyConfirmationModal();
+            
+            // Update buttons (hide the button)
+            updateDailyConfirmationButtons();
+            
+            // Show success message
+            alert('✅ ยืนยันยอดสำเร็จ!');
+        } else {
+            console.error('❌ Error:', result.error);
+            alert('เกิดข้อผิดพลาด: ' + result.error);
+        }
+    } catch (error) {
+        console.error('❌ Error sending data:', error);
+        alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
+    }
+}
+
+// ฟังก์ชันอัพเดทการแสดง/ซ่อนปุ่มยืนยันยอด
+function updateDailyConfirmationButtons() {
+    const confirmButtons = document.querySelectorAll('.btn-confirm-daily');
+    const today = getDateString(new Date());
+    
+    confirmButtons.forEach(btn => {
+        // Extract sourceId from button ID (format: btn-${source.id})
+        const sourceId = btn.id.replace('btn-', '') || btn.getAttribute('data-source-id');
+        
+        if (!sourceId) {
+            console.warn('⚠️ Cannot find sourceId for button:', btn);
+            return;
+        }
+        
+        const lastConfirmedDate = localStorage.getItem(`confirmed_${sourceId}`);
+        
+        // Show button only if not confirmed today
+        if (lastConfirmedDate !== today) {
+            btn.style.display = 'block';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
+    console.log('✅ ปุ่มยืนยันยอดอัพเดตแล้ว');
+}
+
+// ฟังก์ชันแปลงวันที่เป็น string (YYYY-MM-DD)
+function getDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// ฟังก์ชันตรวจสอบการเปลี่ยนแปลงเวลาเที่ยงคืน
+function checkMidnightTransition() {
+    const currentDate = getDateString(new Date());
+    const storedDate = localStorage.getItem('lastCheckedDate');
+    
+    // If date changed, reset buttons
+    if (storedDate && storedDate !== currentDate) {
+        console.log(`🌙 Midnight transition detected: ${storedDate} → ${currentDate}`);
+        updateDailyConfirmationButtons();
+    }
+    
+    // Update stored date
+    localStorage.setItem('lastCheckedDate', currentDate);
+}
+
+// ฟังก์ชันเริ่มต้นระบบ
+async function initializeSystem() {
+    try {
+        showLoading('กำลังเริ่มต้นระบบ...');
+        
+        // โหลดข้อมูลจาก Google Sheets แบบขนาน
+        await Promise.all([
+            loadInventoryFromSheets(),
+            loadTransactionLogsFromSheets()
+        ]);
+        
+        // สร้างหน้าจอ
+        showLoading('กำลังสร้างหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        // เริ่มต้นฟีเจอร์ Daily Confirmation
+        updateDailyConfirmationButtons();
+        setInterval(checkMidnightTransition, 60000); // ตรวจสอบเที่ยงคืนทุก 60 วินาที
+        
+        hideLoading();
+        console.log('✅ ระบบเริ่มต้นสำเร็จ');
+    } catch (error) {
+        console.error('❌ เกิดข้อผิดพลาดในการเริ่มต้นระบบ:', error);
+        hideLoading();
+        alert('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณารีเฟรชหน้าจอ');
+    }
 }
 
 // ฟังก์ชันแสดงสถานะตาม %
@@ -1297,6 +1493,7 @@ async function updateSummary() {
         
     } catch (error) {
         console.error('❌ Error updating summary:', error);
+        console.error('Stack trace:', error.stack);
         // ถ้ามี cache ให้ใช้ต่อ ไม่แสดง error
         if (!cachedData) {
             displayErrorState();
@@ -1343,7 +1540,7 @@ function calculateFromTransactions() {
     // กรองรายการซื้อจาก ปตท.
     const pttTransactions = transactionLogs.filter(log => 
         (log.transactionType === 'refill' || log.transactionType === 'fuel-card') &&
-        (log.fromSource === 'จัดซื้อจาก ปตท.' || log.fromSource?.includes('ปตท'))
+        (log.sourceName === 'จัดซื้อจาก ปตท.' || log.sourceName?.includes('ปตท'))
     );
     
     console.log(`📝 พบรายการซื้อจาก ปตท. ${pttTransactions.length} รายการ`);
@@ -3196,215 +3393,37 @@ async function handleRefreshDataClick() {
 async function handleValidateDataClick() {
     try {
         setButtonLoading('validateDataBtn', true);
-        showLoading('กำลังตรวจสอบความถูกต้องของข้อมูล...');
+        showLoading('กำลังตรวจสอบข้อมูล...');
         
-        console.log('🔍 เริ่มต้นการตรวจสอบข้อมูลการซื้อน้ำมัน ปตท.');
+        // โหลดข้อมูลจาก Google Sheets อีกครั้ง (แบบขนาน)
+        await Promise.all([
+            loadInventoryFromSheets(),
+            loadTransactionLogsFromSheets()
+        ]);
         
-        // แสดงรายงานข้อมูลการซื้อ ปตท. ก่อน
-        const reportBefore = generatePTTPurchaseReport();
+        // ตรวจสอบความถูกต้องของข้อมูล
+        let validationErrors = [];
         
-        // ตรวจสอบและแก้ไขข้อมูลที่ไม่สอดคล้อง
-        const validationResult = validateAndFixTransactionData();
-        
-        // แสดงรายงานหลังการแก้ไข (ถ้ามีการแก้ไข)
-        let reportAfter = null;
-        if (validationResult.fixedCount > 0) {
-            console.log('\n📋 รายงานหลังการแก้ไข:');
-            reportAfter = generatePTTPurchaseReport();
+        // ตรวจสอบแหล่งน้ำมัน
+        if (!fuelSources || fuelSources.length === 0) {
+            validationErrors.push('ไม่พบข้อมูลแหล่งน้ำมัน');
         }
         
-        // อัปเดตการแสดงผล
-        updateSummary();
+        // ตรวจสอบ Transaction Logs
+        if (!transactionLogs || transactionLogs.length === 0) {
+            validationErrors.push('ไม่พบข้อมูล Transaction Logs');
+        }
         
-        // สร้างข้อความสรุปผลการตรวจสอบ
-        let message = `🔍 ผลการตรวจสอบข้อมูลการซื้อน้ำมัน ปตท.\n\n`;
-        message += `📊 ข้อมูลปัจจุบัน:\n`;
-        message += `- ยอดเงินรวม: ${reportBefore.totalAmount.toLocaleString()} บาท\n`;
-        message += `- จำนวนลิตรรวม: ${reportBefore.totalVolume.toLocaleString()} ลิตร\n`;
-        message += `- ราคาเฉลี่ย: ${reportBefore.averagePrice.toFixed(4)} บาท/ลิตร\n`;
-        message += `- จำนวนครั้งซื้อ: ${reportBefore.transactionCount} ครั้ง\n\n`;
-        
-        if (validationResult.inconsistentCount > 0) {
-            message += `⚠️ พบข้อมูลไม่สอดคล้อง: ${validationResult.inconsistentCount} รายการ\n`;
-            if (validationResult.fixedCount > 0) {
-                message += `✅ แก้ไขแล้ว: ${validationResult.fixedCount} รายการ\n\n`;
-                message += `📊 ข้อมูลหลังการแก้ไข:\n`;
-                message += `- ยอดเงินรวม: ${reportAfter.totalAmount.toLocaleString()} บาท\n`;
-                message += `- จำนวนลิตรรวม: ${reportAfter.totalVolume.toLocaleString()} ลิตร\n`;
-                message += `- ราคาเฉลี่ย: ${reportAfter.averagePrice.toFixed(4)} บาท/ลิตร\n`;
-            } else {
-                message += `❌ ไม่สามารถแก้ไขได้ (ข้อมูลไม่เพียงพอ)\n`;
-            }
+        if (validationErrors.length > 0) {
+            showActivityLog(`⚠️ ผลการตรวจสอบข้อมูล:\n${validationErrors.join('\n')}`, 'warning');
         } else {
-            message += `✅ ข้อมูลทั้งหมดถูกต้องสอดคล้องกัน\n`;
+            showActivityLog('✅ ข้อมูลถูกต้อง - ไม่พบข้อผิดพลาด', 'success');
         }
-        
-        message += `\n💡 ดูรายละเอียดใน Console (F12) สำหรับข้อมูลเพิ่มเติม`;
-        
-        alert(message);
-        
     } catch (error) {
-        console.error('Error in handleValidateDataClick:', error);
-        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล กรุณาลองใหม่');
+        console.error('Error validating data:', error);
+        showActivityLog('❌ ข้อผิดพลาด: ' + error.message, 'error');
     } finally {
         setButtonLoading('validateDataBtn', false);
         hideLoading();
-    }
-}
-
-// Handle debug duplicate data click
-async function handleDebugDuplicateClick() {
-    try {
-        setButtonLoading('debugDuplicateBtn', true);
-        showLoading('กำลังตรวจสอบข้อมูลซ้ำ...');
-        
-        console.log('🐛 เริ่มต้นการตรวจสอบข้อมูลซ้ำ (Debug Mode)');
-        
-        // เรียกใช้ฟังก์ชัน debug
-        const debugResult = debugDataDuplication();
-        
-        // แสดงข้อมูลรายงานการซื้อ ปตท. เพื่อเปรียบเทียบ
-        console.log('\n📋 รายงานการซื้อน้ำมัน:');
-        const pttReport = generatePTTPurchaseReport();
-        
-        // สร้างข้อความสรุปผลการตรวจสอบ
-        let message = `🐛 รายงานการตรวจสอบข้อมูลซ้ำ\n\n`;
-        message += `📊 ข้อมูลปัจจุบันใน transactionLogs:\n`;
-        message += `- รายการซื้อน้ำมันจาก ปตท.: ${debugResult.currentPttTransactions} รายการ\n`;
-        message += `- รายการที่ไม่ซ้ำจริง (Unique Signatures): ${debugResult.uniqueSignatures} รายการ\n`;
-        message += `- รายการซ้ำที่พบ: ${debugResult.duplicatesFound} รายการ\n`;
-        message += `- รายการใน localStorage: ${debugResult.localStoragePttTransactions} รายการ\n\n`;
-        
-        message += `💰 รายงานสรุปการซื้อน้ำมัน:\n`;
-        message += `- ยอดเงินรวม: ${pttReport.totalAmount.toLocaleString()} บาท\n`;
-        message += `- จำนวนลิตรรวม: ${pttReport.totalVolume.toLocaleString()} ลิตร\n`;
-        message += `- ราคาเฉลี่ย: ${pttReport.averagePrice.toFixed(4)} บาท/ลิตร\n`;
-        message += `- จำนวนครั้งซื้อ: ${pttReport.transactionCount} ครั้ง\n\n`;
-        
-        if (debugResult.duplicatesFound > 0) {
-            message += `🚨 ปัญหาที่พบ:\n`;
-            message += `มีข้อมูลซ้ำ ${debugResult.duplicatesFound} รายการ\n`;
-            message += `จำนวนครั้งซื้อแสดง ${pttReport.transactionCount} ครั้ง แต่ข้อมูลจริงควรเป็น ${debugResult.uniqueSignatures} ครั้ง\n\n`;
-            message += `💡 แนะนำ: ใช้ฟังก์ชัน "ตรวจสอบความถูกต้องข้อมูล" เพื่อลบข้อมูลซ้ำ\n`;
-        } else {
-            message += `✅ ไม่พบข้อมูลซ้ำ ข้อมูลถูกต้องแล้ว\n`;
-        }
-        
-        message += `\n📋 ดูรายละเอียดทั้งหมดใน Console (กด F12)`;
-        
-        alert(message);
-        
-    } catch (error) {
-        console.error('Error in handleDebugDuplicateClick:', error);
-        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูลซ้ำ กรุณาลองใหม่');
-    } finally {
-        setButtonLoading('debugDuplicateBtn', false);
-        hideLoading();
-    }
-}
-
-// การเริ่มต้นระบบ
-async function initializeSystem() {
-    try {
-        showLoading('กำลังเริ่มต้นระบบ...');
-        
-        // โหลดข้อมูลจาก Google Sheets แบบขนาน
-        await Promise.all([
-            loadInventoryFromSheets(),
-            loadTransactionLogsFromSheets(),
-            (async () => {
-                showLoading('กำลังโหลดราคาน้ำมัน...');
-                try {
-                    await loadFuelPrices();
-                    console.log('✅ โหลดราคาน้ำมันเสร็จสิ้น');
-                } catch (error) {
-                    console.warn('⚠️ ไม่สามารถโหลดราคาน้ำมันได้:', error);
-                }
-            })()
-        ]);
-        
-        showLoading('กำลังสร้างหน้าจอ...');
-        await new Promise(resolve => setTimeout(resolve, 300)); // ให้เวลา UI โหลด
-        
-        // สร้าง fuel cards
-        createFuelCards();
-        
-        // อัปเดตสรุป
-        updateSummary();
-        
-        // ตั้งค่า event listeners
-        initializeEventListeners();
-        updateRefillTypeVisibility();
-        
-        // เริ่มต้นระบบงบประมาณ
-        initializeBudgetSystem();
-        
-        showLoading('กำลังอัปเดตหน้าจอ...');
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // โหลด activity logs หลังจากโหลด transaction logs เสร็จแล้ว
-        if (window.activityLogger) {
-            window.activityLogger.loadTransactionLogs();
-        }
-        
-        console.log('ระบบจัดการน้ำมันโหลดเสร็จสมบูรณ์');
-        
-    } catch (error) {
-        console.error('Error initializing system:', error);
-        alert('เกิดข้อผิดพลาดในการเริ่มต้นระบบ กรุณารีเฟรชหน้าเว็บ');
-    } finally {
-        hideLoading();
-    }
-}
-
-// เริ่มต้นระบบเมื่อหน้าเว็บโหลดเสร็จ
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initializeSystem, 100); // ให้เวลา DOM โหลดเสร็จก่อน
-});
-
-// ======================================
-// Budget Management Functions
-// ======================================
-
-// ข้อมูลงบประมาณ (จะถูกเก็บใน localStorage)
-let budgetData = {
-    bru: 0,
-    yuttaya: 0,
-    dust: 0,
-    hail: 0,
-    lastUpdated: null
-};
-
-// โหลดข้อมูลงบประมาณจาก localStorage
-function loadBudgetData() {
-    try {
-        const saved = localStorage.getItem('budgetData');
-        if (saved) {
-            budgetData = JSON.parse(saved);
-        }
-        console.log('✅ โหลดข้อมูลงบประมาณสำเร็จ:', budgetData);
-    } catch (error) {
-        console.warn('⚠️ ไม่สามารถโหลดข้อมูลงบประมาณได้:', error);
-        budgetData = { bru: 0, yuttaya: 0, dust: 0, hail: 0, lastUpdated: null };
-    }
-}
-
-// บันทึกข้อมูลงบประมาณไปยัง localStorage
-function saveBudgetData() {
-    try {
-        budgetData.lastUpdated = new Date().toISOString();
-        localStorage.setItem('budgetData', JSON.stringify(budgetData));
-        console.log('✅ บันทึกข้อมูลงบประมาณสำเร็จ');
-    } catch (error) {
-        console.error('❌ ไม่สามารถบันทึกข้อมูลงบประมาณได้:', error);
-    }
-}
-// Initialize the budget system
-function initializeBudgetSystem() {
-    try {
-        loadBudgetData();
-        console.log('✅ Budget system initialized successfully');
-    } catch (error) {
-        console.error('❌ Failed to initialize budget system:', error);
     }
 }
