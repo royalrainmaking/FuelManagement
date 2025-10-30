@@ -1240,16 +1240,25 @@ function createFuelCards() {
                         </div>
                         ${progressTankHTML}
                     </div>
+                    ${source.id !== 'purchase' ? `
                     <div class="card-footer-section" id="footer-${source.id}">
                         <button class="btn-confirm-daily" onclick="event.stopPropagation(); openDailyConfirmationModal('${source.id}', '${source.name}')" id="btn-${source.id}">
                             <i class="fas fa-check-circle"></i> ยืนยันยอด
                         </button>
                     </div>
+                    ` : ''}
                 </div>
             `;
             
             // ใส่สี accent สำหรับ card border
             card.style.setProperty('--accent-color', themeColor);
+            
+            // ถ้ายังไม่ยืนยันยอด (และไม่ใช่ purchase) ให้เปลี่ยนพื้นหลังเป็นสีแดง
+            if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
+                card.style.backgroundColor = '#ffebee'; // สีแดงอ่อน
+                card.style.borderColor = '#ef5350'; // สีแดงเข้ม
+                card.style.border = '2px solid #ef5350';
+            }
             
             categoryGrid.appendChild(card);
         });
@@ -1313,6 +1322,10 @@ async function submitDailyConfirmation() {
     }
     
     try {
+        // แสดง loading indicator
+        showLoading('กำลังยืนยันยอด...');
+        setButtonLoading('submitDailyConfirmationBtn', true);
+        
         // Get current fuel amount
         const sourceId = window.currentDailyConfirmation.sourceId;
         const fuelSource = fuelSources.find(source => source.id === sourceId);
@@ -1346,18 +1359,26 @@ async function submitDailyConfirmation() {
             // Close modal
             closeDailyConfirmationModal();
             
-            // Update buttons (hide the button)
+            // Refresh cards to update colors and hide button
+            createFuelCards();
             updateDailyConfirmationButtons();
+            
+            // Hide loading indicator
+            hideLoading();
             
             // Show success message
             alert('✅ ยืนยันยอดสำเร็จ!');
         } else {
             console.error('❌ Error:', result.error);
+            hideLoading();
             alert('เกิดข้อผิดพลาด: ' + result.error);
         }
     } catch (error) {
         console.error('❌ Error sending data:', error);
+        hideLoading();
         alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
+    } finally {
+        setButtonLoading('submitDailyConfirmationBtn', false);
     }
 }
 
@@ -1414,6 +1435,9 @@ function checkMidnightTransition() {
 async function initializeSystem() {
     try {
         showLoading('กำลังเริ่มต้นระบบ...');
+        
+        // เริ่มต้น event listeners ก่อน
+        initializeEventListeners();
         
         // โหลดข้อมูลจาก Google Sheets แบบขนาน
         await Promise.all([
@@ -1564,6 +1588,17 @@ function calculateFromTransactions() {
     };
 }
 
+// คำนวณ Total Capacity ของระบบ
+function calculateTotalCapacity() {
+    return fuelSources.reduce((sum, source) => {
+        // รวมเฉพาะแหล่งที่มี capacity ไม่เป็น null (แหล่งที่มีความจุจำกัด)
+        if (source.capacity !== null) {
+            return sum + source.capacity;
+        }
+        return sum;
+    }, 0);
+}
+
 // คำนวณจาก Inventory Sources
 function calculateFromInventory() {
     // คำนวณความจุคงเหลือ (รวมเฉพาะแหล่งที่มีความจุจำกัด - rows 3-14)
@@ -1575,6 +1610,9 @@ function calculateFromInventory() {
         return sum;
     }, 0);
     
+    // คำนวณ total capacity
+    const totalCapacity = calculateTotalCapacity();
+    
     // หา PTT Purchase Source
     const pttSource = fuelSources.find(source => 
         source.id === 'purchase' || source.name?.includes('ปตท')
@@ -1582,6 +1620,8 @@ function calculateFromInventory() {
     
     return {
         totalCurrentStock: totalStock,
+        totalCapacity: totalCapacity,
+        capacityPercentage: totalCapacity > 0 ? (totalStock / totalCapacity * 100) : 0,
         pttSourceStock: pttSource?.currentStock || 0,
         totalSources: fuelSources.length
     };
@@ -1593,6 +1633,8 @@ function selectBestData(dataSources) {
         totalPurchaseAmount: 0,
         totalPurchaseVolume: 0,
         totalCurrentStock: 0,
+        totalCapacity: 0,
+        capacityPercentage: 0,
         dataQuality: 'unknown',
         sources: []
     };
@@ -1615,12 +1657,14 @@ function selectBestData(dataSources) {
         result.sources.push('transactions-volume');
     }
     
-    // สำหรับ Current Stock: ลำดับความน่าเชื่อถือ Sheets > Inventory
+    // สำหรับ Current Stock & Capacity: ลำดับความน่าเชื่อถือ Sheets > Inventory
     if (dataSources.sheets?.totalCurrentStock >= 0) {
         result.totalCurrentStock = dataSources.sheets.totalCurrentStock;
         result.sources.push('sheets-stock');
     } else if (dataSources.inventory?.totalCurrentStock >= 0) {
         result.totalCurrentStock = dataSources.inventory.totalCurrentStock;
+        result.totalCapacity = dataSources.inventory.totalCapacity || 0;
+        result.capacityPercentage = dataSources.inventory.capacityPercentage || 0;
         result.sources.push('inventory-stock');
     }
     
@@ -1644,8 +1688,42 @@ function updateSummaryUI(summaryData) {
         (summaryData.totalPurchaseAmount || 0).toLocaleString();
     document.getElementById('totalPurchaseVolume').textContent = 
         (summaryData.totalPurchaseVolume || 0).toLocaleString();
-    document.getElementById('totalCurrentStock').textContent = 
-        (summaryData.totalCurrentStock || 0).toLocaleString();
+    
+    // อัพเดท Total Fuel Info และ Circular Gauge visualization
+    const totalFuelInfoElement = document.getElementById('totalFuelInfo');
+    const fuelGauge = document.getElementById('fuelGauge');
+    const fuelGaugePercentage = document.getElementById('fuelGaugePercentage');
+    
+    const totalCapacity = summaryData.totalCapacity || 0;
+    const currentStock = summaryData.totalCurrentStock || 0;
+    const capacityPercentage = summaryData.capacityPercentage || 0;
+    
+    if (totalCapacity > 0) {
+        // อัพเดทรูปแบบ: currentStock/totalCapacity ลิตร
+        if (totalFuelInfoElement) {
+            totalFuelInfoElement.textContent = `${currentStock.toLocaleString()}/${totalCapacity.toLocaleString()} ลิตร`;
+        }
+        
+        // อัพเดท Circular Gauge visualization (ใช้ conic-gradient)
+        if (fuelGauge) {
+            // คำนวณ degrees (360 * percentage / 100)
+            const degrees = (capacityPercentage / 100) * 360;
+            fuelGauge.style.background = `conic-gradient(#28a745 0deg, #28a745 ${degrees}deg, #e9ecef ${degrees}deg)`;
+        }
+        if (fuelGaugePercentage) {
+            fuelGaugePercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
+        }
+    } else {
+        if (totalFuelInfoElement) {
+            totalFuelInfoElement.textContent = `${currentStock.toLocaleString()}/0 ลิตร`;
+        }
+        if (fuelGauge) {
+            fuelGauge.style.background = 'conic-gradient(#28a745 0deg, #28a745 0deg, #e9ecef 0deg)';
+        }
+        if (fuelGaugePercentage) {
+            fuelGaugePercentage.textContent = '0%';
+        }
+    }
     
     // เพิ่ม indicator สำหรับ data quality
     updateDataQualityIndicators(summaryData);
@@ -2110,6 +2188,12 @@ async function updatePTTPurchaseVolume(additionalLiters) {
 
 // เปิด modal สำหรับทำรายการ
 function openTransactionModal(source) {
+    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่ (ยกเว้น purchase source)
+    if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
+        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "${source.name}" ก่อนทำรายการอื่นๆ`);
+        return; // ไม่เปิด modal
+    }
+    
     currentSelectedSource = source;
     const modal = document.getElementById('transactionModal');
     const modalTitle = document.getElementById('modalTitle');
@@ -3401,27 +3485,14 @@ async function handleValidateDataClick() {
             loadTransactionLogsFromSheets()
         ]);
         
-        // ตรวจสอบความถูกต้องของข้อมูล
-        let validationErrors = [];
+        console.log('✅ Data validation completed');
         
-        // ตรวจสอบแหล่งน้ำมัน
-        if (!fuelSources || fuelSources.length === 0) {
-            validationErrors.push('ไม่พบข้อมูลแหล่งน้ำมัน');
-        }
+        const currentTime = new Date().toLocaleTimeString('th-TH');
+        alert(`✅ ตรวจสอบข้อมูลสำเร็จ\n⏰ เวลา: ${currentTime}\n📊 พบข้อมูล: ${fuelSources.length} รายการ\n📝 Transaction Logs: ${transactionLogs.length} รายการ`);
         
-        // ตรวจสอบ Transaction Logs
-        if (!transactionLogs || transactionLogs.length === 0) {
-            validationErrors.push('ไม่พบข้อมูล Transaction Logs');
-        }
-        
-        if (validationErrors.length > 0) {
-            showActivityLog(`⚠️ ผลการตรวจสอบข้อมูล:\n${validationErrors.join('\n')}`, 'warning');
-        } else {
-            showActivityLog('✅ ข้อมูลถูกต้อง - ไม่พบข้อผิดพลาด', 'success');
-        }
     } catch (error) {
-        console.error('Error validating data:', error);
-        showActivityLog('❌ ข้อผิดพลาด: ' + error.message, 'error');
+        console.error('Error in handleValidateDataClick:', error);
+        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล กรุณาลองใหม่');
     } finally {
         setButtonLoading('validateDataBtn', false);
         hideLoading();

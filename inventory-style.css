@@ -41,90 +41,79 @@ body {
 
 /* Overview Cards - Compact Modern Dashboard Style */
 .overview-card {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 12px !important;
+    transition: box-shadow 0.2s ease;
+    border-radius: 8px !important;
     position: relative;
     overflow: hidden;
-    backdrop-filter: blur(10px);
-    min-height: 100px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    min-height: 110px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .overview-card:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .overview-card .card-body {
     position: relative;
     z-index: 2;
-    padding: 1.25rem 1rem !important;
-    min-height: 100px;
+    padding: 1.5rem 1.25rem !important;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .overview-icon-wrapper {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
     flex-shrink: 0;
-}
-
-.overview-card:hover .overview-icon-wrapper {
-    transform: rotate(4deg) scale(1.08);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0.75rem;
 }
 
 .overview-icon-wrapper i {
-    font-size: 1.5rem !important;
+    font-size: 1.4rem !important;
 }
 
 .overview-content {
     flex: 1;
-    margin-left: 1rem;
+    width: 100%;
+}
+
+.overview-content p {
+    font-size: 0.8rem !important;
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    opacity: 0.8;
 }
 
 .overview-trend {
-    opacity: 0.7;
-    transition: all 0.3s ease;
-}
-
-.overview-card:hover .overview-trend {
-    opacity: 1;
-    transform: scale(1.2);
+    opacity: 0;
 }
 
 .overview-content h2 {
     font-weight: 700 !important;
-    letter-spacing: -0.02em;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     font-size: 2rem !important;
-    line-height: 0.95;
-    margin: 0.25rem 0 0.125rem 0;
+    line-height: 1.1;
+    margin: 0.3rem 0 0.4rem 0;
+    letter-spacing: -0.02em;
 }
 
 .overview-content .small {
-    font-size: 1rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #495057 !important;
-    margin-bottom: 0.5rem;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #6c757d !important;
+    margin-top: 0.3rem;
     display: block;
-    line-height: 1.3;
+    line-height: 1.4;
 }
 
 .overview-content small:last-child {
-    font-size: 1.1rem !important;
-    font-weight: 500 !important;
-    color: #6c757d !important;
-    margin-top: 0.25rem;
     display: block;
 }
 
@@ -133,51 +122,18 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 5px;
-    border-radius: 0 0 20px 20px;
-    opacity: 0.9;
-    transition: all 0.4s ease;
-}
-
-.overview-card:hover .overview-border-accent {
-    height: 7px;
-    opacity: 1;
+    height: 4px;
+    border-radius: 0 0 8px 8px;
 }
 
 /* Enhanced Responsive Design */
 @media (max-width: 1199.98px) {
     .overview-card {
-        min-height: 95px;
+        min-height: 105px;
     }
     
     .overview-card .card-body {
-        padding: 1.125rem 0.875rem !important;
-        min-height: 95px;
-    }
-    
-    .overview-icon-wrapper {
-        width: 48px;
-        height: 48px;
-    }
-    
-    .overview-content h2 {
-        font-size: 1.8rem !important;
-    }
-    
-    .overview-content {
-        margin-left: 0.875rem;
-    }
-}
-
-@media (max-width: 991.98px) {
-    .overview-card {
-        min-height: 90px;
-        margin-bottom: 1rem;
-    }
-    
-    .overview-card .card-body {
-        padding: 1rem 0.875rem !important;
-        min-height: 90px;
+        padding: 1.25rem 1.1rem !important;
     }
     
     .overview-icon-wrapper {
@@ -186,63 +142,76 @@ body {
     }
     
     .overview-content h2 {
+        font-size: 1.8rem !important;
+    }
+    
+    .overview-icon-wrapper i {
+        font-size: 1.2rem !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .overview-card {
+        min-height: 100px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .overview-card .card-body {
+        padding: 1.1rem 1rem !important;
+    }
+    
+    .overview-icon-wrapper {
+        width: 42px;
+        height: 42px;
+    }
+    
+    .overview-content h2 {
         font-size: 1.6rem !important;
     }
     
-    .overview-content {
-        margin-left: 0.75rem;
-    }
-    
-    .overview-content .small {
-        font-size: 0.85rem !important;
+    .overview-content p {
+        font-size: 0.75rem !important;
     }
 }
 
 @media (max-width: 767.98px) {
     .overview-card {
-        min-height: 110px;
-        margin-bottom: 1rem;
+        min-height: 95px;
+        margin-bottom: 0.75rem;
     }
     
     .overview-card .card-body {
-        padding: 1.25rem 1rem !important;
-        flex-direction: column;
-        text-align: center;
-        min-height: 110px;
-    }
-    
-    .overview-content {
-        margin-left: 0;
-        margin-top: 1rem;
+        padding: 1rem 0.9rem !important;
     }
     
     .overview-icon-wrapper {
-        width: 60px;
-        height: 60px;
+        width: 40px;
+        height: 40px;
+        margin-bottom: 0.5rem;
     }
     
     .overview-content h2 {
-        font-size: 2rem !important;
+        font-size: 1.5rem !important;
     }
     
-    .overview-content .small {
-        font-size: 0.85rem !important;
-        letter-spacing: 0.5px;
+    .overview-content p {
+        font-size: 0.7rem !important;
+        letter-spacing: 0.2px;
     }
 }
 
 @media (max-width: 575.98px) {
     .overview-card .card-body {
-        padding: 1rem 0.875rem !important;
+        padding: 0.9rem 0.8rem !important;
     }
     
     .overview-content h2 {
-        font-size: 1.75rem !important;
+        font-size: 1.4rem !important;
     }
     
     .overview-icon-wrapper {
-        width: 56px;
-        height: 56px;
+        width: 36px;
+        height: 36px;
     }
 }
 
@@ -1590,13 +1559,117 @@ header h1 {
 
 /* Custom Card Hover Effects */
 .card {
-    transition: all 0.3s ease;
-    border: none !important;
+    transition: box-shadow 0.2s ease;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+}
+
+/* General Card Body Styling */
+.card-body {
+    padding: 1.25rem !important;
+}
+
+.card-header {
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1) !important;
+    padding: 1rem 1.25rem !important;
+    background-color: #f8f9fa !important;
+}
+
+/* Budget Cards Styling - Improved for Readability */
+#budgetCards .card {
+    border-left: 5px solid;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 6px !important;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+#budgetCards .card:hover {
+    transform: none;
+}
+
+#budgetCards .card-body {
+    padding: 1.25rem !important;
+}
+
+#budgetCards .card-body > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+#budgetCards .card-body > div:first-child > div:first-child {
+    border-radius: 10px !important;
+    padding: 0.5rem !important;
+    min-width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#budgetCards .card h6 {
+    font-size: 1.1rem;
+    margin: 0;
+    letter-spacing: 0.3px;
+    font-weight: 700;
+}
+
+#budgetCards .card small {
+    font-size: 0.85rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+#budgetCards .card .fw-bold {
+    font-size: 1.2rem;
+    margin-top: 0.3rem;
+    margin-bottom: 0.5rem;
+}
+
+#budgetCards .card .progress {
+    margin-top: 0.75rem;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Responsive Budget Cards */
+@media (max-width: 1199.98px) {
+    #budgetCards .card h6 {
+        font-size: 1rem;
+    }
+    
+    #budgetCards .card .fw-bold {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    #budgetCards .card {
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    #budgetCards .card h6 {
+        font-size: 0.95rem;
+    }
+    
+    #budgetCards .card .fw-bold {
+        font-size: 1rem;
+    }
+    
+    #budgetCards .card small {
+        font-size: 0.8rem;
+    }
 }
 
 /* Button Group Improvements */
@@ -1773,6 +1846,81 @@ header h1 {
         width: 32px;
         height: 32px;
     }
+}
+
+/* ===== FUEL GAUGE VISUALIZATION ===== */
+.fuel-gauge-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 10px 0;
+}
+
+.fuel-gauge {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(#28a745 0deg, #28a745 90deg, #e9ecef 90deg);
+    box-shadow: 0 0 0 1px #28a745, inset 0 0 8px rgba(40, 167, 69, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.6s ease-out;
+}
+
+.fuel-gauge::before {
+    content: '';
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.fuel-gauge-text {
+    position: relative;
+    z-index: 2;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #28a745;
+    text-align: center;
+}
+
+/* Responsive Gauge */
+@media (max-width: 767.98px) {
+    .fuel-gauge {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .fuel-gauge::before {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .fuel-gauge-text {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .fuel-gauge {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .fuel-gauge::before {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .fuel-gauge-text {
+        font-size: 0.8rem;
+    }
+}
 
     .fuel-info-section {
         flex-direction: column;

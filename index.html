@@ -130,9 +130,19 @@
                                 </div>
                                 <div class="overview-content">
                                     <p class="text-muted mb-2 fw-medium">ความจุคงเหลือทั้งหมด</p>
-                                    <div class="d-flex align-items-baseline">
-                                        <h2 class="mb-0 fw-bold text-success me-2" id="totalCurrentStock" style="font-size: 2rem;">0</h2>
-                                        <span class="text-muted fs-6">ลิตร</span>
+                                    
+                                    <!-- Circular Gauge Visualization -->
+                                    <div class="fuel-gauge-container mb-2">
+                                        <div class="fuel-gauge" id="fuelGauge">
+                                            <div class="fuel-gauge-text" id="fuelGaugePercentage">0%</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Detailed Stats -->
+                                    <div style="font-size: 0.85rem; text-align: center;">
+                                        <p class="mb-0">
+                                            <strong class="text-success" id="totalFuelInfo">0/0 ลิตร</strong>
+                                        </p>
                                     </div>
                                 </div>
                                 <div class="overview-border-accent bg-success"></div>
@@ -901,7 +911,7 @@
                     <input type="text" id="confirmationOperatorName" name="operatorName" placeholder="กรอกชื่อของคุณ" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; font-family: inherit;">
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button onclick="submitDailyConfirmation()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยืนยัน</button>
+                    <button id="submitDailyConfirmationBtn" onclick="submitDailyConfirmation()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยืนยัน</button>
                     <button onclick="document.getElementById('dailyConfirmationModal').style.display='none'; document.querySelector('input[name=operatorName]').value='';" style="flex: 1; padding: 10px; background: #e8e8e8; color: #333; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยกเลิก</button>
                 </div>
             </div>
@@ -919,7 +929,62 @@
     
     <!-- Initialize System -->
     <script>
-        document.addEventListener('DOMContentLoaded', initializeSystem);
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('🔄 เริ่มต้นระบบ...');
+                
+                // เริ่มต้น event listeners ก่อน
+                if (typeof initializeEventListeners === 'function') {
+                    initializeEventListeners();
+                    console.log('✅ Event listeners เริ่มต้นสำเร็จ');
+                }
+                
+                // โหลดข้อมูลจาก Google Sheets แบบขนาน
+                if (typeof loadInventoryFromSheets === 'function' && typeof loadTransactionLogsFromSheets === 'function') {
+                    showLoading('กำลังเริ่มต้นระบบ...');
+                    
+                    await Promise.all([
+                        loadInventoryFromSheets(),
+                        loadTransactionLogsFromSheets()
+                    ]);
+                    console.log('✅ ข้อมูลโหลดสำเร็จ');
+                    
+                    // สร้างหน้าจอ
+                    if (typeof createFuelCards === 'function') {
+                        showLoading('กำลังสร้างหน้าจอ...');
+                        createFuelCards();
+                        console.log('✅ Fuel cards สร้างสำเร็จ');
+                    }
+                    
+                    // อัพเดท summary
+                    if (typeof updateSummary === 'function') {
+                        updateSummary();
+                        console.log('✅ Summary อัพเดตสำเร็จ');
+                    }
+                    
+                    // Daily confirmation buttons
+                    if (typeof updateDailyConfirmationButtons === 'function') {
+                        updateDailyConfirmationButtons();
+                    }
+                    
+                    // Check midnight transition
+                    if (typeof checkMidnightTransition === 'function') {
+                        setInterval(checkMidnightTransition, 60000);
+                    }
+                    
+                    hideLoading();
+                    console.log('✅ ระบบเริ่มต้นสำเร็จ');
+                } else {
+                    console.warn('⚠️ ไม่พบฟังก์ชัน load หรือ createFuelCards');
+                }
+            } catch (error) {
+                console.error('❌ Error during initialization:', error);
+                if (typeof hideLoading === 'function') {
+                    hideLoading();
+                }
+                alert('เกิดข้อผิดพลาดในการเริ่มต้นระบบ: ' + error.message);
+            }
+        });
     </script>
     
     <!-- Activity Log Real-time Script -->

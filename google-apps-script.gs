@@ -346,6 +346,8 @@ function doGet(e) {
         return updateBudgetUsage(e.parameter.totalPurchaseAmount, sheetsId);
       case 'confirmDailyInventory':
         return confirmDailyInventory(e.parameter.data, sheetsId);
+      case 'getLatestDailyConfirmations':
+        return getLatestDailyConfirmations(sheetsId, gid);
       case 'logDailyConfirmation':
         return logDailyConfirmation(e.parameter.data, sheetsId, gid);
       default:
@@ -1599,6 +1601,94 @@ function confirmDailyInventory(dataString, sheetsId) {
       .createTextOutput(JSON.stringify({
         success: false,
         error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ดึงข้อมูลการยืนยันล่าสุดของแต่ละ source จาก Daily Confirmation sheet
+ * ใช้สำหรับตรวจสอบว่าแต่ละแหล่งน้ำมันได้ยืนยันแล้วหรือยัง
+ */
+function getLatestDailyConfirmations(sheetsId, gid) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // หา sheet ตาม GID (1512968674)
+    let confirmSheet = null;
+    const allSheets = spreadsheet.getSheets();
+    for (let i = 0; i < allSheets.length; i++) {
+      if (allSheets[i].getSheetId().toString() === gid.toString()) {
+        confirmSheet = allSheets[i];
+        break;
+      }
+    }
+    
+    if (!confirmSheet) {
+      throw new Error('Sheet ที่มี GID ' + gid + ' ไม่พบ');
+    }
+    
+    // อ่านข้อมูลทั้งหมด
+    const lastRow = confirmSheet.getLastRow();
+    if (lastRow <= 1) {
+      // ไม่มีข้อมูล
+      console.log('ไม่มีข้อมูลการยืนยันหรือ sheet ว่าง');
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: true,
+          data: []
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // อ่านข้อมูลจากแถวที่ 2 ไปถึงแถวสุดท้าย (ข้ามหัว)
+    const dataRange = confirmSheet.getRange(2, 1, lastRow - 1, 7); // 7 คอลัมน์: A-G
+    const data = dataRange.getValues();
+    
+    // คอลัมน์: A=วันที่, B=เวลา, C=ผู้ทำรายการ, D=แหล่งน้ำมัน, E=Source ID, F=จำนวนลิตร, G=Timestamp
+    
+    // สร้าง Map เพื่อหาวันที่ล่าสุดของแต่ละ sourceId
+    const latestBySource = {};
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const sourceId = row[4]; // คอลัมน์ E
+      const confirmDate = row[0]; // คอลัมน์ A (วันที่)
+      
+      if (sourceId) {
+        // เก็บวันที่ล่าสุดของแต่ละ sourceId
+        // เปรียบเทียบแบบ string (ถ้า format ถูก: YYYY-MM-DD)
+        if (!latestBySource[sourceId] || confirmDate > latestBySource[sourceId]) {
+          latestBySource[sourceId] = confirmDate;
+        }
+      }
+    }
+    
+    // แปลงผลลัพธ์เป็น array
+    const result = [];
+    for (const sourceId in latestBySource) {
+      result.push({
+        sourceId: sourceId,
+        confirmDate: latestBySource[sourceId]
+      });
+    }
+    
+    console.log('✅ ข้อมูลการยืนยันล่าสุด:', result);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        data: result
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getLatestDailyConfirmations:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString(),
+        data: []
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
