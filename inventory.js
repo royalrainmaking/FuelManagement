@@ -1,4 +1,4 @@
-﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+﻿﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -717,7 +717,8 @@ async function loadInventoryFromSheets() {
                     name: row.name || row.source_name || '',
                     capacity: row.capacity ? (row.capacity === 'ไม่จำกัด' ? null : parseInt(row.capacity)) : null,
                     currentStock: parseFloat(row.current_stock) || 0,
-                    type: row.type || inferType(row.name || row.source_name || '')
+                    type: row.type || inferType(row.name || row.source_name || ''),
+                    status: (row.status || 'active').toLowerCase() // เพิ่ม status field
                 };
             }).filter(source => source.name); // กรองเอาเฉพาะที่มี name
             
@@ -1121,7 +1122,7 @@ function createFuelCards() {
     
     // แบ่งหมวดหมู่
     const categories = {
-        'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> ส่งมอบน้ำมันจาก ปตท.', sources: [] },
+        'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> จัดซื้อจาก ปตท.', sources: [] },
         'tank': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">propane_tank</span> แท๊งค์น้ำมัน', sources: [] },
         'truck': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">local_shipping</span> รถบรรทุกน้ำมัน', sources: [] },
         'drum': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">water_bottle_large</span> ถัง 200 ลิตร', sources: [] }
@@ -1164,7 +1165,9 @@ function createFuelCards() {
         category.sources.forEach(source => {
             const card = document.createElement('div');
             card.className = 'fuel-card';
-            card.onclick = () => openTransactionModal(source);
+            if (source.status !== 'deactivate') {
+                card.onclick = () => openTransactionModal(source);
+            }
             
             const capacityText = source.capacity ? source.capacity.toLocaleString() : 'ไม่จำกัด';
             const stockPercentage = source.capacity ? (source.currentStock / source.capacity * 100) : 0;
@@ -1253,8 +1256,20 @@ function createFuelCards() {
             // ใส่สี accent สำหรับ card border
             card.style.setProperty('--accent-color', themeColor);
             
+            // ถ้า deactivate ให้ทำให้เป็นสีเท่า (grayscale)
+            if (source.status === 'deactivate') {
+                card.classList.add('deactivate-card');
+                card.style.filter = 'grayscale(100%) opacity(0.6)';
+                card.style.pointerEvents = 'none';
+                
+                // สร้าง overlay overlay text
+                const overlay = document.createElement('div');
+                overlay.className = 'deactivate-overlay';
+                overlay.innerHTML = '<div class="deactivate-text">ไม่พร้อมใช้งาน</div>';
+                card.appendChild(overlay);
+            }
             // ถ้ายังไม่ยืนยันยอด (และไม่ใช่ purchase) ให้เปลี่ยนพื้นหลังเป็นสีแดง
-            if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
+            else if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
                 card.style.backgroundColor = '#ffebee'; // สีแดงอ่อน
                 card.style.borderColor = '#ef5350'; // สีแดงเข้ม
                 card.style.border = '2px solid #ef5350';
@@ -1592,7 +1607,8 @@ function calculateFromTransactions() {
 function calculateTotalCapacity() {
     return fuelSources.reduce((sum, source) => {
         // รวมเฉพาะแหล่งที่มี capacity ไม่เป็น null (แหล่งที่มีความจุจำกัด)
-        if (source.capacity !== null) {
+        // และข้ามแหล่งที่ถูก deactivate
+        if (source.capacity !== null && source.status !== 'deactivate') {
             return sum + source.capacity;
         }
         return sum;
@@ -1601,10 +1617,11 @@ function calculateTotalCapacity() {
 
 // คำนวณจาก Inventory Sources
 function calculateFromInventory() {
-    // คำนวณความจุคงเหลือ (รวมเฉพาะแหล่งที่มีความจุจำกัด - rows 3-14)
+    // คำนวณความจุคงเหลือ (รวมเฉพาะแหล่งที่มีความจุจำกัด - rows 3-14 และไม่ใช่ deactivate)
     const totalStock = fuelSources.reduce((sum, source) => {
         // รวมเฉพาะแหล่งที่มี capacity ไม่เป็น null (แหล่งที่มีความจุจำกัด)
-        if (source.capacity !== null) {
+        // และข้ามแหล่งที่ถูก deactivate
+        if (source.capacity !== null && source.status !== 'deactivate') {
             return sum + (source.currentStock || 0);
         }
         return sum;
@@ -1613,17 +1630,21 @@ function calculateFromInventory() {
     // คำนวณ total capacity
     const totalCapacity = calculateTotalCapacity();
     
-    // หา PTT Purchase Source
+    // หา PTT Purchase Source (ข้ามแหล่ง deactivate)
     const pttSource = fuelSources.find(source => 
-        source.id === 'purchase' || source.name?.includes('ปตท')
+        (source.id === 'purchase' || source.name?.includes('ปตท')) &&
+        source.status !== 'deactivate'
     );
+    
+    // นับจำนวนแหล่งที่ active (ไม่ใช่ deactivate)
+    const activeSources = fuelSources.filter(source => source.status !== 'deactivate').length;
     
     return {
         totalCurrentStock: totalStock,
         totalCapacity: totalCapacity,
         capacityPercentage: totalCapacity > 0 ? (totalStock / totalCapacity * 100) : 0,
         pttSourceStock: pttSource?.currentStock || 0,
-        totalSources: fuelSources.length
+        totalSources: activeSources
     };
 }
 
@@ -3459,42 +3480,14 @@ async function handleRefreshDataClick() {
             window.activityLogger.reloadLogs();
         }
         
-        alert(`🔄 โหลดข้อมูลใหม่สำเร็จ\n⏰ เวลา: ${currentTime}\n📊 พบข้อมูล: ${fuelSources.length} รายการ\n📝 Transaction Logs: ${transactionLogs.length} รายการ`);
+        alert(`🔄 โหลดข้อมูลใหม่สำเร็จ\n⏰ เวลา: ${currentTime}\n📊 พบข้อมูล: ${fuelSources.length} รายการ`);
         
+        hideLoading();
     } catch (error) {
-        console.error('Error in handleRefreshDataClick:', error);
-        
-        // ไม่แสดงข้อความ error ใน Activity Log
-        
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล กรุณาลองใหม่');
+        console.error('Error refreshing data:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+        hideLoading();
     } finally {
         setButtonLoading('refreshDataBtn', false);
-        hideLoading();
-    }
-}
-
-// Handle validate data click
-async function handleValidateDataClick() {
-    try {
-        setButtonLoading('validateDataBtn', true);
-        showLoading('กำลังตรวจสอบข้อมูล...');
-        
-        // โหลดข้อมูลจาก Google Sheets อีกครั้ง (แบบขนาน)
-        await Promise.all([
-            loadInventoryFromSheets(),
-            loadTransactionLogsFromSheets()
-        ]);
-        
-        console.log('✅ Data validation completed');
-        
-        const currentTime = new Date().toLocaleTimeString('th-TH');
-        alert(`✅ ตรวจสอบข้อมูลสำเร็จ\n⏰ เวลา: ${currentTime}\n📊 พบข้อมูล: ${fuelSources.length} รายการ\n📝 Transaction Logs: ${transactionLogs.length} รายการ`);
-        
-    } catch (error) {
-        console.error('Error in handleValidateDataClick:', error);
-        alert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูล กรุณาลองใหม่');
-    } finally {
-        setButtonLoading('validateDataBtn', false);
-        hideLoading();
     }
 }

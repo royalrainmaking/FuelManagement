@@ -975,7 +975,9 @@ function normalizeKey(header) {
     'stock': 'current_stock',
     'ประเภท': 'type',
     'type': 'type',
-    'id': 'id'
+    'id': 'id',
+    'สถานะ': 'status',
+    'status': 'status'
   };
   
   const normalized = header.toString().toLowerCase().trim();
