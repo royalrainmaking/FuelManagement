@@ -1,0 +1,26 @@
+// ⚠️ ไฟล์แก้ไข - ให้ rename เป็น inventory.js หลังจากปิด IDE
+// This file contains the corrected ending for inventory.js
+// Paste this content at the end of the file starting from line 3454
+
+        // แสดง UID Modal พร้อมข้อมูลธุรกรรม
+        showUIDModal({
+            uid: transactionUID,
+            type: 'ซื้อจาก ปตท.',
+            source: pttSource.name,
+            destination: destination.name,
+            volume: displayQuantity,
+            bookNo: bookNo,
+            receiptNo: receiptNo,
+            operator: operatorName
+        });
+        
+        console.log('✅ ซื้อจาก ปตท. สำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in PTT purchase transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการซื้อจาก ปตท. กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitPTTPurchase', false);
+    }
+}

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปรายการเดินบัญชี - ระบบจัดการน้ำมัน</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;200;300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="inventory-style.css">
+    <style>
+        .summary-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .summary-stat {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+        }
+
+        .summary-stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0.5rem 0;
+        }
+
+        .summary-stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .summary-stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+
+        .transaction-filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .transaction-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .transaction-table table {
+            margin-bottom: 0;
+        }
+
+        .transaction-table thead {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+        }
+
+        .transaction-table tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s ease;
+        }
+
+        .transaction-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .transaction-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .table-cell-action {
+            text-align: center;
+        }
+
+        .btn-detail {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            border-radius: 6px;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            border: none;
+            padding: 1.5rem;
+        }
+
+        .modal-body {
+            padding: 2rem;
+            background: #fafbfc;
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid #0d6efd;
+            transition: all 0.2s ease;
+        }
+
+        .detail-item:hover {
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
+        }
+
+        .detail-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.6rem;
+        }
+
+        .detail-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2c3e50;
+            word-break: break-word;
+        }
+
+        .modal-title {
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        /* Ensure modal appears above overlay */
+        .modal {
+            z-index: 1060 !important;
+        }
+        
+        .modal-backdrop {
+            z-index: 1050 !important;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6c757d;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            opacity: 0.3;
+            margin-bottom: 1rem;
+        }
+
+        .transaction-type-badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-purchase {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-transfer {
+            background-color: #f3e5f5;
+            color: #7c3aed;
+        }
+
+        .badge-usage {
+            background-color: #fce4ec;
+            color: #c2185b;
+        }
+
+        .badge-other {
+            background-color: #f1f1f1;
+            color: #424242;
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .pagination-info {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box .fa-search {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+
+        .search-box input {
+            padding-left: 2.5rem;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .search-box input:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+
+        .navbar-logo {
+            max-height: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .detail-row {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .transaction-table {
+                font-size: 0.9rem;
+            }
+
+            .transaction-table thead {
+                font-size: 0.85rem;
+            }
+
+            .table-cell-action {
+                padding: 0.25rem 0 !important;
+            }
+
+            .btn-detail {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="index.html">
+                <img src="img/logo.png" alt="Logo" class="navbar-logo me-2">
+                <div>
+                    <div class="fw-bold">ระบบจัดการน้ำมัน</div>
+                    <small class="opacity-75">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</small>
+                </div>
+            </a>
+            <div class="navbar-nav ms-auto d-flex flex-row gap-2">
+                <a href="index.html" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> กลับ
+                </a>
+                <a href="price-management.html" class="btn btn-warning btn-sm" target="_blank">
+                    <i class="fas fa-cog me-1"></i> จัดการราคา
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Page Title -->
+        <div class="mb-4">
+            <h2 class="mb-2">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>
+                สรุปรายการเดินบัญชี
+            </h2>
+            <p class="text-muted mb-0">ข้อมูลรายการทั้งหมดจากการจัดเก็บและจำหน่ายน้ำมัน</p>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-stat">
+                    <div class="summary-stat-icon text-primary">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <div class="summary-stat-label">จำนวนรายการ</div>
+                    <div class="summary-stat-value" id="totalTransactions">0</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-stat">
+                    <div class="summary-stat-icon text-success">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <div class="summary-stat-label">ปริมาณรวม (ลิตร)</div>
+                    <div class="summary-stat-value" id="totalVolume">0</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-stat">
+                    <div class="summary-stat-icon text-warning">
+                        <i class="fas fa-money-bill"></i>
+                    </div>
+                    <div class="summary-stat-label">มูลค่ารวม (บาท)</div>
+                    <div class="summary-stat-value" id="totalCost">0</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-stat">
+                    <div class="summary-stat-icon text-info">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <div class="summary-stat-label">ราคาเฉลี่ย/ลิตร</div>
+                    <div class="summary-stat-value" id="averagePrice">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="transaction-filters">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">ค้นหา</label>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="form-control" id="searchInput" placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง หรือผู้บันทึก...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">ประเภทรายการ</label>
+                    <select class="form-select" id="transactionTypeFilter">
+                        <option value="">ทั้งหมด</option>
+                        <option value="ซื้อจาก ปตท.">ซื้อจาก ปตท.</option>
+                        <option value="โอนย้าย">โอนย้าย</option>
+                        <option value="ใช้งาน">ใช้งาน</option>
+                        <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">จัดเรียงตาม</label>
+                    <select class="form-select" id="sortByFilter">
+                        <option value="date_desc">วันที่ใหม่สุด</option>
+                        <option value="date_asc">วันที่เก่าสุด</option>
+                        <option value="volume_desc">ปริมาณมากสุด</option>
+                        <option value="volume_asc">ปริมาณน้อยสุด</option>
+                        <option value="cost_desc">มูลค่ามากสุด</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button class="btn btn-primary flex-grow-1" id="resetFiltersBtn">
+                        <i class="fas fa-redo me-1"></i> รีเซ็ต
+                    </button>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-success" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
+                            <i class="fas fa-file-excel me-1"></i> Export
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="exportAllBtn" title="Export ทั้งหมด">
+                            <i class="fas fa-download me-1"></i>ทั้งหมด
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="transaction-table">
+            <div style="overflow-x: auto;">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">วันที่</th>
+                            <th style="width: 10%;">เวลา</th>
+                            <th style="width: 15%;">ประเภท</th>
+                            <th style="width: 15%;">แหล่งน้ำมัน</th>
+                            <th style="width: 15%;">ปลายทาง</th>
+                            <th style="width: 12%;">ปริมาณ (ลิตร)</th>
+                            <th style="width: 12%;">มูลค่า (บาท)</th>
+                            <th style="width: 11%;" class="table-cell-action">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container" id="paginationContainer">
+                <div class="pagination-info" id="paginationInfo">
+                    แสดงรายการ 0 - 0 จาก 0 รายการ
+                </div>
+                <nav>
+                    <ul class="pagination mb-0" id="paginationNav">
+                        <!-- Pagination buttons will be generated here -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-receipt me-2"></i>
+                        รายละเอียดรายการเดินบัญชี
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailModalBody">
+                    <!-- Details will be populated here -->
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="config.js"></script>
+    <script src="transaction-summary.js"></script>
+</body>
+</html>

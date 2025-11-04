@@ -30,6 +30,9 @@
                 <button class="btn btn-outline-light btn-sm" id="refreshDataBtn" type="button">
                     <i class="fas fa-sync-alt me-1"></i> รีเฟรช
                 </button>
+                <a href="transaction-summary.html" class="btn btn-info btn-sm" title="สรุปรายการเดินบัญชี">
+                    <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
+                </a>
                 <a href="price-management.html" class="btn btn-warning btn-sm" target="_blank" title="จัดการราคา (Admin)">
                     <i class="fas fa-cog me-1"></i> จัดการราคา
                 </a>
@@ -62,7 +65,7 @@
                                     </div>
                                 </div>
                                 <div class="overview-content">
-                                    <p class="text-muted mb-2 fw-medium">อยอดเงินรวมของ Budget</p>
+                                    <p class="text-muted mb-2 fw-medium">วงเงินสัญญาซื้อน้ำมันอากาศยาน</p>
                                     <div class="d-flex align-items-baseline">
                                         <h2 class="mb-0 fw-bold me-2" id="totalBudgetAmount" style="font-size: 2rem; color: #7c3aed;">0</h2>
                                         <span class="text-muted fs-6">บาท</span>
@@ -84,7 +87,7 @@
                                     </div>
                                 </div>
                                 <div class="overview-content">
-                                    <p class="text-muted mb-2 fw-medium">งบประมาณคงเหลือ</p>
+                                    <p class="text-muted mb-2 fw-medium">วงเงินสัญญาคงเหลือ</p>
                                     <div class="d-flex align-items-baseline">
                                         <h2 class="mb-0 fw-bold text-success me-2" id="remainingBudget" style="font-size: 2rem;">0</h2>
                                         <span class="text-muted fs-6">บาท</span>
@@ -129,20 +132,46 @@
                                     </div>
                                 </div>
                                 <div class="overview-content">
-                                    <p class="text-muted mb-2 fw-medium">ความจุคงเหลือทั้งหมด</p>
+                                    <p class="text-muted mb-3 fw-medium">ความจุคงเหลือทั้งหมด</p>
                                     
-                                    <!-- Circular Gauge Visualization -->
-                                    <div class="fuel-gauge-container mb-2">
-                                        <div class="fuel-gauge" id="fuelGauge">
-                                            <div class="fuel-gauge-text" id="fuelGaugePercentage">0%</div>
+                                    <!-- Enhanced Fuel Capacity Display -->
+                                    <div class="fuel-capacity-display">
+                                        <!-- Primary Stats Row -->
+                                        <div class="fuel-stats-row mb-3">
+                                            <div class="fuel-stat-item">
+                                                <div class="fuel-percentage-box">
+                                                    <span class="fuel-percentage-value" id="fuelGaugePercentage">55%</span>
+                                                </div>
+                                            </div>
+                                            <div class="fuel-stat-item flex-grow-1">
+                                                <div class="fuel-volume-info">
+                                                    <div class="fuel-volume-value" id="totalFuelInfo">63,361/115,000</div>
+                                                    <div class="fuel-volume-unit">ลิตร</div>
+                                                </div>
+                                            </div>
+                                            <div class="fuel-stat-item">
+                                                <span class="fuel-status-badge" id="fuelStatusBadge">ปกติ</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    
-                                    <!-- Detailed Stats -->
-                                    <div style="font-size: 0.85rem; text-align: center;">
-                                        <p class="mb-0">
-                                            <strong class="text-success" id="totalFuelInfo">0/0 ลิตร</strong>
-                                        </p>
+                                        
+                                        <!-- Progress Bar -->
+                                        <div class="fuel-progress-container mb-2">
+                                            <div class="fuel-progress-bar" id="fuelProgressBar">
+                                                <div class="fuel-progress-fill" id="fuelProgressFill" style="width: 55%"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Detailed Stats -->
+                                        <div class="fuel-detail-stats">
+                                            <div class="fuel-detail-item">
+                                                <span class="fuel-detail-label">ใช้ไป:</span>
+                                                <span class="fuel-detail-value" id="fuelUsedAmount">51,639 ลิตร</span>
+                                            </div>
+                                            <div class="fuel-detail-item">
+                                                <span class="fuel-detail-label">เหลือ:</span>
+                                                <span class="fuel-detail-value" id="fuelRemainingAmount">63,361 ลิตร</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="overview-border-accent bg-success"></div>
