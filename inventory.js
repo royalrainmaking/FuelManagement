@@ -1707,8 +1707,6 @@ function updateSummaryUI(summaryData) {
     // อัพเดทตัวเลข
     document.getElementById('totalPurchaseAmount').textContent = 
         (summaryData.totalPurchaseAmount || 0).toLocaleString();
-    document.getElementById('totalPurchaseVolume').textContent = 
-        (summaryData.totalPurchaseVolume || 0).toLocaleString();
     
     // อัพเดท Total Fuel Info และ Liquid Fill Gauge visualization
     const totalFuelInfoElement = document.getElementById('totalFuelInfo');
@@ -1870,7 +1868,6 @@ function displaySummaryDetails(summaryData) {
 // แสดง Error State
 function displayErrorState() {
     document.getElementById('totalPurchaseAmount').textContent = 'ข้อผิดพลาด';
-    document.getElementById('totalPurchaseVolume').textContent = 'ข้อผิดพลาด';
     document.getElementById('totalCurrentStock').textContent = 'ข้อผิดพลาด';
     
     const cards = document.querySelectorAll('.summary-card');

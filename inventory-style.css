@@ -2397,3 +2397,107 @@ header h1 {
 .card:has(#totalCurrentStock) .overview-border-accent {
     background: #ffc107 !important;
 }
+
+/* Mobile Layout Optimization - Remove shadows and adjust heights */
+@media (max-width: 767.98px) {
+    /* Stack main row vertically */
+    .container-fluid > .row {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    /* Ensure proper column stacking on mobile */
+    .container-fluid > .row > .col-lg-8,
+    .container-fluid > .row > .col-xl-9 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 auto !important;
+        margin-bottom: 1rem;
+    }
+    
+    /* Hide Activity Log sidebar on mobile */
+    .container-fluid > .row > .col-lg-4,
+    .container-fluid > .row > .col-xl-3 {
+        display: none !important;
+    }
+    
+    .card.shadow-sm {
+        box-shadow: none !important;
+        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    }
+    
+    .card.shadow-sm.h-100 {
+        height: auto !important;
+    }
+    
+    .h-100 {
+        height: auto !important;
+    }
+    
+    .card-body {
+        padding: 1rem !important;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-header {
+        padding: 0.75rem 1rem !important;
+    }
+    
+    /* Activity log card height adjustment for mobile */
+    .card-body[style*="height: 500px"] {
+        height: 300px !important;
+    }
+    
+    /* Ensure right sidebar cards don't have full height */
+    .col-lg-4 .card.shadow-sm.h-100,
+    .col-xl-3 .card.shadow-sm.h-100 {
+        box-shadow: none !important;
+        height: auto !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .card.shadow-sm {
+        box-shadow: none !important;
+        border: 1px solid #e9ecef !important;
+        border-radius: 6px !important;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 0.875rem !important;
+    }
+    
+    .card-header {
+        padding: 0.6rem 0.875rem !important;
+        font-size: 0.9rem;
+    }
+    
+    .card-footer {
+        padding: 0.5rem 0.875rem !important;
+    }
+    
+    /* Fuel cards responsive layout */
+    .fuel-card {
+        padding: 0.75rem !important;
+        gap: 0.75rem !important;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    /* Activity log adjustments */
+    .activity-log {
+        padding: 0.4rem !important;
+    }
+    
+    .log-item {
+        padding: 0.5rem !important;
+        gap: 0.5rem !important;
+    }
+}
