@@ -952,31 +952,33 @@
                 if (typeof loadInventoryFromSheets === 'function' && typeof loadTransactionLogsFromSheets === 'function') {
                     showLoading('กำลังเริ่มต้นระบบ...');
                     
+                    // ขั้นที่ 1: โหลดข้อมูลแบบขนาน
                     await Promise.all([
                         loadInventoryFromSheets(),
                         loadTransactionLogsFromSheets()
                     ]);
                     console.log('✅ ข้อมูลโหลดสำเร็จ');
                     
-                    // สร้างหน้าจอ
+                    // ขั้นที่ 2: สร้างหน้าจอและอัพเดท UI แบบขนาน
+                    const uiTasks = [];
+                    
                     if (typeof createFuelCards === 'function') {
-                        showLoading('กำลังสร้างหน้าจอ...');
-                        createFuelCards();
+                        uiTasks.push(Promise.resolve(createFuelCards()));
                         console.log('✅ Fuel cards สร้างสำเร็จ');
                     }
                     
-                    // อัพเดท summary
                     if (typeof updateSummary === 'function') {
-                        updateSummary();
+                        uiTasks.push(updateSummary());
                         console.log('✅ Summary อัพเดตสำเร็จ');
                     }
                     
-                    // Daily confirmation buttons
                     if (typeof updateDailyConfirmationButtons === 'function') {
-                        updateDailyConfirmationButtons();
+                        uiTasks.push(Promise.resolve(updateDailyConfirmationButtons()));
                     }
                     
-                    // Check midnight transition
+                    await Promise.all(uiTasks);
+                    
+                    // ขั้นที่ 3: ตั้งค่า intervals และการปิด loading
                     if (typeof checkMidnightTransition === 'function') {
                         setInterval(checkMidnightTransition, 60000);
                     }
