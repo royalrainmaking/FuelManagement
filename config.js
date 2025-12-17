@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4S1T05Fj3PB0U4ZuVc2VM2s9aQr4vnpxlVfGmUkw1gDa32YmL8oj4_No87kv4v31y/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwGTXgoyNERXX6tKrfX1q7KLuI-LTyQ7Kc7ZUO-x53tfgN2Whk0PZpXY5pSELs2UZn/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -86,6 +86,29 @@ const APP_CONFIG = {
 };
 
 // ========================================
+// LINE Notification Configuration
+// ========================================
+
+const LINE_CONFIG = {
+    // LINE Channel Access Token
+    // ได้จาก https://developers.line.biz/console/
+    CHANNEL_ACCESS_TOKEN: 'Ts3qJEyllswxdeuw+EJP8JToU0YygwxcfKkvkwIA6J1PxGYo1DzkQoem2TwBvhfKuk3dvthfEM7ItJDJjZJI1GINn6TyjRpPD6428bZrFRJDiGgq6Cwz4PIgs/8NsDCbdle9fvMf0ispJucL45SVowdB04t89/1O/w1cDnyilFU=',
+    
+    // LINE Group ID - กลุ่มที่จะส่งแจ้งเตือน
+    GROUP_ID: 'C31b16b0dcb85b6e706b7a4f0e551d787',
+    
+    // Delay ระหว่าง notification (milliseconds)
+    // เพื่อป้องกัน spam
+    NOTIFICATION_DELAY: 1000,  // 1 วินาที
+    
+    // LINE Messaging API Endpoint
+    LINE_API_URL: 'https://api.line.me/v2/bot/message/push',
+    
+    // เปิด/ปิดการส่ง notification
+    ENABLED: true
+};
+
+// ========================================
 // Export Configuration
 // ========================================
 // ทำให้ตัวแปรเหล่านี้สามารถใช้งานได้ในไฟล์อื่นๆ
@@ -97,6 +120,7 @@ if (typeof module !== 'undefined' && module.exports) {
         SHEET_GIDS,
         SHEET_NAMES,
         ADMIN_PASSWORD,
-        APP_CONFIG
+        APP_CONFIG,
+        LINE_CONFIG
     };
 }

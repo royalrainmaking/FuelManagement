@@ -1053,15 +1053,41 @@ async function logTransactionToSheets(logEntry) {
         });
         
         const urlWithParams = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
+        console.log('🔗 Calling Google Apps Script URL:', urlWithParams.substring(0, 100) + '...');
+        
         const response = await fetch(urlWithParams, {
             method: 'GET',
             mode: 'cors'
         });
         
-        const result = await response.json();
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response type:', response.type);
+        
+        const responseText = await response.text();
+        console.log('📡 Response text:', responseText);
+        
+        if (!responseText) {
+            throw new Error('⚠️ Response is empty from Google Apps Script - ตรวจสอบว่า GOOGLE_SCRIPT_URL ถูกต้องหรือไม่ หรือ Deployment ยังไม่เสร็จ');
+        }
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('❌ Failed to parse JSON:', parseError);
+            console.error('❌ Raw response:', responseText);
+            throw new Error('Invalid JSON response from Google Apps Script: ' + responseText);
+        }
+        
+        if (result.logs && Array.isArray(result.logs)) {
+            console.log('%c📊 Google Apps Script Logs:', 'color: #4CAF50; font-weight: bold;');
+            result.logs.forEach(log => {
+                console.log('%c' + log, 'color: #2196F3;');
+            });
+        }
         
         if (result.success) {
-            console.log('บันทึก log ไปยัง Google Sheets สำเร็จ');
+            console.log('✅ บันทึก log ไปยัง Google Sheets สำเร็จ');
         } else {
             throw new Error(result.error || 'ไม่สามารถบันทึก log ได้');
         }
