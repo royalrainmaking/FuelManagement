@@ -1215,27 +1215,34 @@ function createFuelCards() {
             // สร้าง HTML สำหรับแสดงคงเหลือ/ความจุ
             const stockDisplayHTML = source.type === 'purchase' ? `
                 <div class="stock-display">
-                    <div class="stock-label">${stockLabel}</div>
-                    <div class="stock-value">${stockValue} <span style="font-size: 0.6em;">ลิตร</span></div>
+                    <span class="stock-label">${stockLabel}</span>
+                    <span class="stock-value">${stockValue} <span style="font-size: 0.6em;">ลิตร</span></span>
                 </div>
             ` : `
                 <div class="stock-display">
-                    <div class="stock-label">${stockLabel}</div>
-                    <div class="stock-value">${stockValue}</div>
-                    ${capacityDisplay ? `<div class="stock-capacity"><span class="stock-separator">/</span>${capacityDisplay} <span style="font-size: 0.9em;">ลิตร</span></div>` : ''}
+                    <span class="stock-label">${stockLabel}</span>
+                    <span class="stock-value">${stockValue}</span>
+                    ${capacityDisplay ? `<span class="stock-capacity"><span class="stock-separator">/</span>${capacityDisplay} <span style="font-size: 0.9em;">ลิตร</span></span>` : ''}
                 </div>
             `;
             
             card.innerHTML = `
                 <div class="card-content-wrapper">
                     <div class="card-header">
-                        <div class="card-icon">
-                            <img src="${iconSrc}" alt="${source.type}" />
+                        <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0;">
+                            <div class="card-icon">
+                                <img src="${iconSrc}" alt="${source.type}" />
+                            </div>
+                            <div class="card-title">
+                                <h3>${source.name}</h3>
+                                <span class="card-type">${getTypeDisplayName(source.type)}</span>
+                            </div>
                         </div>
-                        <div class="card-title">
-                            <h3>${source.name}</h3>
-                            <span class="card-type">${getTypeDisplayName(source.type)}</span>
-                        </div>
+                        ${source.id !== 'purchase' ? `
+                        <button class="btn-edit-fuel-small" onclick="event.stopPropagation(); openEditFuelModal('${source.id}', '${source.name}', ${source.currentStock})" title="แก้ไขยอด">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ` : ''}
                     </div>
                     <div class="fuel-info-section">
                         <div class="fuel-info">
@@ -1421,6 +1428,88 @@ function updateDailyConfirmationButtons() {
         }
     });
     console.log('✅ ปุ่มยืนยันยอดอัพเดตแล้ว');
+}
+
+function openEditFuelModal(sourceId, sourceName, currentStock) {
+    try {
+        const modal = document.getElementById('editFuelModal');
+        if (!modal) {
+            console.error('❌ editFuelModal not found in HTML');
+            return;
+        }
+        
+        window.currentEditFuel = {
+            sourceId: sourceId,
+            sourceName: sourceName,
+            currentStock: currentStock
+        };
+        
+        document.getElementById('editFuelSourceName').textContent = sourceName;
+        document.getElementById('editFuelRemaining').value = currentStock;
+        
+        modal.style.display = 'block';
+    } catch (error) {
+        console.error('Error in openEditFuelModal:', error);
+        alert('เกิดข้อผิดพลาดในการเปิด Modal');
+    }
+}
+
+function closeEditFuelModal() {
+    const modal = document.getElementById('editFuelModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.getElementById('editFuelRemaining').value = '';
+    }
+}
+
+async function submitEditFuel() {
+    const remaining = document.getElementById('editFuelRemaining').value.trim();
+    
+    if (!remaining || isNaN(remaining) || parseFloat(remaining) < 0) {
+        alert('กรุณากรอกจำนวนลิตรใหม่ที่ถูกต้อง');
+        return;
+    }
+    
+    try {
+        showLoading('กำลังอัพเดตข้อมูล...');
+        setButtonLoading('submitEditFuelBtn', true);
+        
+        const sourceId = window.currentEditFuel.sourceId;
+        const sourceName = window.currentEditFuel.sourceName;
+        const remainingValue = parseFloat(remaining);
+        
+        const url = `${GOOGLE_SCRIPT_URL}?action=updateFuelStock&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.INVENTORY}&fuelName=${encodeURIComponent(sourceName)}&newStock=${remainingValue}`;
+        
+        console.log('📤 Updating fuel stock:', { fuelName: sourceName, newStock: remainingValue });
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Fuel data updated successfully');
+            
+            const fuelSource = fuelSources.find(source => source.id === sourceId);
+            if (fuelSource) {
+                fuelSource.currentStock = remainingValue;
+            }
+            
+            closeEditFuelModal();
+            createFuelCards();
+            updateDailyConfirmationButtons();
+            hideLoading();
+            alert('✅ อัพเดตข้อมูลสำเร็จ!');
+        } else {
+            console.error('❌ Error:', result.error);
+            hideLoading();
+            alert('เกิดข้อผิดพลาด: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error in submitEditFuel:', error);
+        hideLoading();
+        alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
+    } finally {
+        setButtonLoading('submitEditFuelBtn', false);
+    }
 }
 
 // ฟังก์ชันแปลงวันที่เป็น string (YYYY-MM-DD)
@@ -1712,6 +1801,8 @@ function updateSummaryUI(summaryData) {
     const totalFuelInfoElement = document.getElementById('totalFuelInfo');
     const liquidWave = document.getElementById('liquidWave');
     const liquidPercentage = document.getElementById('liquidPercentage');
+    const fuelGaugePercentage = document.getElementById('fuelGaugePercentage');
+    const fuelProgressFill = document.getElementById('fuelProgressFill');
     
     const totalCapacity = summaryData.totalCapacity || 0;
     const currentStock = summaryData.totalCurrentStock || 0;
@@ -1735,6 +1826,21 @@ function updateSummaryUI(summaryData) {
         if (liquidPercentage) {
             liquidPercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
         }
+        if (fuelGaugePercentage) {
+            fuelGaugePercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
+        }
+        
+        // อัพเดท Progress Bar
+        if (fuelProgressFill) {
+            fuelProgressFill.style.width = `${capacityPercentage}%`;
+            // อัพเดท progress bar color based on status
+            fuelProgressFill.classList.remove('low', 'medium');
+            if (capacityPercentage < 30) {
+                fuelProgressFill.classList.add('low');
+            } else if (capacityPercentage < 70) {
+                fuelProgressFill.classList.add('medium');
+            }
+        }
     } else {
         if (totalFuelInfoElement) {
             totalFuelInfoElement.textContent = `${currentStock.toLocaleString()}/0 ลิตร`;
@@ -1744,6 +1850,12 @@ function updateSummaryUI(summaryData) {
         }
         if (liquidPercentage) {
             liquidPercentage.textContent = '0%';
+        }
+        if (fuelGaugePercentage) {
+            fuelGaugePercentage.textContent = '0%';
+        }
+        if (fuelProgressFill) {
+            fuelProgressFill.style.width = '0%';
         }
     }
     

@@ -114,41 +114,18 @@
                                     <p class="text-muted mb-3 fw-medium">ความจุคงเหลือทั้งหมด</p>
                                     
                                     <!-- Enhanced Fuel Capacity Display -->
-                                    <div class="fuel-capacity-display">
-                                        <!-- Primary Stats Row -->
-                                        <div class="fuel-stats-row mb-3">
-                                            <div class="fuel-stat-item">
-                                                <div class="fuel-percentage-box">
-                                                    <span class="fuel-percentage-value" id="fuelGaugePercentage">55%</span>
-                                                </div>
-                                            </div>
-                                            <div class="fuel-stat-item flex-grow-1">
-                                                <div class="fuel-volume-info">
-                                                    <div class="fuel-volume-value" id="totalFuelInfo">63,361/115,000</div>
-                                                    <div class="fuel-volume-unit">ลิตร</div>
-                                                </div>
-                                            </div>
-                                            <div class="fuel-stat-item">
-                                                <span class="fuel-status-badge" id="fuelStatusBadge">ปกติ</span>
-                                            </div>
-                                        </div>
+                                    <div class="d-flex flex-column gap-2">
+                                        <!-- Volume Info -->
+                                        <div class="fuel-volume-value" id="totalFuelInfo">63,057/115,000 ลิตร</div>
                                         
-                                        <!-- Progress Bar -->
-                                        <div class="fuel-progress-container mb-2">
+                                        <!-- Progress Bar with Percentage -->
+                                        <div class="fuel-progress-container">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <span style="font-size: 0.75rem; color: #6c757d;"></span>
+                                                <span class="fuel-progress-percentage" id="fuelGaugePercentage">55%</span>
+                                            </div>
                                             <div class="fuel-progress-bar" id="fuelProgressBar">
                                                 <div class="fuel-progress-fill" id="fuelProgressFill" style="width: 55%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Detailed Stats -->
-                                        <div class="fuel-detail-stats">
-                                            <div class="fuel-detail-item">
-                                                <span class="fuel-detail-label">ใช้ไป:</span>
-                                                <span class="fuel-detail-value" id="fuelUsedAmount">51,639 ลิตร</span>
-                                            </div>
-                                            <div class="fuel-detail-item">
-                                                <span class="fuel-detail-label">เหลือ:</span>
-                                                <span class="fuel-detail-value" id="fuelRemainingAmount">63,361 ลิตร</span>
                                             </div>
                                         </div>
                                     </div>
@@ -921,6 +898,30 @@
                 <div style="display: flex; gap: 10px;">
                     <button id="submitDailyConfirmationBtn" onclick="submitDailyConfirmation()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยืนยัน</button>
                     <button onclick="document.getElementById('dailyConfirmationModal').style.display='none'; document.querySelector('input[name=operatorName]').value='';" style="flex: 1; padding: 10px; background: #e8e8e8; color: #333; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Fuel Modal -->
+    <div id="editFuelModal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 90%; max-width: 400px; margin: auto; margin-top: 50px; background-color: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); padding: 0;">
+            <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; font-size: 1.3rem;">แก้ไขยอดน้ำมัน</h2>
+                <button onclick="closeEditFuelModal()" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">×</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <p style="color: #666; margin: 0 0 5px 0; font-size: 0.9rem;">แหล่งน้ำมัน:</p>
+                    <p id="editFuelSourceName" style="font-weight: 600; font-size: 1.1rem; color: #2c3e50; margin: 0;">-</p>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 0.95rem;">คงเหลือใหม่ (ลิตร) <span style="color: #e74c3c;">*</span></label>
+                    <input type="number" id="editFuelRemaining" placeholder="กรอกจำนวนลิตรใหม่" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; font-family: inherit;" min="0" step="0.01">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="submitEditFuelBtn" onclick="submitEditFuel()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">บันทึก</button>
+                    <button onclick="closeEditFuelModal()" style="flex: 1; padding: 10px; background: #e8e8e8; color: #333; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยกเลิก</button>
                 </div>
             </div>
         </div>

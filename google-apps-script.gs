@@ -314,6 +314,8 @@ function doGet(e) {
         return getInventory(sheetsId, gid);
       case 'updateInventory':
         return updateInventory(e.parameter.data, sheetsId, gid);
+      case 'updateFuelStock':
+        return updateFuelStock(e.parameter.fuelName, e.parameter.newStock, sheetsId, gid);
       case 'getTransactionLogs':
         return getTransactionLogs(sheetsId, gid);
       case 'logTransaction':
@@ -705,6 +707,78 @@ function updateInventory(dataString, sheetsId, gid) {
       
   } catch (error) {
     console.error('Error in updateInventory:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันอัพเดตยอดน้ำมัน (คงเหลือ) ในคอลัมน์ D
+ */
+function updateFuelStock(fuelName, newStock, sheetsId, gid) {
+  try {
+    if (!fuelName || newStock === undefined) {
+      throw new Error('ต้องระบุ fuelName และ newStock');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    const sheets = spreadsheet.getSheets();
+    
+    let targetSheet = null;
+    for (let sheet of sheets) {
+      if (sheet.getSheetId().toString() === gid) {
+        targetSheet = sheet;
+        break;
+      }
+    }
+    
+    if (!targetSheet) {
+      targetSheet = sheets[0];
+    }
+    
+    const range = targetSheet.getDataRange();
+    const values = range.getValues();
+    const headers = values[0];
+    
+    const nameCol = findColumnIndex(headers, ['name', 'source_name', 'ชื่อ']);
+    const stockCol = findColumnIndex(headers, ['current_stock', 'คงเหลือ', 'stock']);
+    
+    if (nameCol === -1 || stockCol === -1) {
+      throw new Error('ไม่พบ column ที่จำเป็น (name หรือ current_stock)');
+    }
+    
+    let found = false;
+    for (let i = 1; i < values.length; i++) {
+      const rowName = values[i][nameCol];
+      if (rowName && rowName.toString().trim() === fuelName.toString().trim()) {
+        values[i][stockCol] = parseFloat(newStock);
+        found = true;
+        console.log(`✅ Updated "${fuelName}" with new stock: ${newStock}`);
+        break;
+      }
+    }
+    
+    if (!found) {
+      throw new Error(`ไม่พบแหล่งน้ำมัน: ${fuelName}`);
+    }
+    
+    range.setValues(values);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: `อัพเดต "${fuelName}" เป็น ${newStock} ลิตรสำเร็จ`,
+        fuelName: fuelName,
+        newStock: newStock
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in updateFuelStock:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,
