@@ -17,13 +17,23 @@ const totalVolumeEl = document.getElementById('totalVolume');
 const totalCostEl = document.getElementById('totalCost');
 const averagePriceEl = document.getElementById('averagePrice');
 const searchInput = document.getElementById('searchInput');
-const transactionTypeFilter = document.getElementById('transactionTypeFilter');
 const sortByFilter = document.getElementById('sortByFilter');
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 const paginationContainer = document.getElementById('paginationContainer');
 const paginationInfo = document.getElementById('paginationInfo');
 const paginationNav = document.getElementById('paginationNav');
 const detailModalBody = document.getElementById('detailModalBody');
+
+// Advanced Filters
+const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFilters');
+const advancedFiltersPanel = document.getElementById('advancedFiltersPanel');
+const sourceFilterContainer = document.getElementById('sourceFilterContainer');
+const destinationFilterContainer = document.getElementById('destinationFilterContainer');
+const aircraftFilterContainer = document.getElementById('aircraftFilterContainer');
+const unitFilterContainer = document.getElementById('unitFilterContainer');
+const startDateFilter = document.getElementById('startDateFilter');
+const endDateFilter = document.getElementById('endDateFilter');
+
 let detailModal = null;
 
 /**
@@ -49,9 +59,25 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function setupEventListeners() {
     searchInput.addEventListener('input', applyFilters);
-    transactionTypeFilter.addEventListener('change', applyFilters);
     sortByFilter.addEventListener('change', applyFilters);
     resetFiltersBtn.addEventListener('click', resetFilters);
+    
+    // Advanced Filters
+    if (toggleAdvancedFiltersBtn) {
+        toggleAdvancedFiltersBtn.addEventListener('click', () => {
+            advancedFiltersPanel.style.display = advancedFiltersPanel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    
+    // Advanced Filter Checkboxes
+    sourceFilterContainer.addEventListener('change', applyFilters);
+    destinationFilterContainer.addEventListener('change', applyFilters);
+    aircraftFilterContainer.addEventListener('change', applyFilters);
+    unitFilterContainer.addEventListener('change', applyFilters);
+    
+    // Date Range Filters
+    startDateFilter.addEventListener('change', applyFilters);
+    endDateFilter.addEventListener('change', applyFilters);
     
     // Export buttons
     const exportFilteredBtn = document.getElementById('exportFilteredBtn');
@@ -66,14 +92,83 @@ function setupEventListeners() {
 }
 
 /**
- * Load transaction data from Google Apps Script
+ * Populate advanced filter options with checkboxes
+ */
+function populateFilterOptions() {
+    const sources = new Set();
+    const destinations = new Set();
+    const aircrafts = new Set();
+    const units = new Set();
+    
+    allTransactions.forEach(transaction => {
+        if (transaction.source_name) sources.add(transaction.source_name);
+        if (transaction.destination_name) destinations.add(transaction.destination_name);
+        if (transaction.aircraft_type) aircrafts.add(transaction.aircraft_type);
+        if (transaction.unit) units.add(transaction.unit);
+    });
+    
+    // Helper function to create checkboxes
+    const createCheckboxGroup = (values, containerId) => {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        Array.from(values).sort().forEach((value, index) => {
+            const checkboxDiv = document.createElement('div');
+            checkboxDiv.className = 'form-check';
+            checkboxDiv.style.marginBottom = '8px';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input';
+            checkbox.id = `${containerId}_${index}`;
+            checkbox.value = value;
+            
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.htmlFor = `${containerId}_${index}`;
+            label.textContent = value;
+            label.style.marginBottom = '0';
+            
+            checkboxDiv.appendChild(checkbox);
+            checkboxDiv.appendChild(label);
+            container.appendChild(checkboxDiv);
+        });
+    };
+    
+    createCheckboxGroup(sources, 'sourceFilterContainer');
+    createCheckboxGroup(destinations, 'destinationFilterContainer');
+    createCheckboxGroup(aircrafts, 'aircraftFilterContainer');
+    createCheckboxGroup(units, 'unitFilterContainer');
+}
+
+/**
+ * Load transaction data from sessionStorage cache or Google Apps Script
  */
 function loadTransactionData() {
     showLoading(true);
     
+    // 💾 ตรวจสอบ sessionStorage cache ก่อน
+    try {
+        const cachedData = sessionStorage.getItem('transactionLogsCache');
+        if (cachedData) {
+            const cacheObj = JSON.parse(cachedData);
+            if (cacheObj.success && cacheObj.data && Array.isArray(cacheObj.data)) {
+                console.log('✅ ใช้ข้อมูลจาก sessionStorage cache:', cacheObj.data.length, 'transactions');
+                allTransactions = cacheObj.data;
+                filteredTransactions = [...allTransactions];
+                populateFilterOptions();
+                applyFilters();
+                showLoading(false);
+                return;
+            }
+        }
+    } catch (cacheError) {
+        console.warn('⚠️ ไม่สามารถอ่าน sessionStorage cache:', cacheError);
+    }
+    
+    // หากไม่มี cache หรือ cache ไม่ถูกต้อง ให้ดึงจาก API
     const url = `${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.TRANSACTION_HISTORY}`;
     
-    console.log('Loading transactions from URL:', url);
+    console.log('Loading transactions from API:', url);
     
     fetch(url)
         .then(response => {
@@ -84,11 +179,12 @@ function loadTransactionData() {
             return response.json();
         })
         .then(data => {
-            console.log('Data received:', data);
+            console.log('Data received from API:', data);
             if (data.success && data.data && Array.isArray(data.data)) {
-                console.log('Successfully loaded', data.data.length, 'transactions');
+                console.log('Successfully loaded', data.data.length, 'transactions from API');
                 allTransactions = data.data;
                 filteredTransactions = [...allTransactions];
+                populateFilterOptions();
                 applyFilters();
             } else {
                 console.error('Invalid data format:', data);
@@ -108,22 +204,44 @@ function loadTransactionData() {
  * Apply filters and sorting
  */
 function applyFilters() {
-    // Search filter
+    // Get all filter values
     const searchText = searchInput.value.toLowerCase();
-    const transactionType = transactionTypeFilter.value;
+    const selectedSources = Array.from(sourceFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedDestinations = Array.from(destinationFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedAircrafts = Array.from(aircraftFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedUnits = Array.from(unitFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const startDate = startDateFilter.value;
+    const endDate = endDateFilter.value;
     const sortBy = sortByFilter.value;
 
     filteredTransactions = allTransactions.filter(transaction => {
+        // Search filter
         const matchesSearch = !searchText || 
             transaction.source_name.toLowerCase().includes(searchText) ||
             transaction.destination_name.toLowerCase().includes(searchText) ||
             transaction.operator_name.toLowerCase().includes(searchText) ||
             transaction.transaction_type.toLowerCase().includes(searchText);
 
-        const matchesType = !transactionType || 
-            transaction.transaction_type === transactionType;
+        // Source filter (multiple selection)
+        const matchesSource = selectedSources.length === 0 || 
+            selectedSources.includes(transaction.source_name);
 
-        return matchesSearch && matchesType;
+        // Destination filter (multiple selection)
+        const matchesDestination = selectedDestinations.length === 0 || 
+            selectedDestinations.includes(transaction.destination_name);
+
+        // Aircraft filter (multiple selection)
+        const matchesAircraft = selectedAircrafts.length === 0 || 
+            selectedAircrafts.includes(transaction.aircraft_type);
+
+        // Unit filter (multiple selection)
+        const matchesUnit = selectedUnits.length === 0 || 
+            selectedUnits.includes(transaction.unit);
+
+        // Date range filter
+        const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
+
+        return matchesSearch && matchesSource && matchesDestination && matchesAircraft && matchesUnit && matchesDateRange;
     });
 
     // Apply sorting
@@ -139,15 +257,24 @@ function applyFilters() {
 }
 
 /**
- * Sort transactions
+ * Helper function to create datetime string for sorting
+ */
+function getDateTimeString(transaction) {
+    const date = transaction.date || '1900-01-01';
+    const time = transaction.time || '00:00:00';
+    return `${date} ${time}`;
+}
+
+/**
+ * Sort transactions (by date and time)
  */
 function sortTransactions(transactions, sortBy) {
     switch(sortBy) {
         case 'date_asc':
-            transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            transactions.sort((a, b) => new Date(getDateTimeString(a)) - new Date(getDateTimeString(b)));
             break;
         case 'date_desc':
-            transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            transactions.sort((a, b) => new Date(getDateTimeString(b)) - new Date(getDateTimeString(a)));
             break;
         case 'volume_asc':
             transactions.sort((a, b) => a.volume - b.volume);
@@ -159,7 +286,7 @@ function sortTransactions(transactions, sortBy) {
             transactions.sort((a, b) => b.total_cost - a.total_cost);
             break;
         default:
-            transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            transactions.sort((a, b) => new Date(getDateTimeString(b)) - new Date(getDateTimeString(a)));
     }
 }
 
@@ -225,9 +352,16 @@ function renderTable() {
                     <strong>${formatNumber(transaction.total_cost)}</strong>
                 </td>
                 <td class="table-cell-action">
-                    <button class="btn btn-sm btn-info btn-detail" onclick="showDetailModal('${transactionId}')">
-                        <i class="fas fa-eye"></i> ดู
-                    </button>
+                    <div class="btn-group" role="group" style="gap: 3px;">
+                        <button class="btn btn-sm btn-info btn-detail" onclick="showDetailModal('${transactionId}')" title="ดูรายละเอียด">
+                            <i class="fas fa-eye"></i> ดู
+                        </button>
+                        ${transaction.image_url ? `
+                        <button class="btn btn-sm btn-success btn-detail" onclick="viewImageModal('${transaction.image_url}', '${(transaction.image_filename || '').replace(/'/g, "\\'")}', '${transactionId}')" title="ดูรูปภาพ">
+                            <i class="fas fa-image"></i> รูป
+                        </button>
+                        ` : ''}
+                    </div>
                 </td>
             </tr>
         `;
@@ -326,12 +460,75 @@ function showDetailModal(transactionId) {
                 </div>
             </div>
 
+            <!-- Row 6: Aircraft Info (if available) -->
+            ${(transaction.aircraft_type || transaction.aircraft_number) ? `
+            <div class="detail-row">
+                ${transaction.aircraft_type ? `
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fas fa-plane me-1"></i>ประเภทอากาศยาน</div>
+                    <div class="detail-value">${transaction.aircraft_type}</div>
+                </div>
+                ` : ''}
+                ${transaction.aircraft_number ? `
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fas fa-id-card me-1"></i>เลขทะเบียน</div>
+                    <div class="detail-value">${transaction.aircraft_number}</div>
+                </div>
+                ` : ''}
+            </div>
+            ` : ''}
+
+            <!-- Row 7: Book & Receipt Info (if available) -->
+            ${(transaction.book_no || transaction.receipt_no) ? `
+            <div class="detail-row">
+                ${transaction.book_no ? `
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fas fa-book me-1"></i>Book No.</div>
+                    <div class="detail-value">${transaction.book_no}</div>
+                </div>
+                ` : ''}
+                ${transaction.receipt_no ? `
+                <div class="detail-item">
+                    <div class="detail-label"><i class="fas fa-receipt me-1"></i>Receipt No.</div>
+                    <div class="detail-value">${transaction.receipt_no}</div>
+                </div>
+                ` : ''}
+            </div>
+            ` : ''}
+
             <!-- Additional Info (if available) -->
+            ${transaction.missions ? `
+            <div class="detail-row">
+                <div class="detail-item" style="grid-column: 1 / -1;">
+                    <div class="detail-label"><i class="fas fa-tasks me-1"></i>ภาระกิจ</div>
+                    <div class="detail-value">${transaction.missions}</div>
+                </div>
+            </div>
+            ` : ''}
+            
             ${transaction.notes ? `
             <div class="detail-row">
                 <div class="detail-item" style="grid-column: 1 / -1;">
                     <div class="detail-label"><i class="fas fa-note-sticky me-1"></i>หมายเหตุ</div>
                     <div class="detail-value">${transaction.notes}</div>
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Image Section -->
+            ${transaction.image_url ? `
+            <div class="detail-row">
+                <div class="detail-item" style="grid-column: 1 / -1;">
+                    <div class="detail-label"><i class="fas fa-image me-1"></i>รูปภาพเอกสาร</div>
+                    <div style="margin-top: 1rem;">
+                        <div style="max-width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
+                            <img src="${transaction.image_url}" alt="รูปภาพรายการ" style="width: 100%; height: auto; display: block;">
+                        </div>
+                        <div style="margin-top: 0.8rem; font-size: 0.85rem; color: #6c757d;">
+                            <div><strong>ไฟล์:</strong> ${transaction.image_filename || '-'}</div>
+                            <div><strong>วันที่อัพโหลด:</strong> ${transaction.image_upload_date ? new Date(transaction.image_upload_date).toLocaleString('th-TH') : '-'}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
             ` : ''}
@@ -454,8 +651,16 @@ function goToPage(page) {
  */
 function resetFilters() {
     searchInput.value = '';
-    transactionTypeFilter.value = '';
     sortByFilter.value = 'date_desc';
+    startDateFilter.value = '';
+    endDateFilter.value = '';
+    
+    // Uncheck all checkboxes
+    sourceFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    destinationFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    aircraftFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    unitFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    
     applyFilters();
 }
 
@@ -530,7 +735,7 @@ function exportToExcel(exportAll) {
             return;
         }
         
-        // Create header row
+        // Create header row with all available fields
         const headers = [
             'วันที่',
             'เวลา',
@@ -541,10 +746,16 @@ function exportToExcel(exportAll) {
             'ราคา/ลิตร (บาท)',
             'มูลค่ารวม (บาท)',
             'ผู้บันทึก',
+            'หน่วย',
+            'ประเภทอากาศยาน',
+            'เลขทะเบียน',
+            'Book No.',
+            'Receipt No.',
+            'ภาระกิจ',
             'หมายเหตุ'
         ];
         
-        // Map transaction data to rows
+        // Map transaction data to rows (include all detail fields)
         const rows = dataToExport.map(transaction => [
             formatDate(transaction.date),
             transaction.time || '-',
@@ -555,6 +766,12 @@ function exportToExcel(exportAll) {
             transaction.price_per_liter || '-',
             transaction.total_cost,
             transaction.operator_name || '-',
+            transaction.unit || '-',
+            transaction.aircraft_type || '-',
+            transaction.aircraft_number || '-',
+            transaction.book_no || '-',
+            transaction.receipt_no || '-',
+            transaction.missions || '-',
             transaction.notes || '-'
         ]);
         
@@ -595,6 +812,12 @@ function exportToExcel(exportAll) {
             { wch: 15 },  // ราคา/ลิตร
             { wch: 15 },  // มูลค่ารวม
             { wch: 15 },  // ผู้บันทึก
+            { wch: 12 },  // หน่วย
+            { wch: 18 },  // ประเภทอากาศยาน
+            { wch: 15 },  // เลขทะเบียน
+            { wch: 15 },  // Book No.
+            { wch: 15 },  // Receipt No.
+            { wch: 30 },  // ภาระกิจ
             { wch: 20 }   // หมายเหตุ
         ];
         worksheetFinal['!cols'] = colWidths;
@@ -633,5 +856,96 @@ function exportToExcel(exportAll) {
     } catch (error) {
         console.error('Export error:', error);
         alert('เกิดข้อผิดพลาดในการส่งออก: ' + error.message);
+    }
+}
+
+/**
+ * View image in fullscreen modal
+ */
+function viewImageModal(imageUrl, filename, transactionId) {
+    try {
+        const imageModalImage = document.getElementById('imageModalImage');
+        const imageModalTitle = document.getElementById('imageModalTitle');
+        const imageModalInfo = document.getElementById('imageModalInfo');
+        const imageModalDownloadBtn = document.getElementById('imageModalDownloadBtn');
+        
+        if (!imageModalImage || !imageModalTitle) {
+            console.error('Image modal elements not found');
+            return;
+        }
+        
+        // Determine the display URL
+        let displayUrl = imageUrl;
+        const transaction = transactionStore[transactionId];
+        
+        if (transaction && transaction.image_drive_id) {
+            // Use direct link if Drive ID is available
+            displayUrl = `https://drive.google.com/uc?export=view&id=${transaction.image_drive_id}`;
+        } else if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('/d/')) {
+            // Extract ID from URL if possible
+            const match = imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                displayUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            }
+        }
+        
+        imageModalImage.src = displayUrl;
+        imageModalImage.alt = filename || 'รูปภาพรายการ';
+        
+        imageModalTitle.textContent = filename || 'รูปภาพรายการ';
+        
+        if (transaction && transaction.image_upload_date) {
+            const uploadDate = new Date(transaction.image_upload_date).toLocaleString('th-TH');
+            imageModalInfo.textContent = `อัพโหลดเมื่อ: ${uploadDate}`;
+        } else {
+            imageModalInfo.textContent = '';
+        }
+        
+        imageModalDownloadBtn.href = imageUrl;
+        imageModalDownloadBtn.download = filename || 'image.jpg';
+        
+        const imageModal = new bootstrap.Modal(document.getElementById('imageModal'), {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Setup fullscreen toggle
+        const fullscreenToggleBtn = document.getElementById('fullscreenToggleBtn');
+        const modalDialog = document.querySelector('#imageModal .modal-dialog');
+        const modalBody = document.querySelector('#imageModal .modal-body');
+        
+        if (fullscreenToggleBtn) {
+            // Reset state when modal opens
+            modalDialog.classList.remove('modal-fullscreen');
+            imageModalImage.style.maxHeight = '70vh';
+            fullscreenToggleBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            fullscreenToggleBtn.title = 'ขยายเต็มจอ';
+            
+            // Remove existing event listeners to prevent duplicates
+            const newBtn = fullscreenToggleBtn.cloneNode(true);
+            fullscreenToggleBtn.parentNode.replaceChild(newBtn, fullscreenToggleBtn);
+            
+            newBtn.addEventListener('click', function() {
+                const isFullscreen = modalDialog.classList.contains('modal-fullscreen');
+                
+                if (isFullscreen) {
+                    modalDialog.classList.remove('modal-fullscreen');
+                    imageModalImage.style.maxHeight = '70vh';
+                    this.innerHTML = '<i class="fas fa-expand"></i>';
+                    this.title = 'ขยายเต็มจอ';
+                } else {
+                    modalDialog.classList.add('modal-fullscreen');
+                    imageModalImage.style.maxHeight = '90vh';
+                    this.innerHTML = '<i class="fas fa-compress"></i>';
+                    this.title = 'ย่อขนาด';
+                }
+            });
+        }
+        
+        imageModal.show();
+        
+    } catch (error) {
+        console.error('Error viewing image:', error);
+        alert('เกิดข้อผิดพลาดในการแสดงรูปภาพ: ' + error.message);
     }
 }

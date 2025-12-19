@@ -44,7 +44,7 @@ function getTransactionLogs(sheetsId, gid) {
       }
       
       logs.push({
-        date: row[0] ? Utilities.formatDate(new Date(row[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '',
+        date: row[0] ? Utilities.formatDate(new Date(row[0]), 'Asia/Bangkok', 'yyyy-MM-dd') : '',
         time: row[1] || '',
         transaction_type: row[2] || '',
         source_name: row[3] || '',

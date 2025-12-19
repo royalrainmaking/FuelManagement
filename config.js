@@ -15,13 +15,19 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwoHjt1J7NKY0CbOrZP3y-q0KTjhoWIBdzIGuOMq2dEceaIc3BPlSqXjWtYkOEjoTVL/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz7MZdpYC2JYwknZrcHLLznSXt1a3FjpP5S0CZKWDDc8avFA_bVMxhw1Lm_GlI0sGiD/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
  * Format: https://docs.google.com/spreadsheets/d/{SHEETS_ID}/edit
  */
 const GOOGLE_SHEETS_ID = '18EaX2GwcZaPFXzcL0B9T4gFRAOhBXdHqZHm1bMJ8-sE';
+
+/**
+ * Google Drive Folder ID สำหรับเก็บรูปภาพ
+ * Format: https://drive.google.com/drive/folders/{FOLDER_ID}
+ */
+const GOOGLE_DRIVE_FOLDER_ID = '14TH9RLs8F1VTewGcc5DWsmWdafmKOjLN';
 
 /**
  * GID ของแต่ละ Sheet (ได้จาก URL เมื่อเปิด Sheet นั้นๆ)
@@ -60,6 +66,12 @@ const SHEET_NAMES = {
  * ⚠️ ในระบบจริงควรเก็บไว้ที่ server-side
  */
 const ADMIN_PASSWORD = 'admin123';
+
+/**
+ * รหัสของแอดมินสำหรับการแก้ไขยอดน้ำมัน
+ * ⚠️ ในระบบจริงควรเก็บไว้ที่ server-side
+ */
+const ADMIN_CODE_FUEL_EDIT = 'admin123';
 
 // ========================================
 // Application Settings
@@ -117,6 +129,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         GOOGLE_SCRIPT_URL,
         GOOGLE_SHEETS_ID,
+        GOOGLE_DRIVE_FOLDER_ID,
         SHEET_GIDS,
         SHEET_NAMES,
         ADMIN_PASSWORD,

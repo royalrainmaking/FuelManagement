@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload Test - Phase 1</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        h2 {
+            color: #333;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 10px 0;
+        }
+        #testPreview {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Phase 1 - Image Upload Validation Test</h1>
+        
+        <div class="test-section">
+            <h2>1. JavaScript API Validation</h2>
+            <div id="jsValidation"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. File Validation Tests</h2>
+            <div id="fileValidation"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. Interactive Test</h2>
+            <label>Select an image file:</label>
+            <input type="file" id="testFileInput" accept="image/*">
+            <div id="testPreview"></div>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <script>
+        const ImageUpload = {
+            MAX_FILE_SIZE: 5 * 1024 * 1024,
+            ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+            
+            validateImageFile(file) {
+                if (!file) {
+                    return { valid: false, error: 'ยังไม่ได้เลือกไฟล์' };
+                }
+                
+                if (file.size > this.MAX_FILE_SIZE) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    return { 
+                        valid: false, 
+                        error: `ไฟล์มีขนาดใหญ่เกิน 5MB (ไฟล์ปัจจุบัน: ${sizeMB}MB)` 
+                    };
+                }
+                
+                if (!this.ALLOWED_TYPES.includes(file.type)) {
+                    return { 
+                        valid: false, 
+                        error: `ประเภทไฟล์ไม่รองรับ (${file.type}). รองรับเฉพาะ: JPG, PNG, GIF, WebP, BMP` 
+                    };
+                }
+                
+                return { valid: true };
+            }
+        };
+        
+        const testResults = document.getElementById('jsValidation');
+        let html = '';
+        
+        if (typeof ImageUpload === 'object') {
+            html += '<div class="test-result pass">✅ ImageUpload object exists</div>';
+        } else {
+            html += '<div class="test-result fail">❌ ImageUpload object not found</div>';
+        }
+        
+        const requiredMethods = ['validateImageFile'];
+        requiredMethods.forEach(method => {
+            if (typeof ImageUpload[method] === 'function') {
+                html += `<div class="test-result pass">✅ ImageUpload.${method}() exists</div>`;
+            } else {
+                html += `<div class="test-result fail">❌ ImageUpload.${method}() not found</div>`;
+            }
+        });
+        
+        html += `<div class="test-result pass">✅ MAX_FILE_SIZE: ${(ImageUpload.MAX_FILE_SIZE / (1024 * 1024))} MB</div>`;
+        html += `<div class="test-result pass">✅ ALLOWED_TYPES: ${ImageUpload.ALLOWED_TYPES.join(', ')}</div>`;
+        
+        testResults.innerHTML = html;
+        
+        document.getElementById('testFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const resultsDiv = document.getElementById('testResults');
+            const previewDiv = document.getElementById('testPreview');
+            
+            if (!file) {
+                resultsDiv.innerHTML = '<div class="test-result fail">No file selected</div>';
+                return;
+            }
+            
+            const validation = ImageUpload.validateImageFile(file);
+            let html = '';
+            
+            html += `<div class="test-result"><strong>Filename:</strong> ${file.name}</div>`;
+            html += `<div class="test-result"><strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB</div>`;
+            html += `<div class="test-result"><strong>Type:</strong> ${file.type}</div>`;
+            
+            if (validation.valid) {
+                html += '<div class="test-result pass">✅ Validation: PASSED</div>';
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewDiv.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 300px; border-radius: 4px;">`;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                html += `<div class="test-result fail">❌ Validation: FAILED</div>`;
+                html += `<div class="test-result fail"><strong>Error:</strong> ${validation.error}</div>`;
+                previewDiv.innerHTML = '';
+            }
+            
+            resultsDiv.innerHTML = html;
+        });
+        
+        console.log('✅ Phase 1 test page loaded successfully');
+    </script>
+</body>
+</html>

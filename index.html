@@ -425,7 +425,55 @@
                 
                 <div class="form-group">
                     <label for="operatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="operatingUnit" name="operatingUnit" required>
+                    <select id="operatingUnit" name="operatingUnit" required>
+                        <option value="">เลือกหน่วยปฏิบัติการ</option>
+                        <!-- จังหวัดจะถูกเพิ่มโดย JavaScript -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>ภาระกิจ:</label>
+                    <div class="missions-group">
+                        <label class="mission-checkbox-item">
+                            <input type="checkbox" id="mission1" name="missions" value="บินบริการ">
+                            บินบริการ
+                        </label>
+                        <label class="mission-checkbox-item">
+                            <input type="checkbox" id="mission2" name="missions" value="ปฏิบัติการฝนหลวง">
+                            ปฏิบัติการฝนหลวง
+                        </label>
+                        <label class="mission-checkbox-item">
+                            <input type="checkbox" id="mission3" name="missions" value="ดัดแปลงสภาพอากาศ">
+                            ดัดแปลงสภาพอากาศ
+                        </label>
+                        <label class="mission-checkbox-item">
+                            <input type="checkbox" id="mission4" name="missions" value="บินสำรวจ">
+                            บินสำรวจ
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Image Upload Section -->
+                <div class="form-group image-upload-group">
+                    <label>รูปภาพเอกสาร (เลือก):</label>
+                    <div class="image-upload-container">
+                        <input type="file" id="transactionImage" 
+                               name="transactionImage" 
+                               accept="image/*" 
+                               class="image-input">
+                        <label for="transactionImage" class="upload-label">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload"></i>
+                            </div>
+                            <div class="upload-text">
+                                <span class="main-text">คลิกเพื่อเลือกรูปภาพ</span>
+                                <span class="sub-text">หรือลากรูปมาที่นี่</span>
+                            </div>
+                        </label>
+                        <div id="imagePreview" class="image-preview"></div>
+                        <small id="imageSizeInfo" class="text-muted"></small>
+                        <small class="image-error"></small>
+                    </div>
                 </div>
                 
                 <!-- แบบฟอร์มเติมเข้า -->
@@ -720,7 +768,9 @@
                 
                 <div class="form-group">
                     <label for="pttOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="pttOperatingUnit" name="pttOperatingUnit" required>
+                    <select id="pttOperatingUnit" name="pttOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -853,7 +903,9 @@
                 
                 <div class="form-group">
                     <label for="transactionNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="transactionNakhonsawanOperatingUnit" name="transactionNakhonsawanOperatingUnit" required>
+                    <select id="transactionNakhonsawanOperatingUnit" name="transactionNakhonsawanOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -1004,7 +1056,9 @@
                 
                 <div class="form-group">
                     <label for="transactionKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="transactionKhlongLuangOperatingUnit" name="transactionKhlongLuangOperatingUnit" required>
+                    <select id="transactionKhlongLuangOperatingUnit" name="transactionKhlongLuangOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -1155,7 +1209,9 @@
                 
                 <div class="form-group">
                     <label for="returnOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="returnOperatingUnit" name="returnOperatingUnit" required>
+                    <select id="returnOperatingUnit" name="returnOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -1207,7 +1263,9 @@
                 
                 <div class="form-group">
                     <label for="removeNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="removeNakhonsawanOperatingUnit" name="removeNakhonsawanOperatingUnit" required>
+                    <select id="removeNakhonsawanOperatingUnit" name="removeNakhonsawanOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -1365,7 +1423,9 @@
                 
                 <div class="form-group">
                     <label for="removeKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <input type="text" id="removeKhlongLuangOperatingUnit" name="removeKhlongLuangOperatingUnit" required>
+                    <select id="removeKhlongLuangOperatingUnit" name="removeKhlongLuangOperatingUnit" required>
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
@@ -1547,6 +1607,10 @@
                     <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 0.95rem;">คงเหลือใหม่ (ลิตร) <span style="color: #e74c3c;">*</span></label>
                     <input type="number" id="editFuelRemaining" placeholder="กรอกจำนวนลิตรใหม่" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; font-family: inherit;" min="0" step="0.01">
                 </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 0.95rem;">รหัสของแอดมิน <span style="color: #e74c3c;">*</span></label>
+                    <input type="text" id="editFuelAdminCode" placeholder="กรอกรหัสของแอดมิน" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; font-family: inherit;">
+                </div>
                 <div style="display: flex; gap: 10px;">
                     <button id="submitEditFuelBtn" onclick="submitEditFuel()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">บันทึก</button>
                     <button onclick="closeEditFuelModal()" style="flex: 1; padding: 10px; background: #e8e8e8; color: #333; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">ยกเลิก</button>
@@ -1560,6 +1624,9 @@
     
     <!-- Configuration -->
     <script src="config.js"></script>
+    
+    <!-- Province Data -->
+    <script src="provinces.js"></script>
     
     <!-- Custom Scripts -->
     <script src="inventory.js"></script>
@@ -1576,16 +1643,19 @@
                     console.log('✅ Event listeners เริ่มต้นสำเร็จ');
                 }
                 
+                // เพิ่มจังหวัดเข้าใน dropdown
+                if (typeof populateProvinceSelects === 'function') {
+                    populateProvinceSelects();
+                    console.log('✅ Province selects เริ่มต้นสำเร็จ');
+                }
+                
                 // โหลดข้อมูลจาก Google Sheets แบบขนาน
-                if (typeof loadInventoryFromSheets === 'function' && typeof loadTransactionLogsFromSheets === 'function') {
+                if (typeof loadInventoryFromSheets === 'function') {
                     showLoading('กำลังเริ่มต้นระบบ...');
                     
-                    // ขั้นที่ 1: โหลดข้อมูลแบบขนาน
-                    await Promise.all([
-                        loadInventoryFromSheets(),
-                        loadTransactionLogsFromSheets()
-                    ]);
-                    console.log('✅ ข้อมูลโหลดสำเร็จ');
+                    // ขั้นที่ 1: โหลดข้อมูล Inventory แบบ blocking (จำเป็นต้องรอ)
+                    await loadInventoryFromSheets();
+                    console.log('✅ ข้อมูล Inventory โหลดสำเร็จ');
                     
                     // ขั้นที่ 2: สร้างหน้าจอและอัพเดท UI แบบขนาน
                     const uiTasks = [];
@@ -1613,8 +1683,15 @@
                     
                     hideLoading();
                     console.log('✅ ระบบเริ่มต้นสำเร็จ');
+                    
+                    // ขั้นที่ 4: โหลด Transaction Logs ในหลังบ้าน (background) โดยไม่ต้องรอ
+                    if (typeof loadTransactionLogsFromSheets === 'function') {
+                        loadTransactionLogsFromSheets()
+                            .then(() => console.log('✅ Transaction Logs โหลดสำเร็จในหลังบ้าน'))
+                            .catch(error => console.warn('⚠️ การโหลด Transaction Logs ล้มเหลว:', error));
+                    }
                 } else {
-                    console.warn('⚠️ ไม่พบฟังก์ชัน load หรือ createFuelCards');
+                    console.warn('⚠️ ไม่พบฟังก์ชัน loadInventoryFromSheets');
                 }
             } catch (error) {
                 console.error('❌ Error during initialization:', error);

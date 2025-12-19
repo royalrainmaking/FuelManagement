@@ -163,6 +163,42 @@ function updateLastTransactionUIDFromSheets(transactionLogs) {
     }
 }
 
+function populateProvinceSelects() {
+    const selectIds = [
+        'operatingUnit',
+        'pttOperatingUnit',
+        'returnOperatingUnit',
+        'transactionNakhonsawanOperatingUnit',
+        'transactionKhlongLuangOperatingUnit',
+        'removeNakhonsawanOperatingUnit',
+        'removeKhlongLuangOperatingUnit'
+    ];
+    
+    selectIds.forEach(selectId => {
+        const selectElement = document.getElementById(selectId);
+        if (selectElement && typeof THAI_PROVINCES !== 'undefined') {
+            while (selectElement.options.length > 1) {
+                selectElement.remove(1);
+            }
+            
+            THAI_PROVINCES.forEach(province => {
+                const option = document.createElement('option');
+                option.value = province.nameThai;
+                option.textContent = province.nameThai;
+                selectElement.appendChild(option);
+            });
+            
+            console.log(`✅ เพิ่มจังหวัดเข้า #${selectId} แล้ว (${THAI_PROVINCES.length} จังหวัด)`);
+        }
+    });
+}
+
+function getSelectedMissions() {
+    const checkboxes = document.querySelectorAll('input[name="missions"]:checked');
+    const missions = Array.from(checkboxes).map(cb => cb.value);
+    return missions.length > 0 ? missions.join(',') : '';
+}
+
 // ฟังก์ชันสร้าง UID แบบ FT0001, FT0002, ...
 function generateUID() {
     // โหลด UID ล่าสุดจาก localStorage
@@ -275,6 +311,195 @@ async function fetchCurrentPricesFromSheets() {
         throw error; // ส่ง error ต่อไปให้ caller จัดการ
     }
 }
+
+// ===== Image Upload Management =====
+const ImageUpload = {
+    MAX_FILE_SIZE: 5 * 1024 * 1024,
+    ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+    
+    validateImageFile(file) {
+        if (!file) {
+            return { valid: false, error: 'ยังไม่ได้เลือกไฟล์' };
+        }
+        
+        if (file.size > this.MAX_FILE_SIZE) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            return { 
+                valid: false, 
+                error: `ไฟล์มีขนาดใหญ่เกิน 5MB (ไฟล์ปัจจุบัน: ${sizeMB}MB)` 
+            };
+        }
+        
+        if (!this.ALLOWED_TYPES.includes(file.type)) {
+            return { 
+                valid: false, 
+                error: `ประเภทไฟล์ไม่รองรับ (${file.type}). รองรับเฉพาะ: JPG, PNG, GIF, WebP, BMP` 
+            };
+        }
+        
+        return { valid: true };
+    },
+    
+    displayImagePreview(file) {
+        const previewContainer = document.getElementById('imagePreview');
+        const sizeInfo = document.getElementById('imageSizeInfo');
+        const uploadLabel = document.querySelector('.upload-label');
+        const errorElement = document.querySelector('.image-error');
+        
+        if (!file) {
+            previewContainer.innerHTML = '';
+            sizeInfo.textContent = '';
+            uploadLabel.classList.remove('has-image');
+            if (errorElement) errorElement.classList.remove('show');
+            return;
+        }
+        
+        const validation = this.validateImageFile(file);
+        
+        if (!validation.valid) {
+            previewContainer.innerHTML = '';
+            sizeInfo.textContent = '';
+            uploadLabel.classList.remove('has-image');
+            if (!errorElement) {
+                const error = document.createElement('small');
+                error.className = 'image-error show';
+                error.textContent = validation.error;
+                document.querySelector('.image-upload-container').appendChild(error);
+            } else {
+                errorElement.textContent = validation.error;
+                errorElement.classList.add('show');
+            }
+            return;
+        }
+        
+        if (errorElement) errorElement.classList.remove('show');
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.onload = () => {
+                previewContainer.innerHTML = '';
+                previewContainer.appendChild(img);
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'preview-info';
+                infoDiv.innerHTML = `
+                    <i class="fas fa-check-circle"></i>
+                    <span>พร้อมสำหรับอัพโหลด</span>
+                `;
+                previewContainer.appendChild(infoDiv);
+                
+                const filenameDiv = document.createElement('div');
+                filenameDiv.className = 'preview-filename';
+                filenameDiv.textContent = `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                previewContainer.appendChild(filenameDiv);
+                
+                uploadLabel.classList.add('has-image');
+            };
+        };
+        reader.readAsDataURL(file);
+        
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        sizeInfo.textContent = `ขนาดไฟล์: ${sizeMB} MB`;
+        sizeInfo.style.color = '#27ae60';
+    },
+    
+    convertFileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    },
+    
+    getSelectedFile() {
+        const fileInput = document.getElementById('transactionImage');
+        return fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
+    },
+    
+    resetUpload() {
+        const fileInput = document.getElementById('transactionImage');
+        if (fileInput) fileInput.value = '';
+        this.displayImagePreview(null);
+    },
+    
+    async uploadImageToServer(base64Data, originalFilename) {
+        try {
+            if (!base64Data) {
+                throw new Error('ไม่มีข้อมูลรูปภาพ');
+            }
+            
+            const mimeTypeMatch = base64Data.match(/^data:([^;]+);base64,/);
+            const detectedMimeType = mimeTypeMatch ? mimeTypeMatch[1] : '';
+            
+            if (!this.ALLOWED_TYPES.includes(detectedMimeType)) {
+                throw new Error(`ประเภทไฟล์ไม่รองรับ (${detectedMimeType}). รองรับเฉพาะ: JPG, PNG, GIF, WebP, BMP`);
+            }
+            
+            if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
+                throw new Error('GOOGLE_SCRIPT_URL ไม่ถูกตั้งค่า');
+            }
+            
+            if (typeof GOOGLE_DRIVE_FOLDER_ID === 'undefined') {
+                throw new Error('GOOGLE_DRIVE_FOLDER_ID ไม่ถูกตั้งค่า');
+            }
+            
+            const timestamp = new Date().getTime();
+            const randomStr = Math.random().toString(36).substring(2, 8);
+            const fileExtension = originalFilename.split('.').pop() || 'jpg';
+            const filename = `FM_${timestamp}_${randomStr}.${fileExtension}`;
+            
+            console.log('🔄 Uploading image to Google Drive...');
+            console.log('   Filename:', filename);
+            
+            const payload = {
+                action: 'uploadImage',
+                base64ImageData: base64Data,
+                filename: filename,
+                folderId: GOOGLE_DRIVE_FOLDER_ID
+            };
+            
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'การอัพโหลดล้มเหลว');
+            }
+            
+            console.log('✅ Image uploaded successfully:');
+            console.log('   URL:', result.imageUrl);
+            console.log('   File ID:', result.fileId);
+            
+            return {
+                success: true,
+                imageUrl: result.imageUrl,
+                fileId: result.fileId,
+                filename: result.filename,
+                uploadDate: result.uploadDate
+            };
+            
+        } catch (error) {
+            console.error('❌ Error uploading image:', error);
+            return {
+                success: false,
+                error: error.message || 'การอัพโหลดรูปภาพล้มเหลว'
+            };
+        }
+    }
+};
 
 // ===== UID Modal Management =====
 // ฟังก์ชันแสดง UID Modal หลังทำรายการสำเร็จ
@@ -807,7 +1032,6 @@ function inferType(name) {
 async function loadTransactionLogsFromSheets() {
     try {
         console.log('กำลังโหลด Transaction Logs จาก Google Sheets...');
-        showLoading('กำลังโหลด Transaction Logs...');
         
         const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`);
         
@@ -923,6 +1147,19 @@ async function loadTransactionLogsFromSheets() {
             if (window.activityLogger) {
                 console.log('🔄 รีเฟรช Activity Logger...');
                 window.activityLogger.reloadLogs();
+            }
+            
+            // 💾 บันทึกข้อมูลดิบลง sessionStorage เพื่อให้ transaction-summary.html สามารถใช้ได้
+            try {
+                const cacheData = {
+                    success: true,
+                    data: result.data,
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('transactionLogsCache', JSON.stringify(cacheData));
+                console.log('💾 บันทึก Transaction Logs ลง sessionStorage สำเร็จ');
+            } catch (cacheError) {
+                console.warn('⚠️ ไม่สามารถบันทึก sessionStorage:', cacheError);
             }
         } else {
             throw new Error(result.error || 'ไม่สามารถโหลด Transaction Logs ได้');
@@ -1059,11 +1296,16 @@ async function logTransactionToSheets(logEntry) {
             totalCost: logEntry.totalAmount || 0,
             operatorName: logEntry.operatorName || '',
             unit: logEntry.operatingUnit || '',
+            missions: logEntry.missions || '',
             aircraftType: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[0] || '' : '',
             aircraftNumber: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[1] || '' : '',
             notes: logEntry.notes || '',
             bookNo: logEntry.bookNo || '',
-            receiptNo: logEntry.receiptNo || ''
+            receiptNo: logEntry.receiptNo || '',
+            imageUrl: logEntry.imageUrl || '',
+            imageFilename: logEntry.imageFilename || '',
+            imageDriveId: logEntry.imageDriveId || '',
+            imageUploadDate: logEntry.imageUploadDate || ''
         };
         
         // ใช้ GET request แทน POST เพื่อหลีกเลี่ยง CORS preflight
@@ -1522,14 +1764,21 @@ function closeEditFuelModal() {
     if (modal) {
         modal.style.display = 'none';
         document.getElementById('editFuelRemaining').value = '';
+        document.getElementById('editFuelAdminCode').value = '';
     }
 }
 
 async function submitEditFuel() {
     const remaining = document.getElementById('editFuelRemaining').value.trim();
+    const adminCode = document.getElementById('editFuelAdminCode').value.trim();
     
     if (!remaining || isNaN(remaining) || parseFloat(remaining) < 0) {
         alert('กรุณากรอกจำนวนลิตรใหม่ที่ถูกต้อง');
+        return;
+    }
+    
+    if (!adminCode) {
+        alert('กรุณากรอกรหัสของแอดมิน');
         return;
     }
     
@@ -1541,9 +1790,9 @@ async function submitEditFuel() {
         const sourceName = window.currentEditFuel.sourceName;
         const remainingValue = parseFloat(remaining);
         
-        const url = `${GOOGLE_SCRIPT_URL}?action=updateFuelStock&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.INVENTORY}&fuelName=${encodeURIComponent(sourceName)}&newStock=${remainingValue}`;
+        const url = `${GOOGLE_SCRIPT_URL}?action=updateFuelStock&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.INVENTORY}&fuelName=${encodeURIComponent(sourceName)}&newStock=${remainingValue}&adminCode=${encodeURIComponent(adminCode)}`;
         
-        console.log('📤 Updating fuel stock:', { fuelName: sourceName, newStock: remainingValue });
+        console.log('📤 Updating fuel stock:', { fuelName: sourceName, newStock: remainingValue, adminCode: adminCode });
         
         const response = await fetch(url);
         const result = await response.json();
@@ -1581,6 +1830,16 @@ function getDateString(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+function getThailandISO8601(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+07:00`;
 }
 
 // ฟังก์ชันตรวจสอบการเปลี่ยนแปลงเวลาเที่ยงคืน
@@ -2398,6 +2657,7 @@ function openTransactionModal(source) {
     
     // Reset form
     document.getElementById('transactionForm').reset();
+    ImageUpload.resetUpload();
     document.getElementById('refillForm').style.display = 'none';
     document.getElementById('dispenseForm').style.display = 'none';
     
@@ -2559,6 +2819,7 @@ async function handleReturnDrumSubmit() {
             totalAmount: null,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: null,
             receiptNo: null,
             drums: drumCount,
@@ -2672,6 +2933,7 @@ async function handleRemoveDrumNakhonsawanSubmit() {
             totalAmount: null,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: null,
             receiptNo: null,
             drums: drumCount,
@@ -2781,6 +3043,7 @@ async function handleRemoveDrumKhlongLuangSubmit() {
             totalAmount: null,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: null,
             receiptNo: null,
             drums: drumCount,
@@ -2903,7 +3166,8 @@ async function handleTransactionNakhonsawanSubmit() {
                 liters: liters,
                 volume: `${liters} ลิตร`,
                 operatorName: operatorName,
-                operatingUnit: operatingUnit
+                operatingUnit: operatingUnit,
+                missions: getSelectedMissions()
             };
             
             transactionLogs.push(logEntry);
@@ -3011,6 +3275,7 @@ async function handleTransactionNakhonsawanSubmit() {
             totalAmount: totalAmount,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: pttData ? pttData.bookNo : null,
             receiptNo: pttData ? pttData.receiptNo : null,
             drums: drumCount,
@@ -3133,7 +3398,8 @@ async function handleTransactionKhlongLuangSubmit() {
                 liters: liters,
                 volume: `${liters} ลิตร`,
                 operatorName: operatorName,
-                operatingUnit: operatingUnit
+                operatingUnit: operatingUnit,
+                missions: getSelectedMissions()
             };
             
             transactionLogs.push(logEntry);
@@ -3241,6 +3507,7 @@ async function handleTransactionKhlongLuangSubmit() {
             totalAmount: totalAmount,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: pttData ? pttData.bookNo : null,
             receiptNo: pttData ? pttData.receiptNo : null,
             drums: drumCount,
@@ -3342,6 +3609,44 @@ function initializeEventListeners() {
             handleDispenseSubmit();
         }
     };
+    
+    // Image Upload Event Listener
+    const transactionImageInput = document.getElementById('transactionImage');
+    if (transactionImageInput) {
+        transactionImageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                ImageUpload.displayImagePreview(file);
+            }
+        });
+        
+        const uploadLabel = document.querySelector('.upload-label');
+        if (uploadLabel) {
+            uploadLabel.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadLabel.style.borderColor = '#1e3c72';
+                uploadLabel.style.background = '#e8f1f8';
+            });
+            
+            uploadLabel.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadLabel.style.borderColor = '#d0d7de';
+                uploadLabel.style.background = '#fafbfc';
+            });
+            
+            uploadLabel.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadLabel.style.borderColor = '#d0d7de';
+                uploadLabel.style.background = '#fafbfc';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    transactionImageInput.files = files;
+                    ImageUpload.displayImagePreview(files[0]);
+                }
+            });
+        }
+    }
     
     // Admin buttons
     document.getElementById('refreshDataBtn').onclick = async function() {
@@ -3830,12 +4135,13 @@ async function handleRefillSubmit() {
             // Create transaction log
             const transactionUID = generateUID();
             const volumeDisplay = `${liters} ลิตร`;
+            const now = new Date();
             const logEntry = {
                 id: Date.now(),
                 uid: transactionUID,
-                timestamp: new Date().toISOString(),
-                date: new Date().toLocaleDateString('th-TH'),
-                time: new Date().toLocaleTimeString('th-TH'),
+                timestamp: getThailandISO8601(now),
+                date: now.toLocaleDateString('th-TH'),
+                time: now.toLocaleTimeString('th-TH'),
                 transactionType: 'drain',
                 sourceId: 'purchase', // drain from PTT
                 sourceName: 'จัดซื้อจาก ปตท.',
@@ -3843,7 +4149,8 @@ async function handleRefillSubmit() {
                 liters: liters,
                 volume: volumeDisplay,
                 operatorName: operatorName,
-                operatingUnit: operatingUnit
+                operatingUnit: operatingUnit,
+                missions: getSelectedMissions()
             };
             
             transactionLogs.push(logEntry);
@@ -3954,12 +4261,13 @@ async function handleRefillSubmit() {
         const transactionUID = generateUID();
         
         // บันทึก log - ระบุว่าเป็นการซื้อจาก ปตท. เสมอ
+        const now = new Date();
         const logEntry = {
             id: Date.now(),
             uid: transactionUID, // ✅ เพิ่ม UID
-            timestamp: new Date().toISOString(),
-            date: new Date().toLocaleDateString('th-TH'),
-            time: new Date().toLocaleTimeString('th-TH'),
+            timestamp: getThailandISO8601(now),
+            date: now.toLocaleDateString('th-TH'),
+            time: now.toLocaleTimeString('th-TH'),
             transactionType: 'refill',
             sourceId: 'purchase', // แหล่งที่มาคือ ปตท. เสมอ
             sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาคือ ปตท.
@@ -3973,12 +4281,37 @@ async function handleRefillSubmit() {
             totalAmount: totalAmount,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: bookNo || null, // ✅ เพิ่ม Book No.
             receiptNo: receiptNo || null, // ✅ เพิ่ม Receipt No.
             drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L
         };
         
         transactionLogs.push(logEntry);
+        
+        // 📸 Image Upload Section
+        const selectedImage = ImageUpload.getSelectedFile();
+        if (selectedImage) {
+            try {
+                showLoading('กำลังอัพโหลดรูปภาพ...');
+                const base64Data = await ImageUpload.convertFileToBase64(selectedImage);
+                const uploadResult = await ImageUpload.uploadImageToServer(base64Data, selectedImage.name);
+                
+                if (uploadResult.success) {
+                    logEntry.imageUrl = uploadResult.imageUrl;
+                    logEntry.imageFilename = uploadResult.filename;
+                    logEntry.imageDriveId = uploadResult.fileId;
+                    logEntry.imageUploadDate = uploadResult.uploadDate;
+                    
+                    console.log('✅ Image uploaded and attached to transaction:', logEntry.uid);
+                } else {
+                    console.warn('⚠️ Image upload failed, but transaction will continue:', uploadResult.error);
+                }
+            } catch (error) {
+                console.error('❌ Error uploading image:', error);
+                alert('การอัพโหลดรูปภาพล้มเหลว แต่การทำรายการจะดำเนินต่อ');
+            }
+        }
         
         // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
         await Promise.all([
@@ -4043,12 +4376,13 @@ async function handleDispenseSubmit() {
             // Create transaction log
             const transactionUID = generateUID();
             const volumeDisplay = `${liters} ลิตร`;
+            const now = new Date();
             const logEntry = {
                 id: Date.now(),
                 uid: transactionUID,
-                timestamp: new Date().toISOString(),
-                date: new Date().toLocaleDateString('th-TH'),
-                time: new Date().toLocaleTimeString('th-TH'),
+                timestamp: getThailandISO8601(now),
+                date: now.toLocaleDateString('th-TH'),
+                time: now.toLocaleTimeString('th-TH'),
                 transactionType: 'drain',
                 sourceId: currentSelectedSource.id,
                 sourceName: currentSelectedSource.name,
@@ -4056,7 +4390,8 @@ async function handleDispenseSubmit() {
                 liters: liters,
                 volume: volumeDisplay,
                 operatorName: operatorName,
-                operatingUnit: operatingUnit
+                operatingUnit: operatingUnit,
+                missions: getSelectedMissions()
             };
             
             transactionLogs.push(logEntry);
@@ -4256,10 +4591,35 @@ async function handleDispenseSubmit() {
             totalAmount: totalAmount,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L
         };
         
         transactionLogs.push(logEntry);
+        
+        // 📸 Image Upload Section
+        const selectedImage = ImageUpload.getSelectedFile();
+        if (selectedImage) {
+            try {
+                showLoading('กำลังอัพโหลดรูปภาพ...');
+                const base64Data = await ImageUpload.convertFileToBase64(selectedImage);
+                const uploadResult = await ImageUpload.uploadImageToServer(base64Data, selectedImage.name);
+                
+                if (uploadResult.success) {
+                    logEntry.imageUrl = uploadResult.imageUrl;
+                    logEntry.imageFilename = uploadResult.filename;
+                    logEntry.imageDriveId = uploadResult.fileId;
+                    logEntry.imageUploadDate = uploadResult.uploadDate;
+                    
+                    console.log('✅ Image uploaded and attached to transaction:', logEntry.uid);
+                } else {
+                    console.warn('⚠️ Image upload failed, but transaction will continue:', uploadResult.error);
+                }
+            } catch (error) {
+                console.error('❌ Error uploading image:', error);
+                alert('การอัพโหลดรูปภาพล้มเหลว แต่การทำรายการจะดำเนินต่อ');
+            }
+        }
         
         // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
         await Promise.all([
@@ -4607,6 +4967,7 @@ async function handlePttPurchaseSubmit() {
             totalAmount: totalAmount,
             operatorName: operatorName,
             operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
             bookNo: bookNo || null, // ✅ เพิ่ม Book No.
             receiptNo: receiptNo || null, // ✅ เพิ่ม Receipt No.
             drums: drums // เก็บจำนวนถังถ้าเป็นถัง 200L

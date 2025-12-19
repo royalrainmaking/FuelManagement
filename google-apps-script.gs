@@ -5,6 +5,13 @@
 
 /**
  * ========================================
+ * Admin Configuration
+ * ========================================
+ */
+const ADMIN_CODE_FUEL_EDIT = 'admin123';
+
+/**
+ * ========================================
  * LINE Notification Configuration
  * ========================================
  */
@@ -312,6 +319,117 @@ function updatePTTPurchaseVolume(liters, sheetsId, gid) {
   }
 }
 
+/**
+ * ========================================
+ * Image Upload Functions
+ * ========================================
+ */
+
+/**
+ * ฟังก์ชันสำหรับอัพโหลดรูปภาพไป Google Drive
+ * @param {String} base64ImageData - Base64 encoded image data
+ * @param {String} filename - ชื่อไฟล์ (เช่น 20251219_121314_abc123.jpg)
+ * @param {String} folderIdString - Google Drive Folder ID
+ * @returns {Object} - {success: boolean, imageUrl: String, fileId: String, filename: String, uploadDate: String, error: String}
+ */
+function uploadImageToGoogleDrive(base64ImageData, filename, folderIdString) {
+  try {
+    // ตรวจสอบ input
+    if (!base64ImageData) {
+      throw new Error('Base64 image data is required');
+    }
+    
+    if (!filename) {
+      throw new Error('Filename is required');
+    }
+    
+    if (!folderIdString) {
+      throw new Error('Google Drive Folder ID is required');
+    }
+    
+    Logger.log('🔄 Starting image upload: ' + filename);
+    
+    // แยก MIME type จากข้อมูล Base64
+    let mimeType = 'image/jpeg';
+    if (base64ImageData.includes('data:image/png')) {
+      mimeType = 'image/png';
+      base64ImageData = base64ImageData.replace(/^data:image\/png;base64,/, '');
+    } else if (base64ImageData.includes('data:image/gif')) {
+      mimeType = 'image/gif';
+      base64ImageData = base64ImageData.replace(/^data:image\/gif;base64,/, '');
+    } else if (base64ImageData.includes('data:image/webp')) {
+      mimeType = 'image/webp';
+      base64ImageData = base64ImageData.replace(/^data:image\/webp;base64,/, '');
+    } else if (base64ImageData.includes('data:image/bmp')) {
+      mimeType = 'image/bmp';
+      base64ImageData = base64ImageData.replace(/^data:image\/bmp;base64,/, '');
+    } else if (base64ImageData.includes('data:image/jpeg')) {
+      mimeType = 'image/jpeg';
+      base64ImageData = base64ImageData.replace(/^data:image\/jpeg;base64,/, '');
+    }
+    
+    // แปลง Base64 เป็น Blob
+    const imageBlob = Utilities.newBlob(
+      Utilities.base64Decode(base64ImageData),
+      mimeType,
+      filename
+    );
+    
+    // หา folder จาก ID
+    let folder;
+    try {
+      folder = DriveApp.getFolderById(folderIdString);
+    } catch (permissionError) {
+      const errorMsg = permissionError.toString();
+      if (errorMsg.includes('getFolderById') || errorMsg.includes('Drive')) {
+        throw new Error('Google Drive API permissions not authorized. The Apps Script must be redeployed to grant Drive API access. Contact the administrator to redeploy the script and authorize the Drive permissions.');
+      }
+      throw permissionError;
+    }
+    
+    // สร้างไฟล์ใน Google Drive
+    const file = folder.createFile(imageBlob);
+    
+    // ตั้งค่าสิทธิ์เป็น "Anyone with the link can view"
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    // สร้าง shareable URL
+    const imageUrl = file.getUrl();
+    const fileId = file.getId();
+    const uploadDate = new Date().toISOString();
+    
+    Logger.log('✅ Image uploaded successfully:');
+    Logger.log('   - File ID: ' + fileId);
+    Logger.log('   - Filename: ' + filename);
+    Logger.log('   - URL: ' + imageUrl);
+    
+    return {
+      success: true,
+      imageUrl: imageUrl,
+      fileId: fileId,
+      filename: filename,
+      uploadDate: uploadDate
+    };
+    
+  } catch (error) {
+    Logger.log('❌ Error in uploadImageToGoogleDrive:');
+    Logger.log('Error type: ' + error.name);
+    Logger.log('Error message: ' + error.toString());
+    
+    const errorMessage = error.toString();
+    let userFriendlyError = error.toString();
+    
+    if (errorMessage.includes('getFolderById') || errorMessage.includes('Drive API') || errorMessage.includes('authorization')) {
+      userFriendlyError = 'Google Drive API permissions not authorized. The Apps Script deployment needs to be updated with Drive API access. Please contact the administrator.';
+    }
+    
+    return {
+      success: false,
+      error: userFriendlyError
+    };
+  }
+}
+
 function doGet(e) {
   try {
     const action = e.parameter.action;
@@ -328,7 +446,7 @@ function doGet(e) {
       case 'updateInventory':
         return updateInventory(e.parameter.data, sheetsId, gid);
       case 'updateFuelStock':
-        return updateFuelStock(e.parameter.fuelName, e.parameter.newStock, sheetsId, gid);
+        return updateFuelStock(e.parameter.fuelName, e.parameter.newStock, e.parameter.adminCode, sheetsId, gid);
       case 'getTransactionLogs':
         return getTransactionLogs(sheetsId, gid);
       case 'logTransaction':
@@ -375,6 +493,49 @@ function doGet(e) {
     }
   } catch (error) {
     console.error('Error in doGet:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชัน doPost สำหรับรับ POST requests
+ * ใช้สำหรับการอัพโหลดรูปภาพ (Base64 data ขนาดใหญ่)
+ */
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+    
+    console.log('POST Action:', action);
+    
+    if (action === 'uploadImage') {
+      // ดึง parameters
+      const base64ImageData = data.base64ImageData;
+      const filename = data.filename;
+      const folderIdString = data.folderId;
+      
+      // เรียกใช้ฟังก์ชันอัพโหลด
+      const result = uploadImageToGoogleDrive(base64ImageData, filename, folderIdString);
+      
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Invalid action for POST'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+  } catch (error) {
+    console.error('Error in doPost:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,
@@ -543,8 +704,8 @@ function getTransactionLogs(sheetsId, gid) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง Q (17 คอลัมน์)
-    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 17);
+    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง V (22 คอลัมน์ - รวมข้อมูลรูปภาพ)
+    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 22);
     const values = dataRange.getValues();
     
     // แปลงข้อมูลเป็น array of objects
@@ -565,7 +726,7 @@ function getTransactionLogs(sheetsId, gid) {
       if (row[1]) {
         try {
           const dateObj = new Date(row[1]);
-          dateStr = Utilities.formatDate(dateObj, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          dateStr = Utilities.formatDate(dateObj, 'Asia/Bangkok', 'yyyy-MM-dd');
         } catch (e) {
           dateStr = row[1].toString();
         }
@@ -575,7 +736,7 @@ function getTransactionLogs(sheetsId, gid) {
         try {
           // ถ้า row[2] เป็น Date object ให้แปลงเป็นเวลาเท่านั้น
           if (row[2] instanceof Date) {
-            timeStr = Utilities.formatDate(row[2], Session.getScriptTimeZone(), 'HH:mm:ss');
+            timeStr = Utilities.formatDate(row[2], 'Asia/Bangkok', 'HH:mm:ss');
           } else {
             timeStr = row[2].toString();
           }
@@ -602,7 +763,12 @@ function getTransactionLogs(sheetsId, gid) {
         notes: row[13] || '',            // คอลัมน์ N: หมายเหตุ
         book_no: row[14] || '',          // คอลัมน์ O: Book No.
         receipt_no: row[15] || '',       // คอลัมน์ P: Receipt No.
-        volume_liters: parseFloat(row[16]) || 0  // ✅ คอลัมน์ Q: volumeLiters (ตัวเลขลิตรที่แท้จริง)
+        volume_liters: parseFloat(row[16]) || 0,  // คอลัมน์ Q: volumeLiters (ตัวเลขลิตรที่แท้จริง)
+        missions: row[17] || '',         // คอลัมน์ R: ภาระกิจ (Mission Types)
+        image_url: row[18] || '',        // คอลัมน์ S: Image URL
+        image_filename: row[19] || '',   // คอลัมน์ T: Image Filename
+        image_upload_date: row[20] || '', // คอลัมน์ U: Image Upload Date
+        image_drive_id: row[21] || ''    // คอลัมน์ V: Image Drive ID
       };
       
       // กำหนดประเภทปลายทางตาม destination name (ถ้ามี)
@@ -733,10 +899,14 @@ function updateInventory(dataString, sheetsId, gid) {
 /**
  * ฟังก์ชันอัพเดตยอดน้ำมัน (คงเหลือ) ในคอลัมน์ D
  */
-function updateFuelStock(fuelName, newStock, sheetsId, gid) {
+function updateFuelStock(fuelName, newStock, adminCode, sheetsId, gid) {
   try {
     if (!fuelName || newStock === undefined) {
       throw new Error('ต้องระบุ fuelName และ newStock');
+    }
+    
+    if (!adminCode || adminCode !== ADMIN_CODE_FUEL_EDIT) {
+      throw new Error('รหัสของแอดมินไม่ถูกต้อง');
     }
     
     const spreadsheet = SpreadsheetApp.openById(sheetsId);
@@ -1108,20 +1278,21 @@ function logTransaction(dataString, sheetsId) {
       // สร้าง sheet ใหม่
       logSheet = spreadsheet.insertSheet('Transaction_Log');
       
-      // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters)
-      logSheet.getRange(1, 1, 1, 17).setValues([[
+      // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters, ภาระกิจ, Image URL, Image Filename, Image Upload Date, Image Drive ID)
+      logSheet.getRange(1, 1, 1, 22).setValues([[
         'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
         'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
-        'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters'
+        'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters', 'ภาระกิจ',
+        'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID'
       ]]);
       
       // จัดรูปแบบ header
-      const headerRange = logSheet.getRange(1, 1, 1, 17);
+      const headerRange = logSheet.getRange(1, 1, 1, 22);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#2196F3');
       headerRange.setFontColor('#FFFFFF');
       
-      logSheet.autoResizeColumns(1, 17);
+      logSheet.autoResizeColumns(1, 22);
       logSheet.setFrozenRows(1);
     }
     
@@ -1132,8 +1303,9 @@ function logTransaction(dataString, sheetsId) {
     
     // เพิ่ม transaction ใหม่
     const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
-    const dateStr = timestamp.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeStr = timestamp.toTimeString().split(' ')[0]; // HH:MM:SS
+    // ใช้ Timezone Asia/Bangkok
+    const dateStr = Utilities.formatDate(timestamp, 'Asia/Bangkok', 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(timestamp, 'Asia/Bangkok', 'HH:mm:ss');
     
     logSheet.appendRow([
       transactionData.uid || '',           
@@ -1152,7 +1324,12 @@ function logTransaction(dataString, sheetsId) {
       transactionData.notes || '',         
       transactionData.bookNo || '',        
       transactionData.receiptNo || '',     
-      transactionData.volumeLiters || 0    
+      transactionData.volumeLiters || 0,   
+      transactionData.missions || '',
+      transactionData.imageUrl || '',
+      transactionData.imageFilename || '',
+      timestamp.toISOString(),
+      transactionData.imageDriveId || ''
     ]);
     
     const lineConfig = getLineConfigFromSheet(spreadsheet);
@@ -2724,6 +2901,47 @@ function testFinalIntegration() {
     
   } catch (error) {
     Logger.log('❌ Error ใน testFinalIntegration:');
+    Logger.log(error.toString());
+  }
+}
+
+/**
+ * ทดสอบการอัพโหลดรูปภาพ (Test Upload)
+ * เรียกใช้จาก Apps Script Editor: Run > testImageUpload
+ */
+function testImageUpload() {
+  try {
+    // Sample 1x1 pixel PNG image in Base64
+    const sampleBase64PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    
+    const folderID = '1OTCL52sA2sqKTDCayxzphe5WB_aP-YFL';
+    const timestamp = new Date().getTime();
+    const testFilename = 'TEST_' + timestamp + '.png';
+    
+    Logger.log('========================================');
+    Logger.log('Testing Image Upload Function');
+    Logger.log('========================================');
+    Logger.log('Folder ID: ' + folderID);
+    Logger.log('Filename: ' + testFilename);
+    Logger.log('Base64 Data: ' + sampleBase64PNG.substring(0, 50) + '...');
+    Logger.log('');
+    
+    const result = uploadImageToGoogleDrive(sampleBase64PNG, testFilename, folderID);
+    
+    Logger.log('========================================');
+    Logger.log('Test Result:');
+    Logger.log('========================================');
+    Logger.log('Success: ' + result.success);
+    if (result.success) {
+      Logger.log('✅ Image URL: ' + result.imageUrl);
+      Logger.log('✅ File ID: ' + result.fileId);
+      Logger.log('✅ Filename: ' + result.filename);
+      Logger.log('✅ Upload Date: ' + result.uploadDate);
+    } else {
+      Logger.log('❌ Error: ' + result.error);
+    }
+  } catch (error) {
+    Logger.log('❌ Test Error:');
     Logger.log(error.toString());
   }
 }
