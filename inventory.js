@@ -1,4 +1,4 @@
-﻿﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+﻿﻿﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -292,6 +292,8 @@ function showUIDModal(transactionData) {
         transactionTypeText = 'ซื้อเข้า';
     } else if (transactionData.transactionType === 'dispense') {
         transactionTypeText = 'เติมน้ำมัน';
+    } else if (transactionData.transactionType === 'drain') {
+        transactionTypeText = 'เดรนน้ำมัน';
     } else {
         transactionTypeText = transactionData.transactionType || '-';
     }
@@ -481,7 +483,7 @@ function setupUIDModalListeners(transactionData) {
                         ` : ''}
                         ${transactionData.receiptNo ? `
                         <tr>
-                            <td>Receipt No.:</td>
+                            <td>Receipt No./Ticket number:</td>
                             <td>${transactionData.receiptNo}</td>
                         </tr>
                         ` : ''}
@@ -848,6 +850,21 @@ async function loadTransactionLogsFromSheets() {
                 // สร้าง unique ID ที่เสถียร (ไม่ใช้ Date.now())
                 const uniqueId = row.id || `${row.date || 'no_date'}_${row.time || 'no_time'}_${row.transaction_type || 'no_type'}_${row.source_name || ''}_${row.volume || '0'}_${index}`;
                 
+                // ✅ ดึงลิตรจากคอลัมน์ volume_liters เป็นหลัก ถ้าไม่มี ให้ดึงจาก volume
+                let litersValue = 0;
+                if (row.volume_liters) {
+                    litersValue = parseFloat(row.volume_liters);
+                } else if (row.volume) {
+                    // ถ้าเป็น string "5 ถัง (1000 ลิตร)" ให้ดึงตัวเลขที่อยู่ในวงเล็บ
+                    const volumeStr = String(row.volume);
+                    const match = volumeStr.match(/\((\d+(?:\.\d+)?)\s*ลิตร\)/);
+                    if (match && match[1]) {
+                        litersValue = parseFloat(match[1]);
+                    } else {
+                        litersValue = parseFloat(volumeStr);
+                    }
+                }
+                
                 return {
                     id: uniqueId,
                     uid: row.uid || row.transaction_uid || '', // ✅ เพิ่ม UID mapping
@@ -857,7 +874,7 @@ async function loadTransactionLogsFromSheets() {
                     sourceName: row.source_name || '',
                     destinationName: row.destination_name || '',
                     destinationType: row.destination_type || '',
-                    liters: parseFloat(row.volume) || 0, // ใช้ row.volume แทน row.liters
+                    liters: litersValue,
                     pricePerLiter: parseFloat(row.price_per_liter) || 0,
                     totalAmount: parseFloat(row.total_cost) || 0, // ใช้ row.total_cost แทน row.total_amount
                     operatorName: row.operator_name || '',
@@ -991,6 +1008,10 @@ async function logTransactionToSheets(logEntry) {
             transactionType = 'Fuel-card จัดซื้อจาก ปตท.';
             sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท. (Fuel-card)');
             destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else if (logEntry.transactionType === 'drain') {
+            transactionType = 'เดรนน้ำมัน';
+            sourceName = String(logEntry.source || logEntry.sourceName || '');
+            destinationName = 'เดรนออก';
         } else {
             transactionType = 'จ่ายออก';
             sourceName = String(logEntry.source || logEntry.sourceName || '');
@@ -1175,9 +1196,17 @@ function createFuelCards() {
         // เพิ่มปุ่มพิเศษสำหรับหมวด "ถัง 200 ลิตร"
         if (categoryKey === 'drum') {
             headerHTML += `
-                <button class="btn btn-success btn-sm ms-auto" onclick="openReturnDrumModal()" title="คืนถังน้ำมัน">
-                    <i class="fas fa-arrow-left me-1"></i> คืนถัง
-                </button>
+                <div class="button-group ms-auto" style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-success btn-sm" onclick="openReturnDrumModal()" title="คืนถังน้ำมัน">
+                        <i class="fas fa-arrow-left me-1"></i> คืนถัง
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="openRemoveDrumNakhonsawanModal()" title="ลบถังน้ำมัน - สนามบินนครสวรรค์" style="display: none;">
+                        <i class="fas fa-minus me-1"></i> ลบ นครสวรรค์
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="openRemoveDrumKhlongLuangModal()" title="ลบถังน้ำมัน - สนามบินคลองหลวง" style="display: none;">
+                        <i class="fas fa-minus me-1"></i> ลบ คลองหลวง
+                    </button>
+                </div>
             `;
         }
         
@@ -1192,7 +1221,15 @@ function createFuelCards() {
             const card = document.createElement('div');
             card.className = 'fuel-card';
             if (source.status !== 'deactivate') {
-                card.onclick = () => openTransactionModal(source);
+                card.onclick = () => {
+                    if (source.id === 'drum_nakhonsawan') {
+                        openTransactionNakhonsawanModal();
+                    } else if (source.id === 'drum_khlong_luang') {
+                        openTransactionKhlongLuangModal();
+                    } else {
+                        openTransactionModal(source);
+                    }
+                };
             }
             
             const capacityText = source.capacity ? source.capacity.toLocaleString() : 'ไม่จำกัด';
@@ -2559,6 +2596,684 @@ async function handleReturnDrumSubmit() {
     }
 }
 
+// ===== Remove Drum - Nakhon Sawan Functions =====
+function openRemoveDrumNakhonsawanModal() {
+    document.getElementById('removeDrumNakhonsawanModal').style.display = 'block';
+}
+
+function closeRemoveDrumNakhonsawanModal() {
+    document.getElementById('removeNakhonsawanOperatorName').value = '';
+    document.getElementById('removeNakhonsawanOperatingUnit').value = '';
+    document.getElementById('removeNakhonsawanDrumCount').value = '';
+    document.getElementById('removeNakhonsawanNotes').value = '';
+    document.getElementById('removeNakhonsawanDrumTotalLiters').textContent = '0 ลิตร';
+    const modal = document.getElementById('removeDrumNakhonsawanModal');
+    modal.style.display = 'none';
+}
+
+function updateRemoveDrumNakhonsawanLiterDisplay() {
+    const drumCount = document.getElementById('removeNakhonsawanDrumCount').value;
+    const totalLiters = (drumCount || 0) * DRUM_CAPACITY_LITERS;
+    document.getElementById('removeNakhonsawanDrumTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+}
+
+async function handleRemoveDrumNakhonsawanSubmit() {
+    const operatorName = document.getElementById('removeNakhonsawanOperatorName').value.trim();
+    const operatingUnit = document.getElementById('removeNakhonsawanOperatingUnit').value.trim();
+    const drumCount = parseFloat(document.getElementById('removeNakhonsawanDrumCount').value);
+    const notes = document.getElementById('removeNakhonsawanNotes').value.trim();
+    const sourceId = 'drum_nakhonsawan';
+    
+    try {
+        if (!operatorName || !operatingUnit || !drumCount) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        if (drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        setButtonLoading('submitRemoveNakhonsawan', true);
+        showLoading('กำลังบันทึกการลบถังน้ำมัน...');
+        
+        const drumSource = fuelSources.find(s => s.id === sourceId);
+        if (!drumSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        
+        if (liters > drumSource.currentStock) {
+            const maxDrums = litersToDrums(drumSource.currentStock);
+            throw new Error(`จำนวนถังเกินกว่าที่มีอยู่ (คงเหลือ: ${maxDrums} ถัง = ${drumSource.currentStock} ลิตร)`);
+        }
+        
+        drumSource.currentStock -= liters;
+        
+        const transactionUID = generateUID();
+        
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'remove_drum_nakhonsawan',
+            sourceId: sourceId,
+            sourceName: drumSource.name,
+            sourceType: drumSource.type,
+            destinationId: null,
+            destinationName: null,
+            destinationType: null,
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: null,
+            pricePerDrum: null,
+            totalAmount: null,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: null,
+            receiptNo: null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        closeRemoveDrumNakhonsawanModal();
+        hideLoading();
+        
+        showUIDModal(logEntry);
+        
+        console.log('✅ ลบถังสำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in remove drum transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการลบถัง กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitRemoveNakhonsawan', false);
+    }
+}
+
+// ===== Remove Drum - Khlong Luang Functions =====
+function openRemoveDrumKhlongLuangModal() {
+    document.getElementById('removeDrumKhlongLuangModal').style.display = 'block';
+}
+
+function closeRemoveDrumKhlongLuangModal() {
+    document.getElementById('removeKhlongLuangOperatorName').value = '';
+    document.getElementById('removeKhlongLuangOperatingUnit').value = '';
+    document.getElementById('removeKhlongLuangDrumCount').value = '';
+    document.getElementById('removeKhlongLuangNotes').value = '';
+    document.getElementById('removeKhlongLuangDrumTotalLiters').textContent = '0 ลิตร';
+    const modal = document.getElementById('removeDrumKhlongLuangModal');
+    modal.style.display = 'none';
+}
+
+function updateRemoveDrumKhlongLuangLiterDisplay() {
+    const drumCount = document.getElementById('removeKhlongLuangDrumCount').value;
+    const totalLiters = (drumCount || 0) * DRUM_CAPACITY_LITERS;
+    document.getElementById('removeKhlongLuangDrumTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+}
+
+async function handleRemoveDrumKhlongLuangSubmit() {
+    const operatorName = document.getElementById('removeKhlongLuangOperatorName').value.trim();
+    const operatingUnit = document.getElementById('removeKhlongLuangOperatingUnit').value.trim();
+    const drumCount = parseFloat(document.getElementById('removeKhlongLuangDrumCount').value);
+    const notes = document.getElementById('removeKhlongLuangNotes').value.trim();
+    const sourceId = 'drum_khlong_luang';
+    
+    try {
+        if (!operatorName || !operatingUnit || !drumCount) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        if (drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        setButtonLoading('submitRemoveKhlongLuang', true);
+        showLoading('กำลังบันทึกการลบถังน้ำมัน...');
+        
+        const drumSource = fuelSources.find(s => s.id === sourceId);
+        if (!drumSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        
+        if (liters > drumSource.currentStock) {
+            const maxDrums = litersToDrums(drumSource.currentStock);
+            throw new Error(`จำนวนถังเกินกว่าที่มีอยู่ (คงเหลือ: ${maxDrums} ถัง = ${drumSource.currentStock} ลิตร)`);
+        }
+        
+        drumSource.currentStock -= liters;
+        
+        const transactionUID = generateUID();
+        
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'remove_drum_khlong_luang',
+            sourceId: sourceId,
+            sourceName: drumSource.name,
+            sourceType: drumSource.type,
+            destinationId: null,
+            destinationName: null,
+            destinationType: null,
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: null,
+            pricePerDrum: null,
+            totalAmount: null,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: null,
+            receiptNo: null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        closeRemoveDrumKhlongLuangModal();
+        hideLoading();
+        
+        showUIDModal(logEntry);
+        
+        console.log('✅ ลบถังสำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in remove drum transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการลบถัง กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitRemoveKhlongLuang', false);
+    }
+}
+
+// ===== Transaction Modal - Nakhon Sawan Functions =====
+window.nakhonsawanPttRefillData = null;
+
+function openTransactionNakhonsawanModal(pttRefillData = null) {
+    window.nakhonsawanPttRefillData = pttRefillData;
+    document.getElementById('transactionNakhonsawanModal').style.display = 'block';
+    
+    if (pttRefillData) {
+        if (pttRefillData.operatorName) {
+            document.getElementById('transactionNakhonsawanOperatorName').value = pttRefillData.operatorName;
+        }
+        if (pttRefillData.operatingUnit) {
+            document.getElementById('transactionNakhonsawanOperatingUnit').value = pttRefillData.operatingUnit;
+        }
+    }
+}
+
+function closeTransactionNakhonsawanModal() {
+    document.getElementById('transactionNakhonsawanOperatorName').value = '';
+    document.getElementById('transactionNakhonsawanOperatingUnit').value = '';
+    document.getElementById('transactionNakhonsawanDrumCount').value = '';
+    document.getElementById('transactionNakhonsawanNotes').value = '';
+    document.getElementById('transactionNakhonsawanDrumTotalLiters').textContent = '0 ลิตร';
+    const modal = document.getElementById('transactionNakhonsawanModal');
+    modal.style.display = 'none';
+}
+
+function updateTransactionNakhonsawanLiterDisplay() {
+    const drumCount = document.getElementById('transactionNakhonsawanDrumCount').value;
+    const totalLiters = (drumCount || 0) * DRUM_CAPACITY_LITERS;
+    document.getElementById('transactionNakhonsawanDrumTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+}
+
+async function handleTransactionNakhonsawanSubmit() {
+    const operatorName = document.getElementById('transactionNakhonsawanOperatorName').value.trim();
+    const operatingUnit = document.getElementById('transactionNakhonsawanOperatingUnit').value.trim();
+    const destinationType = document.getElementById('transactionNakhonsawanDestinationType').value;
+    const sourceId = 'drum_nakhonsawan';
+    
+    try {
+        if (!operatorName || !operatingUnit) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        // ===== Handle DRAIN Transaction =====
+        if (destinationType === 'drain') {
+            setButtonLoading('submitTransactionNakhonsawan', true);
+            showLoading('กำลังบันทึกการเดรนน้ำมัน...');
+            
+            const drainLitersInput = document.getElementById('transactionNakhonsawanDrainLiters');
+            
+            if (!drainLitersInput) {
+                throw new Error('ไม่พบฟิลด์การเดรนน้ำมัน');
+            }
+            
+            const drainAmount = parseFloat(drainLitersInput.value);
+            
+            if (!drainAmount || drainAmount <= 0) {
+                throw new Error('กรุณากรอกจำนวนลิตรที่ต้องการเดรน');
+            }
+            
+            const drumSource = fuelSources.find(s => s.id === sourceId);
+            if (!drumSource) {
+                throw new Error('ไม่พบแหล่งถัง 200L');
+            }
+            
+            const liters = drainAmount;
+            
+            if (liters > drumSource.currentStock) {
+                throw new Error(`จำนวนลิตรเกินกว่าที่มีอยู่ (คงเหลือ: ${drumSource.currentStock} ลิตร)`);
+            }
+            
+            drumSource.currentStock -= liters;
+            
+            const transactionUID = generateUID();
+            const logEntry = {
+                id: Date.now(),
+                uid: transactionUID,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('th-TH'),
+                time: new Date().toLocaleTimeString('th-TH'),
+                transactionType: 'drain',
+                sourceId: sourceId,
+                sourceName: drumSource.name,
+                sourceType: drumSource.type,
+                destinationType: 'drain',
+                liters: liters,
+                volume: `${liters} ลิตร`,
+                operatorName: operatorName,
+                operatingUnit: operatingUnit
+            };
+            
+            transactionLogs.push(logEntry);
+            
+            await Promise.all([
+                saveInventoryToSheets(),
+                logTransactionToSheets(logEntry)
+            ]);
+            
+            showLoading('กำลังอัปเดตหน้าจอ...');
+            createFuelCards();
+            updateSummary();
+            
+            closeTransactionNakhonsawanModal();
+            hideLoading();
+            
+            showUIDModal(logEntry);
+            
+            console.log('✅ บันทึกการเดรนน้ำมันสำเร็จ', logEntry);
+            
+            return;
+        }
+        
+        // ===== Handle Normal Transaction (aircraft/tank) =====
+        const drumCount = parseFloat(document.getElementById('transactionNakhonsawanDrumCount').value);
+        
+        if (!drumCount || drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        const pttData = window.nakhonsawanPttRefillData;
+        let destinationId = null;
+        let destinationName = null;
+        let pricePerDrum = null;
+        let totalAmount = null;
+        
+        // ถ้าเป็นการเติมจาก PTT
+        if (pttData && pttData.sourceId === 'purchase') {
+            destinationId = 'purchase';
+            destinationName = 'ปตท.';
+            pricePerDrum = pttData.pricePerDrum;
+            totalAmount = drumCount * pricePerDrum;
+        } else {
+            // Normal transaction
+            if (destinationType === 'aircraft') {
+                destinationId = document.getElementById('transactionNakhonsawanAircraftSelect').value;
+                destinationName = destinationId;
+                if (!destinationId) {
+                    throw new Error('กรุณาเลือกเครื่องบิน');
+                }
+            } else if (destinationType === 'tank') {
+                destinationId = document.getElementById('transactionNakhonsawanTankSelect').value;
+                destinationName = destinationId;
+                if (!destinationId) {
+                    throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+                }
+            }
+        }
+        
+        setButtonLoading('submitTransactionNakhonsawan', true);
+        showLoading('กำลังบันทึกการทำรายการ...');
+        
+        const drumSource = fuelSources.find(s => s.id === sourceId);
+        if (!drumSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        
+        if (liters > drumSource.currentStock) {
+            const maxDrums = litersToDrums(drumSource.currentStock);
+            throw new Error(`จำนวนถังเกินกว่าที่มีอยู่ (คงเหลือ: ${maxDrums} ถัง = ${drumSource.currentStock} ลิตร)`);
+        }
+        
+        drumSource.currentStock -= liters;
+        
+        // ถ้าเป็นการเติมจาก PTT อัพเดต stock ด้วย
+        if (pttData && pttData.sourceId === 'purchase') {
+            const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
+            if (pttIndex !== -1) {
+                fuelSources[pttIndex].currentStock += liters;
+            }
+        }
+        
+        const transactionUID = generateUID();
+        const transactionType = pttData ? 'refill_drum_nakhonsawan' : 'transaction_drum_nakhonsawan';
+        
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: transactionType,
+            sourceId: pttData ? 'purchase' : sourceId,
+            sourceName: pttData ? 'ปตท.' : drumSource.name,
+            sourceType: pttData ? 'purchase' : drumSource.type,
+            destinationId: sourceId,
+            destinationName: drumSource.name,
+            destinationType: 'tank',
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: pricePerDrum ? (totalAmount / liters) : null,
+            pricePerDrum: pricePerDrum,
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: pttData ? pttData.bookNo : null,
+            receiptNo: pttData ? pttData.receiptNo : null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        closeTransactionNakhonsawanModal();
+        hideLoading();
+        
+        showUIDModal(logEntry);
+        
+        console.log('✅ บันทึกการทำรายการสำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitTransactionNakhonsawan', false);
+    }
+}
+
+// ===== Transaction Modal - Khlong Luang Functions =====
+window.khlongluangPttRefillData = null;
+
+function openTransactionKhlongLuangModal(pttRefillData = null) {
+    window.khlongluangPttRefillData = pttRefillData;
+    document.getElementById('transactionKhlongLuangModal').style.display = 'block';
+    
+    if (pttRefillData) {
+        if (pttRefillData.operatorName) {
+            document.getElementById('transactionKhlongLuangOperatorName').value = pttRefillData.operatorName;
+        }
+        if (pttRefillData.operatingUnit) {
+            document.getElementById('transactionKhlongLuangOperatingUnit').value = pttRefillData.operatingUnit;
+        }
+    }
+}
+
+function closeTransactionKhlongLuangModal() {
+    document.getElementById('transactionKhlongLuangOperatorName').value = '';
+    document.getElementById('transactionKhlongLuangOperatingUnit').value = '';
+    document.getElementById('transactionKhlongLuangDrumCount').value = '';
+    document.getElementById('transactionKhlongLuangNotes').value = '';
+    document.getElementById('transactionKhlongLuangDrumTotalLiters').textContent = '0 ลิตร';
+    const modal = document.getElementById('transactionKhlongLuangModal');
+    modal.style.display = 'none';
+}
+
+function updateTransactionKhlongLuangLiterDisplay() {
+    const drumCount = document.getElementById('transactionKhlongLuangDrumCount').value;
+    const totalLiters = (drumCount || 0) * DRUM_CAPACITY_LITERS;
+    document.getElementById('transactionKhlongLuangDrumTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+}
+
+async function handleTransactionKhlongLuangSubmit() {
+    const operatorName = document.getElementById('transactionKhlongLuangOperatorName').value.trim();
+    const operatingUnit = document.getElementById('transactionKhlongLuangOperatingUnit').value.trim();
+    const destinationType = document.getElementById('transactionKhlongLuangDestinationType').value;
+    const sourceId = 'drum_khlong_luang';
+    
+    try {
+        if (!operatorName || !operatingUnit) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        // ===== Handle DRAIN Transaction =====
+        if (destinationType === 'drain') {
+            setButtonLoading('submitTransactionKhlongLuang', true);
+            showLoading('กำลังบันทึกการเดรนน้ำมัน...');
+            
+            const drainLitersInput = document.getElementById('transactionKhlongLuangDrainLiters');
+            
+            if (!drainLitersInput) {
+                throw new Error('ไม่พบฟิลด์การเดรนน้ำมัน');
+            }
+            
+            const drainAmount = parseFloat(drainLitersInput.value);
+            
+            if (!drainAmount || drainAmount <= 0) {
+                throw new Error('กรุณากรอกจำนวนลิตรที่ต้องการเดรน');
+            }
+            
+            const drumSource = fuelSources.find(s => s.id === sourceId);
+            if (!drumSource) {
+                throw new Error('ไม่พบแหล่งถัง 200L');
+            }
+            
+            const liters = drainAmount;
+            
+            if (liters > drumSource.currentStock) {
+                throw new Error(`จำนวนลิตรเกินกว่าที่มีอยู่ (คงเหลือ: ${drumSource.currentStock} ลิตร)`);
+            }
+            
+            drumSource.currentStock -= liters;
+            
+            const transactionUID = generateUID();
+            const logEntry = {
+                id: Date.now(),
+                uid: transactionUID,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('th-TH'),
+                time: new Date().toLocaleTimeString('th-TH'),
+                transactionType: 'drain',
+                sourceId: sourceId,
+                sourceName: drumSource.name,
+                sourceType: drumSource.type,
+                destinationType: 'drain',
+                liters: liters,
+                volume: `${liters} ลิตร`,
+                operatorName: operatorName,
+                operatingUnit: operatingUnit
+            };
+            
+            transactionLogs.push(logEntry);
+            
+            await Promise.all([
+                saveInventoryToSheets(),
+                logTransactionToSheets(logEntry)
+            ]);
+            
+            showLoading('กำลังอัปเดตหน้าจอ...');
+            createFuelCards();
+            updateSummary();
+            
+            closeTransactionKhlongLuangModal();
+            hideLoading();
+            
+            showUIDModal(logEntry);
+            
+            console.log('✅ บันทึกการเดรนน้ำมันสำเร็จ', logEntry);
+            
+            return;
+        }
+        
+        // ===== Handle Normal Transaction (aircraft/tank) =====
+        const drumCount = parseFloat(document.getElementById('transactionKhlongLuangDrumCount').value);
+        
+        if (!drumCount || drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        const pttData = window.khlongluangPttRefillData;
+        let destinationId = null;
+        let destinationName = null;
+        let pricePerDrum = null;
+        let totalAmount = null;
+        
+        // ถ้าเป็นการเติมจาก PTT
+        if (pttData && pttData.sourceId === 'purchase') {
+            destinationId = 'purchase';
+            destinationName = 'ปตท.';
+            pricePerDrum = pttData.pricePerDrum;
+            totalAmount = drumCount * pricePerDrum;
+        } else {
+            // Normal transaction
+            if (destinationType === 'aircraft') {
+                destinationId = document.getElementById('transactionKhlongLuangAircraftSelect').value;
+                destinationName = destinationId;
+                if (!destinationId) {
+                    throw new Error('กรุณาเลือกเครื่องบิน');
+                }
+            } else if (destinationType === 'tank') {
+                destinationId = document.getElementById('transactionKhlongLuangTankSelect').value;
+                destinationName = destinationId;
+                if (!destinationId) {
+                    throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+                }
+            }
+        }
+        
+        setButtonLoading('submitTransactionKhlongLuang', true);
+        showLoading('กำลังบันทึกการทำรายการ...');
+        
+        const drumSource = fuelSources.find(s => s.id === sourceId);
+        if (!drumSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        
+        if (liters > drumSource.currentStock) {
+            const maxDrums = litersToDrums(drumSource.currentStock);
+            throw new Error(`จำนวนถังเกินกว่าที่มีอยู่ (คงเหลือ: ${maxDrums} ถัง = ${drumSource.currentStock} ลิตร)`);
+        }
+        
+        drumSource.currentStock -= liters;
+        
+        // ถ้าเป็นการเติมจาก PTT อัพเดต stock ด้วย
+        if (pttData && pttData.sourceId === 'purchase') {
+            const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
+            if (pttIndex !== -1) {
+                fuelSources[pttIndex].currentStock += liters;
+            }
+        }
+        
+        const transactionUID = generateUID();
+        const transactionType = pttData ? 'refill_drum_khlong_luang' : 'transaction_drum_khlong_luang';
+        
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: transactionType,
+            sourceId: pttData ? 'purchase' : sourceId,
+            sourceName: pttData ? 'ปตท.' : drumSource.name,
+            sourceType: pttData ? 'purchase' : drumSource.type,
+            destinationId: sourceId,
+            destinationName: drumSource.name,
+            destinationType: 'tank',
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: pricePerDrum ? (totalAmount / liters) : null,
+            pricePerDrum: pricePerDrum,
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            bookNo: pttData ? pttData.bookNo : null,
+            receiptNo: pttData ? pttData.receiptNo : null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        closeTransactionKhlongLuangModal();
+        hideLoading();
+        
+        showUIDModal(logEntry);
+        
+        console.log('✅ บันทึกการทำรายการสำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitTransactionKhlongLuang', false);
+    }
+}
+
 // Event Listeners สำหรับ Modal และ Form controls
 function initializeEventListeners() {
     // ===== Universal Modal Close Handler =====
@@ -2605,6 +3320,9 @@ function initializeEventListeners() {
         
         if (this.value === 'aircraft') {
             aircraftDestination.style.display = 'block';
+            tankDestination.style.display = 'none';
+        } else if (this.value === 'drain') {
+            aircraftDestination.style.display = 'none';
             tankDestination.style.display = 'none';
         } else {
             aircraftDestination.style.display = 'none';
@@ -2695,6 +3413,137 @@ function initializeEventListeners() {
             };
         }
     }
+    
+    // Remove Drum Nakhon Sawan Form Events
+    const removeDrumNakhonsawanForm = document.getElementById('removeDrumNakhonsawanForm');
+    if (removeDrumNakhonsawanForm) {
+        document.getElementById('removeNakhonsawanDrumCount').addEventListener('input', function() {
+            updateRemoveDrumNakhonsawanLiterDisplay();
+        });
+        
+        document.getElementById('removeNakhonsawanDestinationType').addEventListener('change', function() {
+            const aircraftDestination = document.getElementById('removeNakhonsawanAircraftDestination');
+            const tankDestination = document.getElementById('removeNakhonsawanTankDestination');
+            const drainFields = document.getElementById('removeNakhonsawanDrainFields');
+            
+            if (this.value === 'aircraft') {
+                aircraftDestination.style.display = 'block';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'none';
+            } else if (this.value === 'drain') {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'block';
+            } else {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'block';
+                if (drainFields) drainFields.style.display = 'none';
+            }
+        });
+        
+        removeDrumNakhonsawanForm.onsubmit = function(e) {
+            e.preventDefault();
+            handleRemoveDrumNakhonsawanSubmit();
+        };
+    }
+    
+    const removeDrumKhlongLuangForm = document.getElementById('removeDrumKhlongLuangForm');
+    if (removeDrumKhlongLuangForm) {
+        document.getElementById('removeKhlongLuangDrumCount').addEventListener('input', function() {
+            updateRemoveDrumKhlongLuangLiterDisplay();
+        });
+        
+        document.getElementById('removeKhlongLuangDestinationType').addEventListener('change', function() {
+            const aircraftDestination = document.getElementById('removeKhlongLuangAircraftDestination');
+            const tankDestination = document.getElementById('removeKhlongLuangTankDestination');
+            const drainFields = document.getElementById('removeKhlongLuangDrainFields');
+            
+            if (this.value === 'aircraft') {
+                aircraftDestination.style.display = 'block';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'none';
+            } else if (this.value === 'drain') {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'block';
+            } else {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'block';
+                if (drainFields) drainFields.style.display = 'none';
+            }
+        });
+        
+        removeDrumKhlongLuangForm.onsubmit = function(e) {
+            e.preventDefault();
+            handleRemoveDrumKhlongLuangSubmit();
+        };
+    }
+    
+    // Transaction Nakhon Sawan Form Events
+    const transactionNakhonsawanForm = document.getElementById('transactionNakhonsawanForm');
+    if (transactionNakhonsawanForm) {
+        document.getElementById('transactionNakhonsawanDrumCount').addEventListener('input', function() {
+            updateTransactionNakhonsawanLiterDisplay();
+        });
+        
+        document.getElementById('transactionNakhonsawanDestinationType').addEventListener('change', function() {
+            const aircraftDestination = document.getElementById('transactionNakhonsawanAircraftDestination');
+            const tankDestination = document.getElementById('transactionNakhonsawanTankDestination');
+            const drainFields = document.getElementById('transactionNakhonsawanDrainFields');
+            
+            if (this.value === 'aircraft') {
+                aircraftDestination.style.display = 'block';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'none';
+            } else if (this.value === 'drain') {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'block';
+            } else {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'block';
+                if (drainFields) drainFields.style.display = 'none';
+            }
+        });
+        
+        transactionNakhonsawanForm.onsubmit = function(e) {
+            e.preventDefault();
+            handleTransactionNakhonsawanSubmit();
+        };
+    }
+    
+    // Transaction Khlong Luang Form Events
+    const transactionKhlongLuangForm = document.getElementById('transactionKhlongLuangForm');
+    if (transactionKhlongLuangForm) {
+        document.getElementById('transactionKhlongLuangDrumCount').addEventListener('input', function() {
+            updateTransactionKhlongLuangLiterDisplay();
+        });
+        
+        document.getElementById('transactionKhlongLuangDestinationType').addEventListener('change', function() {
+            const aircraftDestination = document.getElementById('transactionKhlongLuangAircraftDestination');
+            const tankDestination = document.getElementById('transactionKhlongLuangTankDestination');
+            const drainFields = document.getElementById('transactionKhlongLuangDrainFields');
+            
+            if (this.value === 'aircraft') {
+                aircraftDestination.style.display = 'block';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'none';
+            } else if (this.value === 'drain') {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'none';
+                if (drainFields) drainFields.style.display = 'block';
+            } else {
+                aircraftDestination.style.display = 'none';
+                tankDestination.style.display = 'block';
+                if (drainFields) drainFields.style.display = 'none';
+            }
+        });
+        
+        transactionKhlongLuangForm.onsubmit = function(e) {
+            e.preventDefault();
+            handleTransactionKhlongLuangSubmit();
+        };
+    }
 }
 
 function updateRefillTypeVisibility() {
@@ -2744,11 +3593,15 @@ function updateRefillTypeVisibility() {
 
     const applyDestinationVisibility = () => {
         const destinationType = destinationTypeSelect ? destinationTypeSelect.value : 'aircraft';
+        const drainFieldsSection = document.getElementById('pttDrainFields');
         if (aircraftDestinationSection) {
             aircraftDestinationSection.style.display = destinationType === 'aircraft' ? 'block' : 'none';
         }
         if (tankDestinationSection) {
             tankDestinationSection.style.display = destinationType === 'tank' ? 'block' : 'none';
+        }
+        if (drainFieldsSection) {
+            drainFieldsSection.style.display = destinationType === 'drain' ? 'block' : 'none';
         }
     };
 
@@ -2781,7 +3634,50 @@ function updateRefillTypeVisibility() {
                 destinationTypeSelect.value = 'tank';
                 applyDestinationVisibility();
             }
+            updatePttRefillFieldsBasedOnDestination();
         };
+    }
+    
+    updatePttRefillFieldsBasedOnDestination();
+}
+
+function updatePttRefillFieldsBasedOnDestination() {
+    const tankSelect = document.getElementById('pttTankSelect');
+    const drumRefillFields = document.getElementById('drumRefillFields');
+    const pttDispenseLitersLabel = document.querySelector('[for="pttDispenseLiters"]');
+    const pttDispenseLitersField = pttDispenseLitersLabel ? pttDispenseLitersLabel.parentElement : null;
+    
+    if (!tankSelect || !drumRefillFields || !pttDispenseLitersField) return;
+    
+    const selectedDestinationId = tankSelect.value;
+    const destinationSource = fuelSources.find(s => s.id === selectedDestinationId);
+    const isDestinationDrum = destinationSource && isDrumSource(destinationSource);
+    
+    if (isDestinationDrum) {
+        drumRefillFields.style.display = 'block';
+        pttDispenseLitersField.style.display = 'none';
+        
+        const refillDrumsInput = document.getElementById('refillDrums');
+        const drumTotalLitersDisplay = document.getElementById('drumTotalLiters');
+        
+        if (refillDrumsInput && drumTotalLitersDisplay) {
+            const updateDrumTotalLiters = () => {
+                const drums = parseFloat(refillDrumsInput.value) || 0;
+                const totalLiters = drumsToLiters(drums);
+                drumTotalLitersDisplay.textContent = `${totalLiters.toLocaleString()} ลิตร`;
+            };
+            
+            if (!refillDrumsInput.dataset.hasPttDrumListener) {
+                refillDrumsInput.addEventListener('input', updateDrumTotalLiters);
+                refillDrumsInput.addEventListener('change', updateDrumTotalLiters);
+                refillDrumsInput.dataset.hasPttDrumListener = 'true';
+            }
+            
+            updateDrumTotalLiters();
+        }
+    } else {
+        drumRefillFields.style.display = 'none';
+        pttDispenseLitersField.style.display = 'block';
     }
 }
 
@@ -2820,6 +3716,9 @@ function showDispenseForm() {
         
         if (destinationType === 'aircraft') {
             aircraftDestination.style.display = 'block';
+            tankDestination.style.display = 'none';
+        } else if (destinationType === 'drain') {
+            aircraftDestination.style.display = 'none';
             tankDestination.style.display = 'none';
         } else {
             aircraftDestination.style.display = 'none';
@@ -2910,6 +3809,72 @@ async function handleRefillSubmit() {
     let destinationId = null;
     let destinationName = null;
     let destinationType = pttDestinationType;
+    
+    // Handle DRAIN transaction specially (no destination required)
+    if (destinationType === 'drain') {
+        try {
+            setButtonLoading('submitRefill', true);
+            showLoading('กำลังประมวลผลการเดรนน้ำมัน...');
+            
+            const drainLiters = parseFloat(document.getElementById('pttDrainLiters').value);
+            
+            if (!operatorName || !operatingUnit || !drainLiters) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+            
+            // For drain from PTT purchase, we don't reduce PTT stock (it's where we buy from)
+            // We just record the drain action
+            const liters = drainLiters;
+            
+            // Create transaction log
+            const transactionUID = generateUID();
+            const volumeDisplay = `${liters} ลิตร`;
+            const logEntry = {
+                id: Date.now(),
+                uid: transactionUID,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('th-TH'),
+                time: new Date().toLocaleTimeString('th-TH'),
+                transactionType: 'drain',
+                sourceId: 'purchase', // drain from PTT
+                sourceName: 'จัดซื้อจาก ปตท.',
+                destinationType: 'drain',
+                liters: liters,
+                volume: volumeDisplay,
+                operatorName: operatorName,
+                operatingUnit: operatingUnit
+            };
+            
+            transactionLogs.push(logEntry);
+            
+            // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
+            await Promise.all([
+                saveInventoryToSheets(),
+                logTransactionToSheets(logEntry)
+            ]);
+            
+            // อัพเดท UI
+            showLoading('กำลังอัปเดตหน้าจอ...');
+            createFuelCards();
+            updateSummary();
+            
+            // ปิด modal
+            document.getElementById('transactionModal').style.display = 'none';
+            hideLoading();
+            
+            // แสดง UID Modal แทน alert
+            showUIDModal(logEntry);
+            
+        } catch (error) {
+            console.error('Error in drain transaction:', error);
+            alert(error.message || 'เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+            hideLoading();
+        } finally {
+            setButtonLoading('submitRefill', false);
+        }
+        return;
+    }
     
     if (pttDestinationType === 'aircraft') {
         destinationId = document.getElementById('pttAircraftSelect').value;
@@ -3049,6 +4014,85 @@ async function handleDispenseSubmit() {
     const destinationType = document.getElementById('destinationType').value;
     
     let liters, pricePerLiter = null, totalAmount = null, drums = null, pricePerDrum = null;
+    
+    // Handle DRAIN transaction specially (no destination required)
+    if (destinationType === 'drain') {
+        try {
+            setButtonLoading('submitDispense', true);
+            showLoading('กำลังประมวลผลการเดรนน้ำมัน...');
+            
+            liters = parseFloat(document.getElementById('dispenseLiters').value);
+            
+            if (!operatorName || !operatingUnit || !liters) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+            
+            // Check stock
+            if (currentSelectedSource.currentStock < liters) {
+                alert(`น้ำมันไม่เพียงพอ\nคงเหลือ: ${currentSelectedSource.currentStock.toLocaleString()} ลิตร\nต้องการ: ${liters.toLocaleString()} ลิตร`);
+                return;
+            }
+            
+            // Update source stock (drain removes fuel)
+            const sourceIndex = fuelSources.findIndex(s => s.id === currentSelectedSource.id);
+            if (sourceIndex !== -1) {
+                fuelSources[sourceIndex].currentStock -= liters;
+            }
+            
+            // Create transaction log
+            const transactionUID = generateUID();
+            const volumeDisplay = `${liters} ลิตร`;
+            const logEntry = {
+                id: Date.now(),
+                uid: transactionUID,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString('th-TH'),
+                time: new Date().toLocaleTimeString('th-TH'),
+                transactionType: 'drain',
+                sourceId: currentSelectedSource.id,
+                sourceName: currentSelectedSource.name,
+                destinationType: 'drain',
+                liters: liters,
+                volume: volumeDisplay,
+                operatorName: operatorName,
+                operatingUnit: operatingUnit
+            };
+            
+            transactionLogs.push(logEntry);
+            
+            // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
+            await Promise.all([
+                saveInventoryToSheets(),
+                logTransactionToSheets(logEntry)
+            ]);
+            
+            // อัพเดท UI
+            showLoading('กำลังอัปเดตหน้าจอ...');
+            createFuelCards();
+            updateSummary();
+            
+            // ปิด modal
+            document.getElementById('transactionModal').style.display = 'none';
+            hideLoading();
+            
+            // อัพเดท lastLogCount เพื่อให้ระบบรู้ว่ามี transaction ใหม่
+            if (window.activityLogger && window.activityLogger.lastLogCount !== undefined) {
+                window.activityLogger.lastLogCount = transactionLogs.length;
+            }
+            
+            // แสดง UID Modal แทน alert
+            showUIDModal(logEntry);
+            
+        } catch (error) {
+            console.error('Error in drain transaction:', error);
+            alert(error.message || 'เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่');
+            hideLoading();
+        } finally {
+            setButtonLoading('submitDispense', false);
+        }
+        return;
+    }
     
     // ตรวจสอบปลายทางว่าเป็นถัง 200L หรือไม่
     let destinationId = null;

@@ -543,8 +543,8 @@ function getTransactionLogs(sheetsId, gid) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง P (16 คอลัมน์)
-    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 16);
+    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง Q (17 คอลัมน์)
+    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 17);
     const values = dataRange.getValues();
     
     // แปลงข้อมูลเป็น array of objects
@@ -592,7 +592,7 @@ function getTransactionLogs(sheetsId, gid) {
         transaction_type: row[3] || '',  // คอลัมน์ D: ประเภท
         source_name: row[4] || '',       // คอลัมน์ E: แหล่งที่มา
         destination_name: row[5] || '',  // คอลัมน์ F: ปลายทาง
-        volume: parseFloat(row[6]) || 0, // คอลัมน์ G: จำนวน(ลิตร)
+        volume: row[6] || '',            // คอลัมน์ G: จำนวน(ลิตร) - เก็บเป็น string เพื่อรักษารูปแบบ "5 ถัง (1000 ลิตร)"
         price_per_liter: parseFloat(row[7]) || 0, // คอลัมน์ H: ราคาต่อลิตร
         total_cost: parseFloat(row[8]) || 0,      // คอลัมน์ I: ยอดรวม
         operator_name: row[9] || '',     // คอลัมน์ J: ผู้ปฏิบัติงาน
@@ -601,7 +601,8 @@ function getTransactionLogs(sheetsId, gid) {
         aircraft_number: row[12] || '',  // คอลัมน์ M: เลขทะเบียน
         notes: row[13] || '',            // คอลัมน์ N: หมายเหตุ
         book_no: row[14] || '',          // คอลัมน์ O: Book No.
-        receipt_no: row[15] || ''        // คอลัมน์ P: Receipt No.
+        receipt_no: row[15] || '',       // คอลัมน์ P: Receipt No.
+        volume_liters: parseFloat(row[16]) || 0  // ✅ คอลัมน์ Q: volumeLiters (ตัวเลขลิตรที่แท้จริง)
       };
       
       // กำหนดประเภทปลายทางตาม destination name (ถ้ามี)
@@ -1107,20 +1108,20 @@ function logTransaction(dataString, sheetsId) {
       // สร้าง sheet ใหม่
       logSheet = spreadsheet.insertSheet('Transaction_Log');
       
-      // สร้าง header (เพิ่ม UID, Book No., Receipt No.)
-      logSheet.getRange(1, 1, 1, 16).setValues([[
+      // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters)
+      logSheet.getRange(1, 1, 1, 17).setValues([[
         'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
         'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
-        'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.'
+        'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters'
       ]]);
       
       // จัดรูปแบบ header
-      const headerRange = logSheet.getRange(1, 1, 1, 16);
+      const headerRange = logSheet.getRange(1, 1, 1, 17);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#2196F3');
       headerRange.setFontColor('#FFFFFF');
       
-      logSheet.autoResizeColumns(1, 16);
+      logSheet.autoResizeColumns(1, 17);
       logSheet.setFrozenRows(1);
     }
     
@@ -1150,7 +1151,8 @@ function logTransaction(dataString, sheetsId) {
       transactionData.aircraftNumber || '',
       transactionData.notes || '',         
       transactionData.bookNo || '',        
-      transactionData.receiptNo || ''      
+      transactionData.receiptNo || '',     
+      transactionData.volumeLiters || 0    
     ]);
     
     const lineConfig = getLineConfigFromSheet(spreadsheet);

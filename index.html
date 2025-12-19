@@ -454,6 +454,7 @@
                             <select id="pttDestinationType" name="pttDestinationType">
                                 <option value="aircraft">เครื่องบิน</option>
                                 <option value="tank">แหล่งน้ำมันอื่น</option>
+                                <option value="drain" style="color: red;">เดรนน้ำมัน</option>
                             </select>
                         </div>
                         <div class="form-group" id="pttAircraftDestination">
@@ -546,7 +547,15 @@
                                 <!-- จะถูกเติมโดย JavaScript -->
                             </select>
                         </div>
-                        <div class="form-group">
+                        
+                        <div id="pttDrainFields" style="display: none;">
+                            <div class="form-group">
+                                <label for="pttDrainLiters">จำนวนลิตร:</label>
+                                <input type="number" id="pttDrainLiters" name="pttDrainLiters" step="0.01" min="0">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" id="pttLitersGroup">
                             <label for="pttDispenseLiters">จำนวนลิตร:</label>
                             <input type="number" id="pttDispenseLiters" name="pttDispenseLiters" step="0.01" min="0">
                         </div>
@@ -560,7 +569,7 @@
                             <input type="text" id="bookNo" name="bookNo" placeholder="กรอกหมายเลข Book">
                         </div>
                         <div class="form-group">
-                            <label for="receiptNo">Receipt No.:</label>
+                            <label for="receiptNo">Receipt No./Ticket number:</label>
                             <input type="text" id="receiptNo" name="receiptNo" placeholder="กรอกหมายเลข Receipt">
                         </div>
                     </div>
@@ -577,6 +586,7 @@
                         <select id="destinationType" name="destinationType">
                             <option value="aircraft">เครื่องบิน</option>
                             <option value="tank">แหล่งน้ำมันอื่น</option>
+                            <option value="drain" style="color: red;">เดรนน้ำมัน</option>
                         </select>
                     </div>
                     <div class="form-group" id="aircraftDestination">
@@ -741,7 +751,7 @@
                         <input type="text" id="pttBookNo" name="pttBookNo" placeholder="กรอกหมายเลข Book">
                     </div>
                     <div class="form-group">
-                        <label for="pttReceiptNo">Receipt No.:</label>
+                        <label for="pttReceiptNo">Receipt No./Ticket number:</label>
                         <input type="text" id="pttReceiptNo" name="pttReceiptNo" placeholder="กรอกหมายเลข Receipt">
                     </div>
                 </div>
@@ -797,7 +807,7 @@
                             <strong id="uidBookNo">-</strong>
                         </div>
                         <div id="uidReceiptNoRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
-                            <span style="color: #666;">Receipt No.:</span>
+                            <span style="color: #666;">Receipt No./Ticket number:</span>
                             <strong id="uidReceiptNo">-</strong>
                         </div>
                         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
@@ -824,6 +834,308 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Transaction Modal - Nakhon Sawan - 200L Tank -->
+    <div id="transactionNakhonsawanModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTransactionNakhonsawanModal()">&times;</span>
+            <h2>
+                <i class="fas fa-exchange-alt me-2"></i>การทำรายการ - สนามบินนครสวรรค์ - ถัง 200L
+            </h2>
+            
+            <form id="transactionNakhonsawanForm">
+                <div class="form-group">
+                    <label for="transactionNakhonsawanOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="transactionNakhonsawanOperatorName" name="transactionNakhonsawanOperatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="transactionNakhonsawanOperatingUnit" name="transactionNakhonsawanOperatingUnit" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionNakhonsawanDestinationType">ประเภทยานพาหนะ:</label>
+                    <select id="transactionNakhonsawanDestinationType" name="transactionNakhonsawanDestinationType" required>
+                        <option value="aircraft">เครื่องบิน</option>
+                        <option value="tank">แหล่งน้ำมันอื่น</option>
+                        <option value="drain" style="color: red;">เดรนน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div id="transactionNakhonsawanDrainFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="transactionNakhonsawanDrainLiters">จำนวนลิตร:</label>
+                        <input type="number" id="transactionNakhonsawanDrainLiters" name="transactionNakhonsawanDrainLiters" step="0.01" min="0" required>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="transactionNakhonsawanAircraftDestination">
+                    <label for="transactionNakhonsawanAircraftSelect">เลือกเครื่องบิน:</label>
+                    <select id="transactionNakhonsawanAircraftSelect" name="transactionNakhonsawanAircraftSelect" required>
+                        <option value="">เลือกเครื่องบิน</option>
+                        <optgroup label="CARAVAN C208">
+                            <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                            <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                            <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                            <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                            <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                            <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND C208B">
+                            <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                            <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND EX">
+                            <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                            <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                            <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                            <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                            <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                        </optgroup>
+                        <optgroup label="CASA - 300">
+                            <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                            <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                            <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                            <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                            <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                        </optgroup>
+                        <optgroup label="CASA - 400">
+                            <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                            <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                            <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                        </optgroup>
+                        <optgroup label="NC212i">
+                            <option value="NC212i : 1544">NC212i : 1544</option>
+                            <option value="NC212i : 1545">NC212i : 1545</option>
+                            <option value="NC212i : 1546">NC212i : 1546</option>
+                            <option value="NC212i : 1547">NC212i : 1547</option>
+                        </optgroup>
+                        <optgroup label="skycourier">
+                            <option value="skycourier : 2511">skycourier : 2511</option>
+                            <option value="skycourier : 2512">skycourier : 2512</option>
+                        </optgroup>
+                        <optgroup label="L410">
+                            <option value="L410 : 2611">L410 : 2611</option>
+                            <option value="L410 : 2612">L410 : 2612</option>
+                        </optgroup>
+                        <optgroup label="SKA - 350">
+                            <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                            <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                            <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                            <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                        </optgroup>
+                        <optgroup label="CN - 235">
+                            <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                            <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                        </optgroup>
+                        <optgroup label="BELL 206B3">
+                            <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                        </optgroup>
+                        <optgroup label="BELL 407">
+                            <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                        </optgroup>
+                        <optgroup label="BELL 407GXP">
+                            <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                            <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                        </optgroup>
+                        <optgroup label="BELL 412 EP">
+                            <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                        </optgroup>
+                        <optgroup label="AS350 B2">
+                            <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                        </optgroup>
+                        <optgroup label="H130 T2">
+                            <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                        </optgroup>
+                        <optgroup label="AW139">
+                            <option value="AW139 : 2711">AW139 : 2711</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="transactionNakhonsawanTankDestination" style="display: none;">
+                    <label for="transactionNakhonsawanTankSelect">เลือกแหล่งน้ำมัน:</label>
+                    <select id="transactionNakhonsawanTankSelect" name="transactionNakhonsawanTankSelect">
+                        <option value="">เลือกแหล่งน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionNakhonsawanDrumCount">จำนวนถัง:</label>
+                    <input type="number" id="transactionNakhonsawanDrumCount" name="transactionNakhonsawanDrumCount" step="1" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>จำนวนลิตรรวม:</label>
+                    <div id="transactionNakhonsawanDrumTotalLiters" class="calculated-amount">0 ลิตร</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionNakhonsawanNotes">หมายเหตุ (ไม่จำเป็น):</label>
+                    <textarea id="transactionNakhonsawanNotes" name="transactionNakhonsawanNotes" rows="3" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                </div>
+                
+                <div class="modal-actions mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="closeTransactionNakhonsawanModal()">ยกเลิก</button>
+                    <button type="submit" id="submitTransactionNakhonsawan" class="btn btn-primary">
+                        <i class="fas fa-check me-2"></i>ยืนยันการทำรายการ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Modal - Khlong Luang - 200L Tank -->
+    <div id="transactionKhlongLuangModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTransactionKhlongLuangModal()">&times;</span>
+            <h2>
+                <i class="fas fa-exchange-alt me-2"></i>การทำรายการ - สนามบินคลองหลวง - ถัง 200L
+            </h2>
+            
+            <form id="transactionKhlongLuangForm">
+                <div class="form-group">
+                    <label for="transactionKhlongLuangOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="transactionKhlongLuangOperatorName" name="transactionKhlongLuangOperatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="transactionKhlongLuangOperatingUnit" name="transactionKhlongLuangOperatingUnit" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionKhlongLuangDestinationType">ประเภทยานพาหนะ:</label>
+                    <select id="transactionKhlongLuangDestinationType" name="transactionKhlongLuangDestinationType" required>
+                        <option value="aircraft">เครื่องบิน</option>
+                        <option value="tank">แหล่งน้ำมันอื่น</option>
+                        <option value="drain" style="color: red;">เดรนน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div id="transactionKhlongLuangDrainFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="transactionKhlongLuangDrainLiters">จำนวนลิตร:</label>
+                        <input type="number" id="transactionKhlongLuangDrainLiters" name="transactionKhlongLuangDrainLiters" step="0.01" min="0" required>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="transactionKhlongLuangAircraftDestination">
+                    <label for="transactionKhlongLuangAircraftSelect">เลือกเครื่องบิน:</label>
+                    <select id="transactionKhlongLuangAircraftSelect" name="transactionKhlongLuangAircraftSelect" required>
+                        <option value="">เลือกเครื่องบิน</option>
+                        <optgroup label="CARAVAN C208">
+                            <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                            <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                            <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                            <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                            <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                            <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND C208B">
+                            <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                            <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND EX">
+                            <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                            <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                            <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                            <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                            <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                        </optgroup>
+                        <optgroup label="CASA - 300">
+                            <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                            <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                            <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                            <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                            <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                        </optgroup>
+                        <optgroup label="CASA - 400">
+                            <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                            <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                            <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                        </optgroup>
+                        <optgroup label="NC212i">
+                            <option value="NC212i : 1544">NC212i : 1544</option>
+                            <option value="NC212i : 1545">NC212i : 1545</option>
+                            <option value="NC212i : 1546">NC212i : 1546</option>
+                            <option value="NC212i : 1547">NC212i : 1547</option>
+                        </optgroup>
+                        <optgroup label="skycourier">
+                            <option value="skycourier : 2511">skycourier : 2511</option>
+                            <option value="skycourier : 2512">skycourier : 2512</option>
+                        </optgroup>
+                        <optgroup label="L410">
+                            <option value="L410 : 2611">L410 : 2611</option>
+                            <option value="L410 : 2612">L410 : 2612</option>
+                        </optgroup>
+                        <optgroup label="SKA - 350">
+                            <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                            <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                            <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                            <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                        </optgroup>
+                        <optgroup label="CN - 235">
+                            <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                            <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                        </optgroup>
+                        <optgroup label="BELL 206B3">
+                            <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                        </optgroup>
+                        <optgroup label="BELL 407">
+                            <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                        </optgroup>
+                        <optgroup label="BELL 407GXP">
+                            <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                            <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                        </optgroup>
+                        <optgroup label="BELL 412 EP">
+                            <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                        </optgroup>
+                        <optgroup label="AS350 B2">
+                            <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                        </optgroup>
+                        <optgroup label="H130 T2">
+                            <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                        </optgroup>
+                        <optgroup label="AW139">
+                            <option value="AW139 : 2711">AW139 : 2711</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="transactionKhlongLuangTankDestination" style="display: none;">
+                    <label for="transactionKhlongLuangTankSelect">เลือกแหล่งน้ำมัน:</label>
+                    <select id="transactionKhlongLuangTankSelect" name="transactionKhlongLuangTankSelect">
+                        <option value="">เลือกแหล่งน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionKhlongLuangDrumCount">จำนวนถัง:</label>
+                    <input type="number" id="transactionKhlongLuangDrumCount" name="transactionKhlongLuangDrumCount" step="1" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>จำนวนลิตรรวม:</label>
+                    <div id="transactionKhlongLuangDrumTotalLiters" class="calculated-amount">0 ลิตร</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transactionKhlongLuangNotes">หมายเหตุ (ไม่จำเป็น):</label>
+                    <textarea id="transactionKhlongLuangNotes" name="transactionKhlongLuangNotes" rows="3" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                </div>
+                
+                <div class="modal-actions mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="closeTransactionKhlongLuangModal()">ยกเลิก</button>
+                    <button type="submit" id="submitTransactionKhlongLuang" class="btn btn-primary">
+                        <i class="fas fa-check me-2"></i>ยืนยันการทำรายการ
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -873,6 +1185,322 @@
                     <button type="button" class="btn btn-secondary" onclick="closeReturnDrumModal()">ยกเลิก</button>
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-check me-2"></i>ยืนยันการคืนถัง
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Remove Drum Modal - Nakhon Sawan -->
+    <div id="removeDrumNakhonsawanModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRemoveDrumNakhonsawanModal()">&times;</span>
+            <h2>
+                <i class="fas fa-minus me-2"></i>ลบถังน้ำมัน 200 ลิตร - สนามบินนครสวรรค์
+            </h2>
+            
+            <form id="removeDrumNakhonsawanForm">
+                <div class="form-group">
+                    <label for="removeNakhonsawanOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="removeNakhonsawanOperatorName" name="removeNakhonsawanOperatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="removeNakhonsawanOperatingUnit" name="removeNakhonsawanOperatingUnit" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeNakhonsawanDestinationType">ประเภทยานพาหนะ:</label>
+                    <select id="removeNakhonsawanDestinationType" name="removeNakhonsawanDestinationType" required>
+                        <option value="aircraft">เครื่องบิน</option>
+                        <option value="tank">แหล่งน้ำมันอื่น</option>
+                        <option value="drain" style="color: red;">เดรนน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div id="removeNakhonsawanDrainFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="removeNakhonsawanDrainLiters">จำนวนลิตร:</label>
+                        <input type="number" id="removeNakhonsawanDrainLiters" name="removeNakhonsawanDrainLiters" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="removeNakhonsawanDrainUnit">หน่วย:</label>
+                        <select id="removeNakhonsawanDrainUnit" name="removeNakhonsawanDrainUnit" required>
+                            <option value="ลิตร">ลิตร</option>
+                            <option value="ถัง">ถัง (200L)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="removeNakhonsawanAircraftDestination">
+                    <label for="removeNakhonsawanAircraftSelect">เลือกเครื่องบิน:</label>
+                    <select id="removeNakhonsawanAircraftSelect" name="removeNakhonsawanAircraftSelect" required>
+                        <option value="">เลือกเครื่องบิน</option>
+                        <optgroup label="CARAVAN C208">
+                            <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                            <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                            <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                            <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                            <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                            <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND C208B">
+                            <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                            <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND EX">
+                            <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                            <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                            <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                            <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                            <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                        </optgroup>
+                        <optgroup label="CASA - 300">
+                            <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                            <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                            <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                            <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                            <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                        </optgroup>
+                        <optgroup label="CASA - 400">
+                            <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                            <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                            <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                        </optgroup>
+                        <optgroup label="NC212i">
+                            <option value="NC212i : 1544">NC212i : 1544</option>
+                            <option value="NC212i : 1545">NC212i : 1545</option>
+                            <option value="NC212i : 1546">NC212i : 1546</option>
+                            <option value="NC212i : 1547">NC212i : 1547</option>
+                        </optgroup>
+                        <optgroup label="skycourier">
+                            <option value="skycourier : 2511">skycourier : 2511</option>
+                            <option value="skycourier : 2512">skycourier : 2512</option>
+                        </optgroup>
+                        <optgroup label="L410">
+                            <option value="L410 : 2611">L410 : 2611</option>
+                            <option value="L410 : 2612">L410 : 2612</option>
+                        </optgroup>
+                        <optgroup label="SKA - 350">
+                            <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                            <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                            <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                            <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                        </optgroup>
+                        <optgroup label="CN - 235">
+                            <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                            <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                        </optgroup>
+                        <optgroup label="BELL 206B3">
+                            <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                        </optgroup>
+                        <optgroup label="BELL 407">
+                            <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                        </optgroup>
+                        <optgroup label="BELL 407GXP">
+                            <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                            <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                        </optgroup>
+                        <optgroup label="BELL 412 EP">
+                            <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                        </optgroup>
+                        <optgroup label="AS350 B2">
+                            <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                        </optgroup>
+                        <optgroup label="H130 T2">
+                            <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                        </optgroup>
+                        <optgroup label="AW139">
+                            <option value="AW139 : 2711">AW139 : 2711</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="removeNakhonsawanTankDestination" style="display: none;">
+                    <label for="removeNakhonsawanTankSelect">เลือกแหล่งน้ำมัน:</label>
+                    <select id="removeNakhonsawanTankSelect" name="removeNakhonsawanTankSelect">
+                        <option value="">เลือกแหล่งน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeNakhonsawanDrumCount">จำนวนถัง:</label>
+                    <input type="number" id="removeNakhonsawanDrumCount" name="removeNakhonsawanDrumCount" step="1" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>จำนวนลิตรรวม:</label>
+                    <div id="removeNakhonsawanDrumTotalLiters" class="calculated-amount">0 ลิตร</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeNakhonsawanNotes">หมายเหตุ (ไม่จำเป็น):</label>
+                    <textarea id="removeNakhonsawanNotes" name="removeNakhonsawanNotes" rows="3" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                </div>
+                
+                <div class="modal-actions mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="closeRemoveDrumNakhonsawanModal()">ยกเลิก</button>
+                    <button type="submit" id="submitRemoveNakhonsawan" class="btn btn-danger">
+                        <i class="fas fa-check me-2"></i>ยืนยันการลบถัง
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Remove Drum Modal - Khlong Luang -->
+    <div id="removeDrumKhlongLuangModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRemoveDrumKhlongLuangModal()">&times;</span>
+            <h2>
+                <i class="fas fa-minus me-2"></i>ลบถังน้ำมัน 200 ลิตร - สนามบินคลองหลวง
+            </h2>
+            
+            <form id="removeDrumKhlongLuangForm">
+                <div class="form-group">
+                    <label for="removeKhlongLuangOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="removeKhlongLuangOperatorName" name="removeKhlongLuangOperatorName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
+                    <input type="text" id="removeKhlongLuangOperatingUnit" name="removeKhlongLuangOperatingUnit" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeKhlongLuangDestinationType">ประเภทยานพาหนะ:</label>
+                    <select id="removeKhlongLuangDestinationType" name="removeKhlongLuangDestinationType" required>
+                        <option value="aircraft">เครื่องบิน</option>
+                        <option value="tank">แหล่งน้ำมันอื่น</option>
+                        <option value="drain" style="color: red;">เดรนน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div id="removeKhlongLuangDrainFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="removeKhlongLuangDrainLiters">จำนวนลิตร:</label>
+                        <input type="number" id="removeKhlongLuangDrainLiters" name="removeKhlongLuangDrainLiters" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="removeKhlongLuangDrainUnit">หน่วย:</label>
+                        <select id="removeKhlongLuangDrainUnit" name="removeKhlongLuangDrainUnit" required>
+                            <option value="ลิตร">ลิตร</option>
+                            <option value="ถัง">ถัง (200L)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="removeKhlongLuangAircraftDestination">
+                    <label for="removeKhlongLuangAircraftSelect">เลือกเครื่องบิน:</label>
+                    <select id="removeKhlongLuangAircraftSelect" name="removeKhlongLuangAircraftSelect" required>
+                        <option value="">เลือกเครื่องบิน</option>
+                        <optgroup label="CARAVAN C208">
+                            <option value="CARAVAN C208 : 1912">CARAVAN C208 : 1912</option>
+                            <option value="CARAVAN C208 : 1913">CARAVAN C208 : 1913</option>
+                            <option value="CARAVAN C208 : 1914">CARAVAN C208 : 1914</option>
+                            <option value="CARAVAN C208 : 1915">CARAVAN C208 : 1915</option>
+                            <option value="CARAVAN C208 : 1916">CARAVAN C208 : 1916</option>
+                            <option value="CARAVAN C208 : 1918">CARAVAN C208 : 1918</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND C208B">
+                            <option value="CARAVAN GRAND C208B : 1921">CARAVAN GRAND C208B : 1921</option>
+                            <option value="CARAVAN GRAND C208B : 1922">CARAVAN GRAND C208B : 1922</option>
+                        </optgroup>
+                        <optgroup label="CARAVAN GRAND EX">
+                            <option value="CARAVAN GRAND EX : 1931">CARAVAN GRAND EX : 1931</option>
+                            <option value="CARAVAN GRAND EX : 1932">CARAVAN GRAND EX : 1932</option>
+                            <option value="CARAVAN GRAND EX : 1933">CARAVAN GRAND EX : 1933</option>
+                            <option value="CARAVAN GRAND EX : 1934">CARAVAN GRAND EX : 1934</option>
+                            <option value="CARAVAN GRAND EX : 1935">CARAVAN GRAND EX : 1935</option>
+                        </optgroup>
+                        <optgroup label="CASA - 300">
+                            <option value="CASA - 300 : 1531">CASA - 300 : 1531</option>
+                            <option value="CASA - 300 : 1532">CASA - 300 : 1532</option>
+                            <option value="CASA - 300 : 1533">CASA - 300 : 1533</option>
+                            <option value="CASA - 300 : 1534">CASA - 300 : 1534</option>
+                            <option value="CASA - 300 : 1535">CASA - 300 : 1535</option>
+                        </optgroup>
+                        <optgroup label="CASA - 400">
+                            <option value="CASA - 400 : 1541">CASA - 400 : 1541</option>
+                            <option value="CASA - 400 : 1542">CASA - 400 : 1542</option>
+                            <option value="CASA - 400 : 1543">CASA - 400 : 1543</option>
+                        </optgroup>
+                        <optgroup label="NC212i">
+                            <option value="NC212i : 1544">NC212i : 1544</option>
+                            <option value="NC212i : 1545">NC212i : 1545</option>
+                            <option value="NC212i : 1546">NC212i : 1546</option>
+                            <option value="NC212i : 1547">NC212i : 1547</option>
+                        </optgroup>
+                        <optgroup label="skycourier">
+                            <option value="skycourier : 2511">skycourier : 2511</option>
+                            <option value="skycourier : 2512">skycourier : 2512</option>
+                        </optgroup>
+                        <optgroup label="L410">
+                            <option value="L410 : 2611">L410 : 2611</option>
+                            <option value="L410 : 2612">L410 : 2612</option>
+                        </optgroup>
+                        <optgroup label="SKA - 350">
+                            <option value="SKA - 350 : 2011">SKA - 350 : 2011</option>
+                            <option value="SKA - 350 : 2012">SKA - 350 : 2012</option>
+                            <option value="SKA - 350 : 2013">SKA - 350 : 2013</option>
+                            <option value="SKA - 350 : 2014">SKA - 350 : 2014</option>
+                        </optgroup>
+                        <optgroup label="CN - 235">
+                            <option value="CN - 235 : 2221">CN - 235 : 2221</option>
+                            <option value="CN - 235 : 2222">CN - 235 : 2222</option>
+                        </optgroup>
+                        <optgroup label="BELL 206B3">
+                            <option value="BELL 206B3 : 1615">BELL 206B3 : 1615</option>
+                        </optgroup>
+                        <optgroup label="BELL 407">
+                            <option value="BELL 407 : 2311">BELL 407 : 2311</option>
+                        </optgroup>
+                        <optgroup label="BELL 407GXP">
+                            <option value="BELL 407GXP : 2321">BELL 407GXP : 2321</option>
+                            <option value="BELL 407GXP : 2322">BELL 407GXP : 2322</option>
+                        </optgroup>
+                        <optgroup label="BELL 412 EP">
+                            <option value="BELL 412 EP : 21111">BELL 412 EP : 21111</option>
+                        </optgroup>
+                        <optgroup label="AS350 B2">
+                            <option value="AS350 B2 : 18301">AS350 B2 : 18301</option>
+                        </optgroup>
+                        <optgroup label="H130 T2">
+                            <option value="H130 T2 : 2411">H130 T2 : 2411</option>
+                        </optgroup>
+                        <optgroup label="AW139">
+                            <option value="AW139 : 2711">AW139 : 2711</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="removeKhlongLuangTankDestination" style="display: none;">
+                    <label for="removeKhlongLuangTankSelect">เลือกแหล่งน้ำมัน:</label>
+                    <select id="removeKhlongLuangTankSelect" name="removeKhlongLuangTankSelect">
+                        <option value="">เลือกแหล่งน้ำมัน</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeKhlongLuangDrumCount">จำนวนถัง:</label>
+                    <input type="number" id="removeKhlongLuangDrumCount" name="removeKhlongLuangDrumCount" step="1" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>จำนวนลิตรรวม:</label>
+                    <div id="removeKhlongLuangDrumTotalLiters" class="calculated-amount">0 ลิตร</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="removeKhlongLuangNotes">หมายเหตุ (ไม่จำเป็น):</label>
+                    <textarea id="removeKhlongLuangNotes" name="removeKhlongLuangNotes" rows="3" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                </div>
+                
+                <div class="modal-actions mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="closeRemoveDrumKhlongLuangModal()">ยกเลิก</button>
+                    <button type="submit" id="submitRemoveKhlongLuang" class="btn btn-danger">
+                        <i class="fas fa-check me-2"></i>ยืนยันการลบถัง
                     </button>
                 </div>
             </form>
