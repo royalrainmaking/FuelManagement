@@ -1564,6 +1564,13 @@ header h1 {
     flex-direction: column;
 }
 
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
 .loading-overlay.active {
     display: flex;
 }

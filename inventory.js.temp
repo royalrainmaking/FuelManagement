@@ -620,9 +620,9 @@ const ModalManager = {
 };
 
 // Legacy functions for compatibility
-const showLoading = LoadingManager.show;
-const hideLoading = LoadingManager.hide;
-const setButtonLoading = LoadingManager.setButton;
+const showLoading = LoadingManager.show.bind(LoadingManager);
+const hideLoading = LoadingManager.hide.bind(LoadingManager);
+const setButtonLoading = LoadingManager.setButton.bind(LoadingManager);
 
 // แสดง/ซ่อน loading state สำหรับ summary section
 function showSummaryLoading(isLoading = true, isFirstLoad = false) {
@@ -802,10 +802,12 @@ function inferType(name) {
 }
 
 // ฟังก์ชั่นโหลดข้อมูล Transaction Log จาก Google Sheets
-async function loadTransactionLogsFromSheets() {
+async function loadTransactionLogsFromSheets(isBackground = false) {
     try {
-        console.log('กำลังโหลด Transaction Logs จาก Google Sheets...');
-        showLoading('กำลังโหลด Transaction Logs...');
+        if (!isBackground) {
+            console.log('กำลังโหลด Transaction Logs จาก Google Sheets...');
+            showLoading('กำลังโหลด Transaction Logs...');
+        }
         
         const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`);
         
@@ -1453,15 +1455,16 @@ async function initializeSystem() {
         
         // เริ่มต้น event listeners ก่อน
         initializeEventListeners();
+        LoadingManager.updateProgress(8, 'โหลดข้อมูลจาก Google Sheets...');
         
-        // โหลดข้อมูลจาก Google Sheets แบบขนาน
-        await Promise.all([
-            loadInventoryFromSheets(),
-            loadTransactionLogsFromSheets()
-        ]);
+        // โหลดข้อมูล Inventory เพื่อแสดงหน้าจอหลัก
+        await loadInventoryFromSheets();
+        LoadingManager.updateProgress(70, 'โหลดข้อมูลแหล่งน้ำมัน สำเร็จ...');
         
-        // สร้างหน้าจอ
-        showLoading('กำลังสร้างหน้าจอ...');
+        // ซ่อนหน้าโหลดทันที ให้หน้า index ใช้งานได้
+        hideLoading();
+        
+        // สร้างหน้าจอหลัก (ทำงานหลังซ่อนหน้าโหลด)
         createFuelCards();
         updateSummary();
         
@@ -1469,8 +1472,13 @@ async function initializeSystem() {
         updateDailyConfirmationButtons();
         setInterval(checkMidnightTransition, 60000); // ตรวจสอบเที่ยงคืนทุก 60 วินาที
         
-        hideLoading();
         console.log('✅ ระบบเริ่มต้นสำเร็จ');
+        
+        // โหลด Transaction Logs ในพื้นหลัง (ไม่บล็อกหน้าจอหลัก)
+        loadTransactionLogsFromSheets(true)
+            .then(() => console.log('✅ Transaction Logs โหลดสำเร็จ'))
+            .catch(error => console.warn('⚠️ การโหลด Transaction Logs ล้มเหลว:', error));
+            
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการเริ่มต้นระบบ:', error);
         hideLoading();

@@ -382,14 +382,23 @@
         <!-- Filters -->
         <div class="transaction-filters">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">ค้นหา</label>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
                         <input type="text" class="form-control" id="searchInput" placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง หรือผู้บันทึก...">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">จำนวนรายการ</label>
+                    <select class="form-select" id="itemsPerPageFilter">
+                        <option value="10" selected>10 รายการ</option>
+                        <option value="25">25 รายการ</option>
+                        <option value="50">50 รายการ</option>
+                        <option value="100">100 รายการ</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label fw-bold">จัดเรียงตาม</label>
                     <select class="form-select" id="sortByFilter">
                         <option value="date_desc">วันที่ใหม่สุด</option>
@@ -399,7 +408,7 @@
                         <option value="cost_desc">มูลค่ามากสุด</option>
                     </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end gap-2">
+                <div class="col-md-3 d-flex align-items-end gap-2">
                     <button class="btn btn-primary flex-grow-1" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>

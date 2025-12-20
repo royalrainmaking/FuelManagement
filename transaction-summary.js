@@ -7,7 +7,8 @@
 let allTransactions = [];
 let filteredTransactions = [];
 let currentPage = 1;
-const itemsPerPage = 10;
+let itemsPerPage = 10;
+let isLoadingMore = false;
 
 // DOM Elements
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -52,7 +53,34 @@ document.addEventListener('DOMContentLoaded', function() {
     
     loadTransactionData();
     setupEventListeners();
+    setupLazyLoading();
 });
+
+/**
+ * Setup Lazy Loading - โหลดข้อมูลเพิ่มเมื่อสกรอลลงมา
+ */
+function setupLazyLoading() {
+    const transactionTable = document.querySelector('.transaction-table');
+    if (!transactionTable) return;
+    
+    transactionTable.addEventListener('scroll', function() {
+        const scrollPosition = transactionTable.scrollTop + transactionTable.clientHeight;
+        const isNearBottom = scrollPosition >= transactionTable.scrollHeight - 100;
+        
+        if (isNearBottom && !isLoadingMore) {
+            const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                isLoadingMore = true;
+                setTimeout(() => {
+                    currentPage++;
+                    renderTable(true);
+                    updatePagination();
+                    isLoadingMore = false;
+                }, 300);
+            }
+        }
+    });
+}
 
 /**
  * Setup event listeners
@@ -60,6 +88,16 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupEventListeners() {
     searchInput.addEventListener('input', applyFilters);
     sortByFilter.addEventListener('change', applyFilters);
+    
+    const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
+    if (itemsPerPageFilter) {
+        itemsPerPageFilter.addEventListener('change', (e) => {
+            itemsPerPage = parseInt(e.target.value);
+            currentPage = 1;
+            applyFilters();
+        });
+    }
+    
     resetFiltersBtn.addEventListener('click', resetFilters);
     
     // Advanced Filters
@@ -252,7 +290,7 @@ function applyFilters() {
 
     // Update display
     updateSummaryStatistics();
-    renderTable();
+    renderTable(false);
     updatePagination();
 }
 
@@ -311,12 +349,12 @@ const transactionStore = {};
 /**
  * Render transactions table
  */
-function renderTable() {
+function renderTable(isAppend = false) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const pageTransactions = filteredTransactions.slice(startIndex, endIndex);
 
-    if (pageTransactions.length === 0) {
+    if (pageTransactions.length === 0 && currentPage === 1) {
         transactionsTableBody.innerHTML = `
             <tr>
                 <td colspan="8" class="text-center text-muted py-5">
@@ -332,7 +370,7 @@ function renderTable() {
         return;
     }
 
-    transactionsTableBody.innerHTML = pageTransactions.map((transaction, index) => {
+    const rowsHTML = pageTransactions.map((transaction, index) => {
         const transactionId = `trans_${Date.now()}_${index}`;
         transactionStore[transactionId] = transaction;
         
@@ -366,6 +404,12 @@ function renderTable() {
             </tr>
         `;
     }).join('');
+    
+    if (isAppend && currentPage > 1) {
+        transactionsTableBody.innerHTML += rowsHTML;
+    } else {
+        transactionsTableBody.innerHTML = rowsHTML;
+    }
 }
 
 /**
@@ -641,7 +685,7 @@ function updatePagination() {
  */
 function goToPage(page) {
     currentPage = page;
-    renderTable();
+    renderTable(false);
     updatePagination();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -655,12 +699,19 @@ function resetFilters() {
     startDateFilter.value = '';
     endDateFilter.value = '';
     
+    const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
+    if (itemsPerPageFilter) {
+        itemsPerPageFilter.value = '10';
+        itemsPerPage = 10;
+    }
+    
     // Uncheck all checkboxes
     sourceFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     destinationFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     aircraftFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     unitFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     
+    currentPage = 1;
     applyFilters();
 }
 
@@ -880,12 +931,13 @@ function viewImageModal(imageUrl, filename, transactionId) {
         
         if (transaction && transaction.image_drive_id) {
             // Use direct link if Drive ID is available
-            displayUrl = `https://drive.google.com/uc?export=view&id=${transaction.image_drive_id}`;
+            // Use lh3.googleusercontent.com for better image embedding support
+            displayUrl = `https://lh3.googleusercontent.com/d/${transaction.image_drive_id}`;
         } else if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('/d/')) {
             // Extract ID from URL if possible
             const match = imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
             if (match && match[1]) {
-                displayUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+                displayUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
             }
         }
         

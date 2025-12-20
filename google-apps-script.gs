@@ -2238,19 +2238,43 @@ function sendLineNotification(transactionData, accessToken, groupId) {
       return { success: false, message: 'Missing LINE config' };
     }
 
-    const message = (transactionData.volume !== undefined) 
-      ? formatTransactionMessage(transactionData)
-      : formatConfirmationMessage(transactionData);
-    console.log('📋 Message to send:');
-    console.log(message);
+    let message, payload;
     
-    const payload = {
-      to: groupId,
-      messages: [{
-        type: 'text',
-        text: message
-      }]
-    };
+    // ตรวจสอบเป็น transaction (refill/dispense) หรือ confirmation
+    const isTransaction = transactionData.volume !== undefined;
+    
+    if (isTransaction && transactionData.imageUrl) {
+      // ส่งข้อความแบบ Flex พร้อมรูปภาพ (สำหรับ transaction ที่มีรูปภาพ)
+      console.log('🖼️ Image detected, sending flex message with image');
+      const flexContent = formatTransactionMessageWithImage(transactionData);
+      payload = {
+        to: groupId,
+        messages: [{
+          type: 'flex',
+          altText: 'ข้อมูล Transaction',
+          contents: flexContent
+        }]
+      };
+      console.log('📋 Flex Message payload prepared (with image)');
+    } else {
+      // ส่งข้อความแบบ text
+      // - สำหรับ transaction โดยไม่มีรูปภาพ
+      // - สำหรับ daily confirmation
+      console.log('📝 Sending text message (transaction=' + isTransaction + ', hasImage=' + (transactionData.imageUrl ? 'yes' : 'no') + ')');
+      message = isTransaction 
+        ? formatTransactionMessage(transactionData)
+        : formatConfirmationMessage(transactionData);
+      console.log('📋 Message to send:');
+      console.log(message);
+      
+      payload = {
+        to: groupId,
+        messages: [{
+          type: 'text',
+          text: message
+        }]
+      };
+    }
 
     console.log('\n🔧 Preparing request...');
     const options = {
@@ -2324,6 +2348,282 @@ function formatTransactionMessage(transactionData) {
   } catch (error) {
     console.error('Error in formatTransactionMessage:', error);
     return 'ข้อมูล transaction: ' + JSON.stringify(transactionData);
+  }
+}
+
+/**
+ * จัดรูปแบบข้อความ Transaction พร้อมรูปภาพเป็น LINE Flex Message
+ * ส่งคืน bubble object ที่มีรูปภาพและข้อมูล transaction ครบถ้วน
+ */
+function formatTransactionMessageWithImage(transactionData) {
+  try {
+    const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
+    const dateTimeStr = formatThaiDate(timestamp);
+    
+    const source = transactionData.source || '-';
+    const destination = transactionData.destination || '-';
+    const volume = transactionData.volume || '0 ลิตร';
+    const pricePerLiter = transactionData.pricePerLiter || 0;
+    const totalCost = transactionData.totalCost || 0;
+    const operatorName = transactionData.operatorName || '-';
+    const unit = transactionData.unit || '-';
+    const imageUrl = transactionData.imageUrl || '';
+    const transactionType = transactionData.type || 'ธุรกรรม';
+
+    // สร้าง Flex Message Bubble object
+    const bubble = {
+      type: 'bubble',
+      hero: {
+        type: 'image',
+        url: imageUrl,
+        size: 'full',
+        aspectRatio: '4:3',
+        aspectMode: 'cover'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: '⛽ ' + transactionType,
+            weight: 'bold',
+            size: 'lg',
+            color: '#1DB446'
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '📅 วันเวลา:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: dateTimeStr,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '📍 จาก:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: source,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '➜ ถึง:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: destination,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🔹 ปริมาณ:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: volume,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '💰 ราคา/ลิตร:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: pricePerLiter + ' บาท',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '💳 รวม:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: totalCost + ' บาท',
+                    wrap: true,
+                    weight: 'bold',
+                    color: '#E81828',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: 'separator',
+            margin: 'md'
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            margin: 'md',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '👤 ผู้ปฏิบัติงาน:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: operatorName,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🏢 หน่วย:',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 3
+                  },
+                  {
+                    type: 'text',
+                    text: unit,
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 7
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    return bubble;
+  } catch (error) {
+    console.error('Error in formatTransactionMessageWithImage:', error);
+    // ถ้ามี error ให้ส่ง text message แทน
+    return {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: 'ข้อมูล Transaction: ' + JSON.stringify(transactionData),
+            wrap: true,
+            size: 'sm'
+          }
+        ]
+      }
+    };
   }
 }
 

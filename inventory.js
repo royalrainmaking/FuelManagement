@@ -774,6 +774,38 @@ const LoadingManager = {
         if (overlay) {
             overlay.classList.remove('active');
         }
+        this.resetProgress();
+    },
+    
+    updateProgress(percent, details = '') {
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressDetails = document.getElementById('progressDetails');
+        const progressContainer = document.getElementById('progressContainer');
+        
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+        }
+        
+        if (progressBar) {
+            progressBar.style.width = Math.min(percent, 100) + '%';
+        }
+        
+        if (progressPercent) {
+            progressPercent.textContent = Math.min(percent, 100);
+        }
+        
+        if (progressDetails && details) {
+            progressDetails.textContent = details;
+        }
+    },
+    
+    resetProgress() {
+        this.updateProgress(0, '');
+        const progressContainer = document.getElementById('progressContainer');
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
     },
     
     setButton(buttonId, isLoading = true) {
@@ -847,9 +879,9 @@ const ModalManager = {
 };
 
 // Legacy functions for compatibility
-const showLoading = LoadingManager.show;
-const hideLoading = LoadingManager.hide;
-const setButtonLoading = LoadingManager.setButton;
+const showLoading = LoadingManager.show.bind(LoadingManager);
+const hideLoading = LoadingManager.hide.bind(LoadingManager);
+const setButtonLoading = LoadingManager.setButton.bind(LoadingManager);
 
 // แสดง/ซ่อน loading state สำหรับ summary section
 function showSummaryLoading(isLoading = true, isFirstLoad = false) {
@@ -922,13 +954,50 @@ function loadData() {
     // ไม่โหลด transactionLogs จาก localStorage - ใช้เฉพาะข้อมูลจาก Google Sheets
 }
 
+// ฟังก์ชั่นสำหรับลองใหม่เมื่อเชื่อมต่อล้มเหลว
+async function fetchWithRetry(url, maxRetries = 3, delayMs = 1000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                console.log(`✅ ลองครั้งที่ ${attempt} สำเร็จ`);
+                return response;
+            }
+            
+            if (attempt < maxRetries) {
+                const delay = delayMs * attempt;
+                console.log(`⏳ ลองใหม่ครั้งที่ ${attempt}/${maxRetries} ใน ${delay}ms...`);
+                LoadingManager.updateProgress(
+                    5 + (attempt * 2),
+                    `ลองเชื่อมต่อใหม่ (${attempt}/${maxRetries})...`
+                );
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        } catch (error) {
+            console.warn(`❌ ครั้งที่ ${attempt} ล้มเหลว: ${error.message}`);
+            if (attempt < maxRetries) {
+                const delay = delayMs * attempt;
+                console.warn(`⏳ ลองใหม่ใน ${delay}ms...`);
+                LoadingManager.updateProgress(
+                    5 + (attempt * 2),
+                    `ลองเชื่อมต่อใหม่ (${attempt}/${maxRetries})...`
+                );
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw error;
+            }
+        }
+    }
+}
+
 // ฟังก์ชั่นเชื่อมต่อ Google Sheets
 async function loadInventoryFromSheets() {
     try {
-        showLoading('กำลังโหลดข้อมูลจาก Google Sheets...');
+        showLoading('กำลังโหลดข้อมูลแหล่งน้ำมัน...');
+        LoadingManager.updateProgress(10, 'เชื่อมต่อ Google Sheets...');
         
         // โหลดข้อมูล master data (structure และ current stock)
-        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getMasterData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`);
+        const response = await fetchWithRetry(`${GOOGLE_SCRIPT_URL}?action=getMasterData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`, 3, 1000);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -949,7 +1018,8 @@ async function loadInventoryFromSheets() {
                 };
             }).filter(source => source.name); // กรองเอาเฉพาะที่มี name
             
-            console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ:', fuelSources.length, 'รายการ');
+            console.log('✅ โหลดข้อมูลแหล่งน้ำมัน สำเร็จ:', fuelSources.length, 'รายการ');
+            LoadingManager.updateProgress(30, 'โหลดข้อมูลแหล่งน้ำมัน สำเร็จ...');
         } else {
             // ถ้า Google Apps Script ส่ง error กลับมา
             const errorMsg = result.error || 'ไม่สามารถโหลดข้อมูลได้หรือข้อมูลไม่ถูกต้อง';
@@ -957,12 +1027,13 @@ async function loadInventoryFromSheets() {
             
             // ถ้าเป็น "Invalid action" อาจหมายถึงต้องอัพเดต script deployment
             if (errorMsg === 'Invalid action') {
-                console.warn('คำแนะนำ: Google Apps Script อาจต้องการการ deploy ใหม่เพื่อรองรับ getMasterData action');
+                console.warn('⚠️ Google Apps Script อาจต้องการการ deploy ใหม่เพื่อรองรับ getMasterData action');
                 
                 // ลองใช้ action เก่าแทน
-                console.log('กำลังลอง fallback เป็น getInventory action...');
+                console.log('🔄 ลอง fallback เป็น getInventory action...');
+                LoadingManager.updateProgress(25, 'ใช้ fallback method...');
                 try {
-                    const fallbackResponse = await fetch(`${GOOGLE_SCRIPT_URL}?action=getInventory&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`);
+                    const fallbackResponse = await fetchWithRetry(`${GOOGLE_SCRIPT_URL}?action=getInventory&sheetsId=${GOOGLE_SHEETS_ID}&gid=${INVENTORY_SHEET_GID}`);
                     const fallbackResult = await fallbackResponse.json();
                     
                     if (fallbackResult.success && fallbackResult.data) {
@@ -972,11 +1043,12 @@ async function loadInventoryFromSheets() {
                             currentStock: fallbackResult.data[source.name]?.currentStock || 0
                         }));
                         
-                        console.log('โหลดข้อมูลจาก Google Sheets สำเร็จ (fallback):', fuelSources.length, 'รายการ');
+                        console.log('✅ โหลดข้อมูลจาก Google Sheets สำเร็จ (fallback):', fuelSources.length, 'รายการ');
+                        LoadingManager.updateProgress(30, 'โหลดข้อมูลแหล่งน้ำมัน (fallback) สำเร็จ...');
                         return; // ออกจากฟังก์ชัน เพราะได้ข้อมูลแล้ว
                     }
                 } catch (fallbackError) {
-                    console.warn('Fallback ก็ล้มเหลวเช่นกัน:', fallbackError);
+                    console.warn('❌ Fallback ก็ล้มเหลวเช่นกัน:', fallbackError);
                 }
             }
             
@@ -986,8 +1058,9 @@ async function loadInventoryFromSheets() {
         console.error('Error loading from Google Sheets:', error);
         
         // ใช้ข้อมูลสำรองแบบออฟไลน์โดยตรง (ไม่ถามผู้ใช้)
-        console.log('ใช้ข้อมูลสำรองแบบออฟไลน์');
+        console.log('⚠️ ใช้ข้อมูลสำรองแบบออฟไลน์');
         showLoading('กำลังโหลดข้อมูลสำรอง...');
+        LoadingManager.updateProgress(30, 'ใช้ข้อมูลออฟไลน์...');
         
         // ใช้ default fuel sources แทน
         fuelSources = [...defaultFuelSources];
@@ -1029,11 +1102,16 @@ function inferType(name) {
 }
 
 // ฟังก์ชั่นโหลดข้อมูล Transaction Log จาก Google Sheets
-async function loadTransactionLogsFromSheets() {
+async function loadTransactionLogsFromSheets(isBackground = true) {
     try {
+        if (!isBackground) {
+            showLoading('กำลังโหลดข้อมูลรายการ...');
+            LoadingManager.updateProgress(40, 'เชื่อมต่อ Google Sheets (Transaction Logs)...');
+        }
+        
         console.log('กำลังโหลด Transaction Logs จาก Google Sheets...');
         
-        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`);
+        const response = await fetchWithRetry(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${TRANSACTION_LOG_SHEET_GID}`, 3, 1000);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1108,24 +1186,32 @@ async function loadTransactionLogsFromSheets() {
             }).filter(log => log !== null); // กรองเอาเฉพาะ log ที่มีข้อมูล
             
             console.log(`✅ แปลงข้อมูลสำเร็จ: ${logsFromSheets.length} รายการ`);
+            if (!isBackground) {
+                LoadingManager.updateProgress(60, 'กรองข้อมูลซ้ำ...');
+            }
             
-            // กำจัดข้อมูลซ้ำใน logsFromSheets ด้วย Set และ JSON.stringify เพื่อเปรียบเทียบข้อมูลเดียวกัน
+            // กำจัดข้อมูลซ้ำ ด้วย Map (เร็วกว่า Set + forEach) ⚡
+            const seenLogSignatures = new Map();
             const uniqueLogsFromSheets = [];
-            const seenLogSignatures = new Set();
+            let duplicateCount = 0;
             
             logsFromSheets.forEach(log => {
                 // สร้าง signature เพื่อระบุข้อมูลที่เหมือนกัน
                 const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
                 
                 if (!seenLogSignatures.has(signature)) {
-                    seenLogSignatures.add(signature);
+                    seenLogSignatures.set(signature, true);
                     uniqueLogsFromSheets.push(log);
                 } else {
-                    console.warn(`🚫 ข้ามข้อมูลซ้ำ: ${signature}`);
+                    duplicateCount++;
                 }
             });
             
-            console.log(`🔍 หลังกรองข้อมูลซ้ำ: ${uniqueLogsFromSheets.length} รายการ (กรองออก ${logsFromSheets.length - uniqueLogsFromSheets.length} รายการซ้ำ)`);
+            const filteredCount = logsFromSheets.length - duplicateCount;
+            console.log(`✨ หลังกรองข้อมูลซ้ำ: ${uniqueLogsFromSheets.length} รายการ (กรองออก ${duplicateCount} รายการซ้ำ)`);
+            if (!isBackground) {
+                LoadingManager.updateProgress(70, `โหลดข้อมูลรายการ ${uniqueLogsFromSheets.length} รายการ...`);
+            }
             
             // ใช้เฉพาะข้อมูลจาก Google Sheets เท่านั้น (ไม่รวม localStorage)
             const oldTransactionLogsCount = transactionLogs ? transactionLogs.length : 0;
@@ -1161,6 +1247,11 @@ async function loadTransactionLogsFromSheets() {
             } catch (cacheError) {
                 console.warn('⚠️ ไม่สามารถบันทึก sessionStorage:', cacheError);
             }
+            
+            // ซ่อน loading overlay ถ้าไม่ใช่ background loading
+            if (!isBackground) {
+                LoadingManager.hide();
+            }
         } else {
             throw new Error(result.error || 'ไม่สามารถโหลด Transaction Logs ได้');
         }
@@ -1170,6 +1261,10 @@ async function loadTransactionLogsFromSheets() {
         
         // ไม่ใช้ข้อมูลจาก localStorage - ตั้งค่าเป็นอาร์เรย์ว่าง
         transactionLogs = [];
+        if (!isBackground) {
+            LoadingManager.updateProgress(70, 'ไม่พบข้อมูลรายการ (ใช้เฉพาะจาก Google Sheets เท่านั้น)');
+            LoadingManager.hide();
+        }
         console.log('ไม่มีข้อมูล Transaction Logs (ใช้เฉพาะข้อมูลจาก Google Sheets เท่านั้น)');
     }
 }
@@ -1861,18 +1956,20 @@ function checkMidnightTransition() {
 async function initializeSystem() {
     try {
         showLoading('กำลังเริ่มต้นระบบ...');
+        LoadingManager.updateProgress(5, 'ตั้งค่าระบบ...');
         
         // เริ่มต้น event listeners ก่อน
         initializeEventListeners();
+        LoadingManager.updateProgress(8, 'โหลดข้อมูลจาก Google Sheets...');
         
-        // โหลดข้อมูลจาก Google Sheets แบบขนาน
-        await Promise.all([
-            loadInventoryFromSheets(),
-            loadTransactionLogsFromSheets()
-        ]);
+        // โหลดข้อมูล Inventory เพื่อแสดงหน้าจอหลัก
+        await loadInventoryFromSheets();
+        LoadingManager.updateProgress(70, 'โหลดข้อมูลแหล่งน้ำมัน สำเร็จ...');
         
-        // สร้างหน้าจอ
-        showLoading('กำลังสร้างหน้าจอ...');
+        // ซ่อนหน้าโหลดทันที ให้หน้า index ใช้งานได้
+        hideLoading();
+        
+        // สร้างหน้าจอหลัก (ทำงานหลังซ่อนหน้าโหลด)
         createFuelCards();
         updateSummary();
         
@@ -1880,8 +1977,13 @@ async function initializeSystem() {
         updateDailyConfirmationButtons();
         setInterval(checkMidnightTransition, 60000); // ตรวจสอบเที่ยงคืนทุก 60 วินาที
         
-        hideLoading();
         console.log('✅ ระบบเริ่มต้นสำเร็จ');
+        
+        // โหลด Transaction Logs ในพื้นหลัง (ไม่บล็อกหน้าจอหลัก)
+        loadTransactionLogsFromSheets(true)
+            .then(() => console.log('✅ Transaction Logs โหลดสำเร็จ'))
+            .catch(error => console.warn('⚠️ การโหลด Transaction Logs ล้มเหลว:', error));
+            
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการเริ่มต้นระบบ:', error);
         hideLoading();
@@ -2660,6 +2762,11 @@ function openTransactionModal(source) {
     ImageUpload.resetUpload();
     document.getElementById('refillForm').style.display = 'none';
     document.getElementById('dispenseForm').style.display = 'none';
+    
+    const imageUploadGroup = document.querySelector('.image-upload-group');
+    if (imageUploadGroup) {
+        imageUploadGroup.style.display = 'none';
+    }
     
     const refillTypeField = document.getElementById('refillType');
     if (refillTypeField) {
@@ -3990,12 +4097,16 @@ function showRefillForm() {
     const refillForm = document.getElementById('refillForm');
     const dispenseForm = document.getElementById('dispenseForm');
     const refillTypeSelect = document.getElementById('refillType');
+    const imageUploadGroup = document.querySelector('.image-upload-group');
 
     if (refillForm) {
         refillForm.style.display = 'block';
     }
     if (dispenseForm) {
         dispenseForm.style.display = 'none';
+    }
+    if (imageUploadGroup) {
+        imageUploadGroup.style.display = 'block';
     }
 
     updateRefillTypeVisibility();
@@ -4004,6 +4115,11 @@ function showRefillForm() {
 function showDispenseForm() {
     document.getElementById('refillForm').style.display = 'none';
     document.getElementById('dispenseForm').style.display = 'block';
+    
+    const imageUploadGroup = document.querySelector('.image-upload-group');
+    if (imageUploadGroup) {
+        imageUploadGroup.style.display = 'none';
+    }
     
     // แสดง/ซ่อนฟิลด์ตามประเภทของแหล่งน้ำมัน
     const drumDispenseFields = document.getElementById('drumDispenseFields');
