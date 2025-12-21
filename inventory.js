@@ -22,6 +22,13 @@ const defaultFuelSources = [
         type: 'purchase'
     },
     {
+        id: 'purchase_drum_200l',
+        name: 'PTT Purchase - 200L',
+        capacity: null, // ไม่จำกัด
+        currentStock: 0,
+        type: 'purchase'
+    },
+    {
         id: 'nakhonsawan_tank1',
         name: 'สนามบินนครสวรรค์ แท๊ง 1',
         capacity: 20000,
@@ -168,6 +175,7 @@ function populateProvinceSelects() {
         'operatingUnit',
         'pttOperatingUnit',
         'returnOperatingUnit',
+        'pttPurchase200LOperatingUnit',
         'transactionNakhonsawanOperatingUnit',
         'transactionKhlongLuangOperatingUnit',
         'removeNakhonsawanOperatingUnit',
@@ -223,72 +231,28 @@ function generateUID() {
 }
 
 // ===== Price Management =====
-// ฟังก์ชันโหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
-async function loadFuelPrices() {
-    // Try to load from Google Sheets first
-    try {
-        const prices = await fetchCurrentPricesFromSheets();
-        if (prices && (prices.pricePerLiter > 0 || prices.pricePerDrum > 0)) {
-            // Update localStorage with latest prices from Sheets
-            const priceData = {
-                pricePerLiter: prices.pricePerLiter,
-                pricePerDrum: prices.pricePerDrum,
-                lastUpdated: new Date().toLocaleString('th-TH')
-            };
-            localStorage.setItem('fuelPrices', JSON.stringify(priceData));
-            
-            console.log('✅ Loaded prices from Google Sheets:', prices);
-            return {
-                pricePerLiter: prices.pricePerLiter || 0,
-                pricePerDrum: prices.pricePerDrum || 0
-            };
-        }
-    } catch (error) {
-        console.warn('⚠️ Failed to load prices from Google Sheets, using localStorage:', error);
-    }
-    
-    // Fallback to localStorage
-    const savedPrices = localStorage.getItem('fuelPrices');
-    
-    if (savedPrices) {
-        try {
-            const priceData = JSON.parse(savedPrices);
-            return {
-                pricePerLiter: priceData.pricePerLiter || 0,
-                pricePerDrum: priceData.pricePerDrum || 0
-            };
-        } catch (error) {
-            console.warn('ไม่สามารถโหลดราคาได้:', error);
-            return { pricePerLiter: 0, pricePerDrum: 0 };
-        }
-    }
-    
-    return { pricePerLiter: 0, pricePerDrum: 0 };
-}
+// ราคาถูกจัดการโดยดึงจาก Google Sheet gid=1828300695 (PTT_PRICES) ตามจังหวัด
+// ผ่านฟังก์ชัน fetchPTTPricesByProvince()
 
 /**
- * Fetch current prices from Google Sheets
+ * Fetch PTT prices from Sheet gid=1828300695 by matching province
+ * @param {string} province - Province name (จังหวัด) to search for
+ * @returns {Promise<{pricePerLiter: number, pricePerDrum: number}>}
  */
-async function fetchCurrentPricesFromSheets() {
-    // ตรวจสอบว่า config ถูกโหลดหรือไม่
-    console.log('🔍 Debug Config:');
-    console.log('  - GOOGLE_SCRIPT_URL:', typeof GOOGLE_SCRIPT_URL, GOOGLE_SCRIPT_URL);
-    console.log('  - GOOGLE_SHEETS_ID:', typeof GOOGLE_SHEETS_ID, GOOGLE_SHEETS_ID);
-    console.log('  - GOOGLE_SHEETS_ID length:', GOOGLE_SHEETS_ID ? GOOGLE_SHEETS_ID.length : 'null/undefined');
-    
-    // ตรวจสอบว่า GOOGLE_SHEETS_ID มีค่าหรือไม่
-    if (!GOOGLE_SHEETS_ID || GOOGLE_SHEETS_ID === 'YOUR_SHEETS_ID') {
-        throw new Error('❌ GOOGLE_SHEETS_ID ไม่ถูกตั้งค่า! กรุณาตรวจสอบไฟล์ config.js');
+async function fetchPTTPricesByProvince(province) {
+    if (!province || province.trim() === '') {
+        console.warn('⚠️ Province name is empty');
+        return { pricePerLiter: 0, pricePerDrum: 0 };
     }
     
-    const url = `${GOOGLE_SCRIPT_URL}?action=getCurrentPrices&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PRICE_HISTORY}`;
+    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByProvince&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&province=${encodeURIComponent(province)}`;
     
-    console.log('🔍 Fetching prices from:', url);
+    console.log('🔍 Fetching PTT prices for province:', province);
+    console.log('📡 Request URL:', url);
     
     try {
         const response = await fetch(url);
         
-        // ตรวจสอบ HTTP status
         if (!response.ok) {
             throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
         }
@@ -297,18 +261,69 @@ async function fetchCurrentPricesFromSheets() {
         console.log('📦 Response from Google Sheets:', result);
         
         if (!result.success) {
-            throw new Error(result.error || 'Failed to fetch prices from Sheets');
+            console.warn('⚠️ Failed to fetch prices:', result.error);
+            return { pricePerLiter: 0, pricePerDrum: 0 };
         }
         
-        // ตรวจสอบว่ามีข้อมูลราคาหรือไม่
         if (!result.data) {
-            throw new Error('ไม่พบข้อมูลราคาใน response');
+            console.warn('⚠️ No price data returned for province:', province);
+            return { pricePerLiter: 0, pricePerDrum: 0 };
         }
         
-        return result.data;
+        console.log('✅ Successfully fetched PTT prices:', result.data);
+        return {
+            pricePerLiter: parseFloat(result.data.pricePerLiter) || 0,
+            pricePerDrum: parseFloat(result.data.pricePerDrum) || 0
+        };
     } catch (error) {
-        console.error('❌ Error in fetchCurrentPricesFromSheets:', error);
-        throw error; // ส่ง error ต่อไปให้ caller จัดการ
+        console.error('❌ Error in fetchPTTPricesByProvince:', error);
+        return { pricePerLiter: 0, pricePerDrum: 0 };
+    }
+}
+
+/**
+ * Fetch PTT prices from Sheet gid=1828300695 by matching location name
+ * @param {string} locationName - Location name (e.g., 'สนามบินนครสวรรค์ - ถัง 200L')
+ * @returns {Promise<{pricePerDrum: number}>}
+ */
+async function fetchPTTPricesByLocationName(locationName) {
+    if (!locationName || locationName.trim() === '') {
+        console.warn('⚠️ Location name is empty');
+        return { pricePerDrum: 0 };
+    }
+    
+    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByLocationName&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&locationName=${encodeURIComponent(locationName)}`;
+    
+    console.log('🔍 Fetching PTT prices for location:', locationName);
+    console.log('📡 Request URL:', url);
+    
+    try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('📦 Response from Google Sheets:', result);
+        
+        if (!result.success) {
+            console.warn('⚠️ Failed to fetch prices:', result.error);
+            return { pricePerDrum: 0 };
+        }
+        
+        if (!result.data) {
+            console.warn('⚠️ No price data returned for location:', locationName);
+            return { pricePerDrum: 0 };
+        }
+        
+        console.log('✅ Successfully fetched PTT prices:', result.data);
+        return {
+            pricePerDrum: parseFloat(result.data.pricePerDrum) || 0
+        };
+    } catch (error) {
+        console.error('❌ Error in fetchPTTPricesByLocationName:', error);
+        return { pricePerDrum: 0 };
     }
 }
 
@@ -1018,6 +1033,12 @@ async function loadInventoryFromSheets() {
                 };
             }).filter(source => source.name); // กรองเอาเฉพาะที่มี name
             
+            // เพิ่ม special sources ที่อยู่ในโค้ดเท่านั้น (เช่น purchase_drum_200l)
+            const specialSources = defaultFuelSources.filter(defaultSource => 
+                !fuelSources.some(loaded => loaded.id === defaultSource.id)
+            );
+            fuelSources = [...fuelSources, ...specialSources];
+            
             console.log('✅ โหลดข้อมูลแหล่งน้ำมัน สำเร็จ:', fuelSources.length, 'รายการ');
             LoadingManager.updateProgress(30, 'โหลดข้อมูลแหล่งน้ำมัน สำเร็จ...');
         } else {
@@ -1534,6 +1555,9 @@ function createFuelCards() {
         if (categoryKey === 'drum') {
             headerHTML += `
                 <div class="button-group ms-auto" style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-info btn-sm" onclick="openPTTPurchase200LModal()" title="ซื้อถัง 200L จาก ปตท." style="display: none;">
+                        <i class="fas fa-shopping-cart me-1"></i> ซื้อถัง ปตท.
+                    </button>
                     <button class="btn btn-success btn-sm" onclick="openReturnDrumModal()" title="คืนถังน้ำมัน">
                         <i class="fas fa-arrow-left me-1"></i> คืนถัง
                     </button>
@@ -1563,6 +1587,8 @@ function createFuelCards() {
                         openTransactionNakhonsawanModal();
                     } else if (source.id === 'drum_khlong_luang') {
                         openTransactionKhlongLuangModal();
+                    } else if (source.id === 'purchase_drum_200l') {
+                        openPTTPurchase200LModal();
                     } else {
                         openTransactionModal(source);
                     }
@@ -1613,18 +1639,25 @@ function createFuelCards() {
             }
             
             // สร้าง HTML สำหรับแสดงคงเหลือ/ความจุ
-            const stockDisplayHTML = source.type === 'purchase' ? `
-                <div class="stock-display">
-                    <span class="stock-label">${stockLabel}</span>
-                    <span class="stock-value">${stockValue} <span style="font-size: 0.6em;">ลิตร</span></span>
-                </div>
-            ` : `
-                <div class="stock-display">
-                    <span class="stock-label">${stockLabel}</span>
-                    <span class="stock-value">${stockValue}</span>
-                    ${capacityDisplay ? `<span class="stock-capacity"><span class="stock-separator">/</span>${capacityDisplay} <span style="font-size: 0.9em;">ลิตร</span></span>` : ''}
-                </div>
-            `;
+            let stockDisplayHTML;
+            if (source.id === 'purchase_drum_200l') {
+                stockDisplayHTML = `<div class="stock-display" style="display: none;"></div>`;
+            } else if (source.type === 'purchase') {
+                stockDisplayHTML = `
+                    <div class="stock-display">
+                        <span class="stock-label">${stockLabel}</span>
+                        <span class="stock-value">${stockValue} <span style="font-size: 0.6em;">ลิตร</span></span>
+                    </div>
+                `;
+            } else {
+                stockDisplayHTML = `
+                    <div class="stock-display">
+                        <span class="stock-label">${stockLabel}</span>
+                        <span class="stock-value">${stockValue}</span>
+                        ${capacityDisplay ? `<span class="stock-capacity"><span class="stock-separator">/</span>${capacityDisplay} <span style="font-size: 0.9em;">ลิตร</span></span>` : ''}
+                    </div>
+                `;
+            }
             
             card.innerHTML = `
                 <div class="card-content-wrapper">
@@ -1638,7 +1671,7 @@ function createFuelCards() {
                                 <span class="card-type">${getTypeDisplayName(source.type)}</span>
                             </div>
                         </div>
-                        ${source.id !== 'purchase' ? `
+                        ${source.id !== 'purchase' && source.id !== 'purchase_drum_200l' ? `
                         <button class="btn-edit-fuel-small" onclick="event.stopPropagation(); openEditFuelModal('${source.id}', '${source.name}', ${source.currentStock})" title="แก้ไขยอด">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -1650,7 +1683,7 @@ function createFuelCards() {
                         </div>
                         ${progressTankHTML}
                     </div>
-                    ${source.id !== 'purchase' ? `
+                    ${source.id !== 'purchase' && source.id !== 'purchase_drum_200l' ? `
                     <div class="card-footer-section" id="footer-${source.id}">
                         <button class="btn-confirm-daily" onclick="event.stopPropagation(); openDailyConfirmationModal('${source.id}', '${source.name}')" id="btn-${source.id}">
                             <i class="fas fa-check-circle"></i> ยืนยันยอด
@@ -2745,8 +2778,8 @@ async function updatePTTPurchaseVolume(additionalLiters) {
 
 // เปิด modal สำหรับทำรายการ
 function openTransactionModal(source) {
-    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่ (ยกเว้น purchase source)
-    if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
+    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่ (ยกเว้น purchase sources)
+    if (source.id !== 'purchase' && source.id !== 'purchase_drum_200l' && !isSourceConfirmedToday(source.id)) {
         alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "${source.name}" ก่อนทำรายการอื่นๆ`);
         return; // ไม่เปิด modal
     }
@@ -2792,8 +2825,10 @@ function populateDestinationOptions() {
     const tankSelect = document.getElementById('tankSelect');
     tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
     
+    const hiddenSources = ['drum_nakhonsawan', 'drum_khlong_luang', 'purchase_drum_200l', 'nakhonsawan_tank2'];
+    
     fuelSources
-        .filter(source => source.id !== currentSelectedSource.id)
+        .filter(source => source.id !== currentSelectedSource.id && !hiddenSources.includes(source.id))
         .forEach(source => {
             const option = document.createElement('option');
             option.value = source.id;
@@ -2961,6 +2996,192 @@ async function handleReturnDrumSubmit() {
         hideLoading();
     } finally {
         setButtonLoading('submitReturnDrum', false);
+    }
+}
+
+// ===== PTT Purchase 200L Functions =====
+async function openPTTPurchase200LModal() {
+    const modal = document.getElementById('pttPurchase200LModal');
+    const form = document.getElementById('pttPurchase200LForm');
+    
+    form.reset();
+    
+    populatePTTPurchase200LOptions();
+    updatePTTPurchase200LDisplay();
+    
+    modal.style.display = 'block';
+    
+    console.log('🛒 เปิด modal ซื้อถัง 200L จาก ปตท.');
+}
+
+async function updatePTTPurchase200LPrice() {
+    const destinationId = document.getElementById('pttPurchase200LDestination').value;
+    
+    if (!destinationId) {
+        document.getElementById('pttPurchase200LPricePerDrum').textContent = '0 บาท';
+        window.pttPurchase200LPricePerDrum = 0;
+        updatePTTPurchase200LDisplay();
+        return;
+    }
+    
+    const destinationSource = fuelSources.find(s => s.id === destinationId);
+    if (!destinationSource) {
+        console.warn('⚠️ Destination source not found:', destinationId);
+        document.getElementById('pttPurchase200LPricePerDrum').textContent = '0 บาท';
+        window.pttPurchase200LPricePerDrum = 0;
+        updatePTTPurchase200LDisplay();
+        return;
+    }
+    
+    try {
+        const prices = await fetchPTTPricesByLocationName(destinationSource.name);
+        if (prices && prices.pricePerDrum) {
+            document.getElementById('pttPurchase200LPricePerDrum').textContent = prices.pricePerDrum.toLocaleString() + ' บาท';
+            window.pttPurchase200LPricePerDrum = prices.pricePerDrum;
+            console.log('✅ Fetched price for', destinationSource.name, ':', prices.pricePerDrum);
+        } else {
+            document.getElementById('pttPurchase200LPricePerDrum').textContent = '0 บาท';
+            window.pttPurchase200LPricePerDrum = 0;
+        }
+    } catch (error) {
+        console.warn('⚠️ Could not fetch price for', destinationSource.name, ':', error);
+        document.getElementById('pttPurchase200LPricePerDrum').textContent = '0 บาท';
+        window.pttPurchase200LPricePerDrum = 0;
+    }
+    
+    updatePTTPurchase200LDisplay();
+}
+
+function closePTTPurchase200LModal() {
+    const modal = document.getElementById('pttPurchase200LModal');
+    modal.style.display = 'none';
+}
+
+function populatePTTPurchase200LOptions() {
+    const select = document.getElementById('pttPurchase200LDestination');
+    select.innerHTML = '<option value="">-- เลือกแหล่งถัง --</option>';
+    
+    const drumSources = fuelSources.filter(source => isDrumSource(source));
+    
+    if (drumSources.length === 0) {
+        select.innerHTML += '<option value="" disabled>ไม่มีถัง 200L ในระบบ</option>';
+        return;
+    }
+    
+    drumSources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        const drums = litersToDrums(source.currentStock);
+        option.textContent = `${source.name} (คงเหลือ: ${drums} ถัง)`;
+        select.appendChild(option);
+    });
+}
+
+function updatePTTPurchase200LDisplay() {
+    const drumCount = document.getElementById('pttPurchase200LDrumCount').value || 0;
+    const pricePerDrum = window.pttPurchase200LPricePerDrum || 0;
+    
+    const totalLiters = drumCount * DRUM_CAPACITY_LITERS;
+    const totalAmount = drumCount * pricePerDrum;
+    
+    document.getElementById('pttPurchase200LTotalLiters').textContent = totalLiters.toLocaleString() + ' ลิตร';
+    document.getElementById('pttPurchase200LTotalAmount').textContent = totalAmount.toLocaleString() + ' บาท';
+}
+
+async function handlePTTPurchase200LSubmit() {
+    const operatorName = document.getElementById('pttPurchase200LOperatorName').value.trim();
+    const operatingUnit = document.getElementById('pttPurchase200LOperatingUnit').value.trim();
+    const destinationId = document.getElementById('pttPurchase200LDestination').value;
+    const drumCount = parseFloat(document.getElementById('pttPurchase200LDrumCount').value);
+    const notes = document.getElementById('pttPurchase200LNotes').value.trim();
+    
+    try {
+        if (!operatorName || !destinationId || !drumCount) {
+            throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+        }
+        
+        if (drumCount <= 0) {
+            throw new Error('จำนวนถังต้องมากกว่า 0');
+        }
+        
+        setButtonLoading('submitPTTPurchase200L', true);
+        showLoading('กำลังบันทึกการซื้อถัง...');
+        
+        const destinationSource = fuelSources.find(s => s.id === destinationId);
+        if (!destinationSource) {
+            throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
+        }
+        
+        const pricePerDrum = window.pttPurchase200LPricePerDrum || 0;
+        if (pricePerDrum > 0) {
+            console.log('✅ ใช้ราคา PTT Purchase 200L:', pricePerDrum);
+        } else {
+            console.warn('⚠️ ไม่พบราคา PTT Purchase 200L, บันทึกโดยไม่มีราคา');
+        }
+        
+        const liters = drumCount * DRUM_CAPACITY_LITERS;
+        const totalAmount = drumCount * pricePerDrum;
+        
+        const pttPurchaseSource = fuelSources.find(s => s.id === 'purchase_drum_200l');
+        if (!pttPurchaseSource) {
+            throw new Error('ไม่พบแหล่ง PTT Purchase 200L ในระบบ');
+        }
+        
+        pttPurchaseSource.currentStock += liters;
+        destinationSource.currentStock += liters;
+        
+        const transactionUID = generateUID();
+        const logEntry = {
+            id: Date.now(),
+            uid: transactionUID,
+            timestamp: new Date().toISOString(),
+            date: new Date().toLocaleDateString('th-TH'),
+            time: new Date().toLocaleTimeString('th-TH'),
+            transactionType: 'purchase_drum_200l',
+            sourceId: 'purchase_drum_200l',
+            sourceName: 'PTT Purchase - 200L',
+            sourceType: 'purchase',
+            destinationId: destinationId,
+            destinationName: destinationSource.name,
+            destinationType: 'tank',
+            liters: liters,
+            volume: `${drumCount} ถัง (${liters} ลิตร)`,
+            pricePerLiter: pricePerDrum ? (totalAmount / liters) : null,
+            pricePerDrum: pricePerDrum,
+            totalAmount: totalAmount,
+            operatorName: operatorName,
+            operatingUnit: operatingUnit,
+            missions: getSelectedMissions(),
+            bookNo: null,
+            receiptNo: null,
+            drums: drumCount,
+            notes: notes || null
+        };
+        
+        transactionLogs.push(logEntry);
+        
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+        
+        showLoading('กำลังอัปเดตหน้าจอ...');
+        createFuelCards();
+        updateSummary();
+        
+        closePTTPurchase200LModal();
+        hideLoading();
+        
+        showUIDModal(logEntry);
+        
+        console.log('✅ ซื้อถัง 200L จาก ปตท. สำเร็จ', logEntry);
+        
+    } catch (error) {
+        console.error('Error in PTT Purchase 200L transaction:', error);
+        alert(error.message || 'เกิดข้อผิดพลาดในการซื้อถัง กรุณาลองใหม่');
+        hideLoading();
+    } finally {
+        setButtonLoading('submitPTTPurchase200L', false);
     }
 }
 
@@ -3187,17 +3408,47 @@ async function handleRemoveDrumKhlongLuangSubmit() {
 // ===== Transaction Modal - Nakhon Sawan Functions =====
 window.nakhonsawanPttRefillData = null;
 
-function openTransactionNakhonsawanModal(pttRefillData = null) {
-    window.nakhonsawanPttRefillData = pttRefillData;
-    document.getElementById('transactionNakhonsawanModal').style.display = 'block';
+let isLoadingNakhonsawan = false;
+
+async function openTransactionNakhonsawanModal(pttRefillData = null) {
+    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่
+    if (!isSourceConfirmedToday('drum_nakhonsawan')) {
+        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินนครสวรรค์ - ถัง 200L" ก่อนทำรายการ`);
+        return;
+    }
     
-    if (pttRefillData) {
-        if (pttRefillData.operatorName) {
-            document.getElementById('transactionNakhonsawanOperatorName').value = pttRefillData.operatorName;
+    if (isLoadingNakhonsawan) return;
+    
+    isLoadingNakhonsawan = true;
+    showLoading('กำลังเตรียมข้อมูล...');
+    
+    try {
+        // ดึงราคาจาก location name
+        if (!pttRefillData) {
+            const prices = await fetchPTTPricesByLocationName('สนามบินนครสวรรค์ - ถัง 200L');
+            pttRefillData = {
+                sourceId: 'purchase',
+                pricePerDrum: prices.pricePerDrum
+            };
         }
-        if (pttRefillData.operatingUnit) {
-            document.getElementById('transactionNakhonsawanOperatingUnit').value = pttRefillData.operatingUnit;
+        
+        window.nakhonsawanPttRefillData = pttRefillData;
+        document.getElementById('transactionNakhonsawanModal').style.display = 'block';
+        
+        if (pttRefillData) {
+            if (pttRefillData.operatorName) {
+                document.getElementById('transactionNakhonsawanOperatorName').value = pttRefillData.operatorName;
+            }
+            if (pttRefillData.operatingUnit) {
+                document.getElementById('transactionNakhonsawanOperatingUnit').value = pttRefillData.operatingUnit;
+            }
         }
+    } catch (error) {
+        console.error('Error opening Nakhonsawan modal:', error);
+        alert('เกิดข้อผิดพลาดในการเตรียมข้อมูล');
+    } finally {
+        hideLoading();
+        isLoadingNakhonsawan = false;
     }
 }
 
@@ -3327,9 +3578,22 @@ async function handleTransactionNakhonsawanSubmit() {
                 }
             } else if (destinationType === 'tank') {
                 destinationId = document.getElementById('transactionNakhonsawanTankSelect').value;
-                destinationName = destinationId;
                 if (!destinationId) {
                     throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+                }
+                
+                const selectedSource = fuelSources.find(s => s.id === destinationId);
+                destinationName = selectedSource ? selectedSource.name : destinationId;
+                
+                if (destinationName.includes('สนามบิน')) {
+                    const prices = await fetchPTTPricesByLocationName(destinationName);
+                    if (prices && prices.pricePerDrum) {
+                        pricePerDrum = prices.pricePerDrum;
+                        totalAmount = drumCount * pricePerDrum;
+                        console.log('✅ Fetched airport fuel price:', { destinationName, pricePerDrum, totalAmount });
+                    } else {
+                        console.warn('⚠️ Could not fetch price for airport fuel source:', destinationName);
+                    }
                 }
             }
         }
@@ -3419,17 +3683,47 @@ async function handleTransactionNakhonsawanSubmit() {
 // ===== Transaction Modal - Khlong Luang Functions =====
 window.khlongluangPttRefillData = null;
 
-function openTransactionKhlongLuangModal(pttRefillData = null) {
-    window.khlongluangPttRefillData = pttRefillData;
-    document.getElementById('transactionKhlongLuangModal').style.display = 'block';
+let isLoadingKhlongLuang = false;
+
+async function openTransactionKhlongLuangModal(pttRefillData = null) {
+    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่
+    if (!isSourceConfirmedToday('drum_khlong_luang')) {
+        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินคลองหลวง - ถัง 200L" ก่อนทำรายการ`);
+        return;
+    }
     
-    if (pttRefillData) {
-        if (pttRefillData.operatorName) {
-            document.getElementById('transactionKhlongLuangOperatorName').value = pttRefillData.operatorName;
+    if (isLoadingKhlongLuang) return;
+    
+    isLoadingKhlongLuang = true;
+    showLoading('กำลังเตรียมข้อมูล...');
+    
+    try {
+        // ดึงราคาจาก location name
+        if (!pttRefillData) {
+            const prices = await fetchPTTPricesByLocationName('สนามบินคลองหลวง - ถัง 200L');
+            pttRefillData = {
+                sourceId: 'purchase',
+                pricePerDrum: prices.pricePerDrum
+            };
         }
-        if (pttRefillData.operatingUnit) {
-            document.getElementById('transactionKhlongLuangOperatingUnit').value = pttRefillData.operatingUnit;
+        
+        window.khlongluangPttRefillData = pttRefillData;
+        document.getElementById('transactionKhlongLuangModal').style.display = 'block';
+        
+        if (pttRefillData) {
+            if (pttRefillData.operatorName) {
+                document.getElementById('transactionKhlongLuangOperatorName').value = pttRefillData.operatorName;
+            }
+            if (pttRefillData.operatingUnit) {
+                document.getElementById('transactionKhlongLuangOperatingUnit').value = pttRefillData.operatingUnit;
+            }
         }
+    } catch (error) {
+        console.error('Error opening Khlong Luang modal:', error);
+        alert('เกิดข้อผิดพลาดในการเตรียมข้อมูล');
+    } finally {
+        hideLoading();
+        isLoadingKhlongLuang = false;
     }
 }
 
@@ -3559,9 +3853,22 @@ async function handleTransactionKhlongLuangSubmit() {
                 }
             } else if (destinationType === 'tank') {
                 destinationId = document.getElementById('transactionKhlongLuangTankSelect').value;
-                destinationName = destinationId;
                 if (!destinationId) {
                     throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+                }
+                
+                const selectedSource = fuelSources.find(s => s.id === destinationId);
+                destinationName = selectedSource ? selectedSource.name : destinationId;
+                
+                if (destinationName.includes('สนามบิน')) {
+                    const prices = await fetchPTTPricesByLocationName(destinationName);
+                    if (prices && prices.pricePerDrum) {
+                        pricePerDrum = prices.pricePerDrum;
+                        totalAmount = drumCount * pricePerDrum;
+                        console.log('✅ Fetched airport fuel price:', { destinationName, pricePerDrum, totalAmount });
+                    } else {
+                        console.warn('⚠️ Could not fetch price for airport fuel source:', destinationName);
+                    }
                 }
             }
         }
@@ -3826,6 +4133,34 @@ function initializeEventListeners() {
         }
     }
     
+    // PTT Purchase 200L Form Events
+    const pttPurchase200LForm = document.getElementById('pttPurchase200LForm');
+    if (pttPurchase200LForm) {
+        document.getElementById('pttPurchase200LDrumCount').addEventListener('input', function() {
+            updatePTTPurchase200LDisplay();
+        });
+        
+        document.getElementById('pttPurchase200LDestination').addEventListener('change', function() {
+            updatePTTPurchase200LPrice();
+        });
+        
+        pttPurchase200LForm.onsubmit = function(e) {
+            e.preventDefault();
+            handlePTTPurchase200LSubmit();
+        };
+    }
+    
+    // Modal close button สำหรับ pttPurchase200LModal
+    const pttPurchase200LModal = document.getElementById('pttPurchase200LModal');
+    if (pttPurchase200LModal) {
+        const pttPurchase200LCloseBtn = pttPurchase200LModal.querySelector('.close');
+        if (pttPurchase200LCloseBtn) {
+            pttPurchase200LCloseBtn.onclick = function() {
+                closePTTPurchase200LModal();
+            };
+        }
+    }
+    
     // Remove Drum Nakhon Sawan Form Events
     const removeDrumNakhonsawanForm = document.getElementById('removeDrumNakhonsawanForm');
     if (removeDrumNakhonsawanForm) {
@@ -4026,8 +4361,10 @@ function updateRefillTypeVisibility() {
         const previousValue = tankSelect.value;
         tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
 
+        const hiddenSources = ['drum_nakhonsawan', 'drum_khlong_luang', 'purchase_drum_200l', 'nakhonsawan_tank2'];
+        
         fuelSources
-            .filter(source => source.id !== (currentSelectedSource ? currentSelectedSource.id : null))
+            .filter(source => source.id !== (currentSelectedSource ? currentSelectedSource.id : null) && !hiddenSources.includes(source.id))
             .forEach(source => {
                 const option = document.createElement('option');
                 option.value = source.id;
@@ -4035,7 +4372,7 @@ function updateRefillTypeVisibility() {
                 tankSelect.appendChild(option);
             });
 
-        if (previousValue && fuelSources.some(source => source.id === previousValue && source.id !== (currentSelectedSource ? currentSelectedSource.id : null))) {
+        if (previousValue && fuelSources.some(source => source.id === previousValue && source.id !== (currentSelectedSource ? currentSelectedSource.id : null) && !hiddenSources.includes(source.id))) {
             tankSelect.value = previousValue;
         } else {
             tankSelect.value = '';
@@ -4199,8 +4536,8 @@ function showDispenseForm() {
     tankSelect.onchange = updateFieldsBasedOnDestination;
 }
 
-// หมายเหตุ: ฟังก์ชันเหล่านี้ไม่ได้ใช้งานอีกต่อไป เพราะฟิลด์ราคาถูกลบออกไปแล้ว
-// ราคาถูกจัดการโดยแอดมินผ่านหน้า price-management.html และเก็บใน localStorage
+// หมายเหตุ: ฟังก์ชันเหล่านี้ไม่ได้ใช้งานอีกต่อไป
+// ราคาถูกจัดการโดย Admin ผ่าน Google Sheet (gid=1828300695 PTT_PRICES) และดึงข้อมูลตามจังหวัด
 // function calculateRefillAmount() {
 //     const liters = parseFloat(document.getElementById('refillLiters').value) || 0;
 //     const pricePerLiter = parseFloat(document.getElementById('pricePerLiter').value) || 0;
@@ -4320,8 +4657,12 @@ async function handleRefillSubmit() {
         setButtonLoading('submitRefill', true);
         showLoading('กำลังประมวลผลการซื้อจาก ปตท....');
 
-        // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
-        const prices = await loadFuelPrices();
+        // ดึงราคาจากจังหวัด (operatingUnit)
+        const prices = await fetchPTTPricesByProvince(operatingUnit);
+        
+        if (!prices || (prices.pricePerLiter === 0 && prices.pricePerDrum === 0)) {
+            throw new Error('ไม่พบข้อมูลราคาสำหรับจังหวัด: ' + operatingUnit);
+        }
         
         // ✅ ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
         const destSource = fuelSources.find(s => s.id === destinationId);
@@ -4330,7 +4671,7 @@ async function handleRefillSubmit() {
         if (isDestinationDrum) {
             // สำหรับถัง 200L
             drums = parseFloat(document.getElementById('refillDrums').value);
-            pricePerDrum = prices.pricePerDrum; // ใช้ราคาจาก localStorage
+            pricePerDrum = prices.pricePerDrum; // ใช้ราคาจากจังหวัด
             
             if (!operatorName || !operatingUnit || !drums) {
                 throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
@@ -4344,7 +4685,7 @@ async function handleRefillSubmit() {
             // สำหรับลิตรปกติ
             const pttDispenseLitersInput = document.getElementById('pttDispenseLiters');
             liters = pttDispenseLitersInput ? parseFloat(pttDispenseLitersInput.value) : 0;
-            pricePerLiter = prices.pricePerLiter; // ใช้ราคาจาก localStorage
+            pricePerLiter = prices.pricePerLiter; // ใช้ราคาจากจังหวัด
 
             if (!operatorName || !operatingUnit || !liters) {
                 throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
@@ -4842,6 +5183,34 @@ function openPttPurchaseModal() {
     document.getElementById('pttPurchaseForm').reset();
     document.getElementById('pttTotalAmount').textContent = '0.00 บาท';
     
+    // Clear price fields
+    document.getElementById('pttPricePerLiter').value = '';
+    document.getElementById('pttPricePerDrum').value = '';
+    
+    // Event listener for pttOperatingUnit - fetch prices when province is selected
+    const operatingUnitSelect = document.getElementById('pttOperatingUnit');
+    operatingUnitSelect.onchange = async function() {
+        const selectedProvince = this.value.trim();
+        if (selectedProvince === '') {
+            document.getElementById('pttPricePerLiter').value = '';
+            document.getElementById('pttPricePerDrum').value = '';
+            return;
+        }
+        
+        console.log('🔍 Selected province:', selectedProvince);
+        const prices = await fetchPTTPricesByProvince(selectedProvince);
+        
+        if (prices.pricePerLiter > 0 || prices.pricePerDrum > 0) {
+            document.getElementById('pttPricePerLiter').value = prices.pricePerLiter;
+            document.getElementById('pttPricePerDrum').value = prices.pricePerDrum;
+            console.log('✅ Prices loaded:', prices);
+            calculatePttAmount();
+        } else {
+            console.warn('⚠️ No prices found for province:', selectedProvince);
+            alert('ไม่พบข้อมูลราคาสำหรับจังหวัด: ' + selectedProvince);
+        }
+    };
+    
     // Populate destination dropdown (แท๊งก์, รถ, ถัง 200L)
     const destinationSelect = document.getElementById('pttDestinationSelect');
     destinationSelect.innerHTML = '<option value="">เลือกแหล่งเก็บ</option>';
@@ -4866,11 +5235,12 @@ function openPttPurchaseModal() {
     document.getElementById('pttPricePerDrumGroup').style.display = 'none';
     
     // เมื่อเลือกปลายทาง ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
-    destinationSelect.onchange = function() {
+    destinationSelect.onchange = async function() {
         const selectedOption = this.options[this.selectedIndex];
         const destinationType = selectedOption.dataset.type;
+        const destinationName = selectedOption.textContent;
         
-        console.log('เลือกปลายทาง:', selectedOption.textContent, 'ประเภท:', destinationType);
+        console.log('เลือกปลายทาง:', destinationName, 'ประเภท:', destinationType);
         
         // แสดง/ซ่อน input groups
         const litersGroup = document.getElementById('pttLitersGroup');
@@ -4895,6 +5265,17 @@ function openPttPurchaseModal() {
             // เพิ่ม required สำหรับถัง
             document.getElementById('pttDrums').setAttribute('required', 'required');
             document.getElementById('pttPricePerDrum').setAttribute('required', 'required');
+            
+            // ดึงราคาจาก location name เมื่อเลือกปลายทาง drum
+            console.log('ดึงราคาสำหรับ location:', destinationName);
+            const prices = await fetchPTTPricesByLocationName(destinationName);
+            if (prices.pricePerDrum > 0) {
+                document.getElementById('pttPricePerDrum').value = prices.pricePerDrum.toFixed(2);
+                console.log('✅ โหลดราคาสำเร็จ:', prices.pricePerDrum);
+            } else {
+                console.warn('⚠️ ไม่สามารถดึงราคาสำหรับ:', destinationName);
+                document.getElementById('pttPricePerDrum').value = '';
+            }
         } else {
             // แสดงฟอร์มสำหรับลิตรปกติ
             console.log('แสดงฟอร์มลิตรปกติ');
@@ -5001,8 +5382,15 @@ async function handlePttPurchaseSubmit() {
             throw new Error('ไม่พบข้อมูลแหล่งเก็บปลายทาง');
         }
         
-        // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
-        const prices = await loadFuelPrices();
+        // ดึงราคาจากฟอร์ม (ราคาที่โหลดมาจาก gid=1828300695 ตามจังหวัด)
+        const pricePerLiterFromForm = parseFloat(document.getElementById('pttPricePerLiter').value) || 0;
+        const pricePerDrumFromForm = parseFloat(document.getElementById('pttPricePerDrum').value) || 0;
+        
+        // ตรวจสอบว่าราคาถูกโหลดมาแล้ว
+        if (pricePerLiterFromForm === 0 && pricePerDrumFromForm === 0) {
+            alert('ยังไม่ได้โหลดราคาจากจังหวัด\nกรุณาเลือกจังหวัด (หน่วยปฏิบัติการ) ใหม่');
+            return;
+        }
         
         let liters, pricePerLiter, totalAmount, drums = null, pricePerDrum = null;
         let displayQuantity, displayPrice;
@@ -5011,7 +5399,7 @@ async function handlePttPurchaseSubmit() {
         if (isDrumSource(destination)) {
             // สำหรับถัง 200L
             drums = parseFloat(document.getElementById('pttDrums').value);
-            pricePerDrum = prices.pricePerDrum; // ใช้ราคาจาก localStorage
+            pricePerDrum = pricePerDrumFromForm; // ใช้ราคาจากฟอร์ม (โหลดจากจังหวัด)
             
             if (!drums) {
                 alert('กรุณากรอกข้อมูลให้ครบถ้วน');
@@ -5028,7 +5416,7 @@ async function handlePttPurchaseSubmit() {
         } else {
             // สำหรับลิตรปกติ
             liters = parseFloat(document.getElementById('pttLiters').value);
-            pricePerLiter = prices.pricePerLiter; // ใช้ราคาจาก localStorage
+            pricePerLiter = pricePerLiterFromForm; // ใช้ราคาจากฟอร์ม (โหลดจากจังหวัด)
             
             if (!liters) {
                 alert('กรุณากรอกข้อมูลให้ครบถ้วน');

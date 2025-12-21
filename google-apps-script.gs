@@ -483,6 +483,10 @@ function doGet(e) {
         return getLatestDailyConfirmations(sheetsId, gid);
       case 'logDailyConfirmation':
         return logDailyConfirmation(e.parameter.data, sheetsId, gid);
+      case 'getPTTPricesByProvince':
+        return getPTTPricesByProvince(e.parameter.province, sheetsId, gid);
+      case 'getPTTPricesByLocationName':
+        return getPTTPricesByLocationName(e.parameter.locationName, sheetsId, gid);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1605,6 +1609,283 @@ function getCurrentPrices(sheetsId, gid) {
       
   } catch (error) {
     console.error('Error in getCurrentPrices:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ดึงราคา PTT จาก Sheet gid=1828300695 โดยตรวจสอบจังหวัด
+ * @param {string} province - ชื่อจังหวัด (Column A)
+ * @param {string} sheetsId - Google Sheets ID
+ * @param {string} gid - Sheet GID (1828300695 สำหรับ PTT_PRICES)
+ * @returns {ContentService} JSON response with pricePerLiter and pricePerDrum
+ */
+function getPTTPricesByProvince(province, sheetsId, gid) {
+  try {
+    if (!province || province.trim() === '') {
+      throw new Error('Province name is required');
+    }
+    
+    if (!sheetsId) {
+      throw new Error('sheetsId is required');
+    }
+    
+    console.log('getPTTPricesByProvince called with province:', province, 'gid:', gid);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let pttSheet = null;
+    
+    // หา sheet ตาม gid
+    if (gid) {
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getSheetId().toString() === gid.toString()) {
+          pttSheet = sheet;
+          console.log('Found PTT prices sheet by GID:', gid, 'sheet name:', sheet.getName());
+          break;
+        }
+      }
+    }
+    
+    if (!pttSheet) {
+      throw new Error('PTT prices sheet not found with GID: ' + gid);
+    }
+    
+    const lastRow = pttSheet.getLastRow();
+    const lastCol = pttSheet.getLastColumn();
+    
+    console.log('PTT sheet info - LastRow:', lastRow, 'LastCol:', lastCol);
+    
+    if (lastRow < 2) {
+      throw new Error('No price data found in PTT prices sheet');
+    }
+    
+    // อ่านข้อมูลทั้งหมด (Column A = Province, Column B = Price)
+    const dataRange = pttSheet.getRange(2, 1, lastRow - 1, 2);
+    const values = dataRange.getValues();
+    
+    console.log('PTT sheet data rows:', values.length);
+    
+    // หาแถวที่ตรงกับจังหวัด (Column A)
+    for (let i = 0; i < values.length; i++) {
+      const sheetProvince = values[i][0]; // Column A
+      const price = values[i][1]; // Column B
+      
+      if (sheetProvince && sheetProvince.toString().trim().toLowerCase() === province.trim().toLowerCase()) {
+        console.log('Found matching province:', sheetProvince, 'Price:', price);
+        
+        // ราคาจากคอลัมน์ B ใช้เป็น pricePerLiter และสำหรับ pricePerDrum คำนวณจาก 200L
+        const pricePerLiter = parseFloat(price) || 0;
+        const pricePerDrum = pricePerLiter * 200; // 200 liters per drum
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            success: true,
+            data: {
+              pricePerLiter: pricePerLiter,
+              pricePerDrum: pricePerDrum,
+              province: sheetProvince
+            }
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    // ถ้าไม่พบจังหวัด
+    console.warn('Province not found in PTT prices sheet:', province);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Province not found: ' + province,
+        data: {
+          pricePerLiter: 0,
+          pricePerDrum: 0
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getPTTPricesByProvince:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ดึงราคา PTT จาก Sheet gid=1828300695 โดยตรวจสอบชื่อสถานที่
+ * @param {string} locationName - Location name (เช่น 'สนามบินนครสวรรค์ - ถัง 200L')
+ * @param {string} sheetsId - Google Sheets ID
+ * @param {string} gid - Sheet GID (1828300695 สำหรับ PTT_PRICES)
+ * @returns {ContentService} JSON response with pricePerDrum
+ */
+function getPTTPricesByLocationName(locationName, sheetsId, gid) {
+  try {
+    if (!locationName || locationName.trim() === '') {
+      throw new Error('Location name is required');
+    }
+    
+    if (!sheetsId) {
+      throw new Error('sheetsId is required');
+    }
+    
+    console.log('getPTTPricesByLocationName called with locationName:', locationName, 'gid:', gid);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let pttSheet = null;
+    
+    // หา sheet ตาม gid
+    if (gid) {
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getSheetId().toString() === gid.toString()) {
+          pttSheet = sheet;
+          console.log('Found PTT prices sheet by GID:', gid, 'sheet name:', sheet.getName());
+          break;
+        }
+      }
+    }
+    
+    if (!pttSheet) {
+      throw new Error('PTT prices sheet not found with GID: ' + gid);
+    }
+    
+    const lastRow = pttSheet.getLastRow();
+    const lastCol = pttSheet.getLastColumn();
+    
+    console.log('PTT sheet info - LastRow:', lastRow, 'LastCol:', lastCol);
+    
+    if (lastRow < 2) {
+      throw new Error('No price data found in PTT prices sheet');
+    }
+    
+    // อ่านข้อมูลทั้งหมด (Column A = Location Name, Column B = Price)
+    const dataRange = pttSheet.getRange(2, 1, lastRow - 1, 2);
+    const values = dataRange.getValues();
+    
+    console.log('PTT sheet data rows:', values.length);
+    
+    // หาแถวที่ตรงกับชื่อสถานที่ (Column A)
+    for (let i = 0; i < values.length; i++) {
+      const sheetLocationName = values[i][0]; // Column A
+      const price = values[i][1]; // Column B
+      
+      if (sheetLocationName && sheetLocationName.toString().trim().toLowerCase() === locationName.trim().toLowerCase()) {
+        console.log('Found matching location:', sheetLocationName, 'Price:', price);
+        
+        // ราคาจากคอลัมน์ B ใช้เป็น pricePerDrum โดยตรง
+        const pricePerDrum = parseFloat(price) || 0;
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            success: true,
+            data: {
+              pricePerDrum: pricePerDrum,
+              locationName: sheetLocationName
+            }
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    // ถ้าไม่พบสถานที่
+    console.warn('Location not found in PTT prices sheet:', locationName);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Location not found: ' + locationName,
+        data: {
+          pricePerDrum: 0
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getPTTPricesByLocationName:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ดึงรายการหน่วยปฏิบัติการ (Operating Units) จาก PTT_PRICES sheet
+ * @param {string} sheetsId - Google Sheets ID
+ * @param {string} gid - Sheet GID (1828300695 สำหรับ PTT_PRICES)
+ * @returns {ContentService} JSON response with array of operating units
+ */
+function getPTTOperatingUnits(sheetsId, gid) {
+  try {
+    if (!sheetsId) {
+      throw new Error('sheetsId is required');
+    }
+    
+    console.log('getPTTOperatingUnits called with gid:', gid);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let pttSheet = null;
+    
+    // หา sheet ตาม gid
+    if (gid) {
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getSheetId().toString() === gid.toString()) {
+          pttSheet = sheet;
+          console.log('Found PTT prices sheet by GID:', gid, 'sheet name:', sheet.getName());
+          break;
+        }
+      }
+    }
+    
+    if (!pttSheet) {
+      throw new Error('PTT prices sheet not found with GID: ' + gid);
+    }
+    
+    const lastRow = pttSheet.getLastRow();
+    
+    console.log('PTT sheet info - LastRow:', lastRow);
+    
+    if (lastRow < 2) {
+      throw new Error('No data found in PTT prices sheet');
+    }
+    
+    // อ่าน Column A (Operating Units) เริ่มจากแถว 2 (ข้ามหัวข้อ)
+    const dataRange = pttSheet.getRange(2, 1, lastRow - 1, 1);
+    const values = dataRange.getValues();
+    
+    // สกัดชื่อหน่วยปฏิบัติการที่ไม่ซ้ำกัน
+    const operatingUnits = [];
+    for (let i = 0; i < values.length; i++) {
+      const unit = values[i][0];
+      if (unit && unit.toString().trim() !== '') {
+        operatingUnits.push(unit.toString().trim());
+      }
+    }
+    
+    console.log('Found operating units:', operatingUnits.length, 'units');
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        data: {
+          operatingUnits: operatingUnits
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getPTTOperatingUnits:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,

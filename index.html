@@ -33,9 +33,6 @@
                 <a href="transaction-summary.html" class="btn btn-info btn-sm" title="สรุปรายการเดินบัญชี">
                     <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
                 </a>
-                <a href="price-management.html" class="btn btn-warning btn-sm" target="_blank" title="จัดการราคา (Admin)">
-                    <i class="fas fa-cog me-1"></i> จัดการราคา
-                </a>
             </div>
         </div>
     </nav>
@@ -793,6 +790,17 @@
                     </select>
                 </div>
                 
+                <!-- ราคาที่ดึงจากจังหวัด (PTT_PRICES sheet) -->
+                <div class="form-group" id="pttPricePerLiterGroup" style="display: none;">
+                    <label for="pttPricePerLiter">ราคาต่อลิตร (ดึงจากจังหวัด):</label>
+                    <input type="number" id="pttPricePerLiter" name="pttPricePerLiter" step="0.01" min="0" readonly>
+                </div>
+                
+                <div class="form-group" id="pttPricePerDrumGroup" style="display: none;">
+                    <label for="pttPricePerDrum">ราคาต่อถัง (ดึงจากจังหวัด):</label>
+                    <input type="number" id="pttPricePerDrum" name="pttPricePerDrum" step="0.01" min="0" readonly>
+                </div>
+                
                 <!-- สำหรับลิตรปกติ (แท๊งก์, รถ) -->
                 <div class="form-group" id="pttLitersGroup">
                     <label for="pttLiters">จำนวนลิตร:</label>
@@ -1254,6 +1262,70 @@
                     <button type="button" class="btn btn-secondary" onclick="closeReturnDrumModal()">ยกเลิก</button>
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-check me-2"></i>ยืนยันการคืนถัง
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal สำหรับการซื้อถัง 200L จาก ปตท. -->
+    <div id="pttPurchase200LModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closePTTPurchase200LModal()">&times;</span>
+            <h2>
+                <i class="fas fa-shopping-cart me-2"></i>ซื้อถัง 200L จาก ปตท.
+            </h2>
+            
+            <form id="pttPurchase200LForm">
+                <div class="form-group">
+                    <label for="pttPurchase200LOperatorName">ชื่อผู้ทำรายการ:</label>
+                    <input type="text" id="pttPurchase200LOperatorName" name="pttPurchase200LOperatorName" required>
+                </div>
+                
+                <div class="form-group" style="display: none;">
+                    <label for="pttPurchase200LOperatingUnit">หน่วยปฏิบัติการ (ไม่จำเป็น):</label>
+                    <select id="pttPurchase200LOperatingUnit" name="pttPurchase200LOperatingUnit">
+                        <option value="">เลือกจังหวัด</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pttPurchase200LDestination">เลือกแหล่งถัง 200L (ปลายทาง):</label>
+                    <select id="pttPurchase200LDestination" name="pttPurchase200LDestination" required>
+                        <option value="">-- เลือกแหล่งถัง --</option>
+                        <!-- จะถูกเติมโดย JavaScript -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pttPurchase200LDrumCount">จำนวนถัง:</label>
+                    <input type="number" id="pttPurchase200LDrumCount" name="pttPurchase200LDrumCount" step="1" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>จำนวนลิตรรวม:</label>
+                    <div id="pttPurchase200LTotalLiters" class="calculated-amount">0 ลิตร</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>ราคาต่อถัง:</label>
+                    <div id="pttPurchase200LPricePerDrum" class="calculated-amount">0 บาท</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>ยอดรวม:</label>
+                    <div id="pttPurchase200LTotalAmount" class="calculated-amount" style="font-size: 1.2em; color: #e74c3c; font-weight: bold;">0 บาท</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pttPurchase200LNotes">หมายเหตุ (ไม่จำเป็น):</label>
+                    <textarea id="pttPurchase200LNotes" name="pttPurchase200LNotes" rows="3" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                </div>
+                
+                <div class="modal-actions mt-3">
+                    <button type="button" class="btn btn-secondary" onclick="closePTTPurchase200LModal()">ยกเลิก</button>
+                    <button type="submit" id="submitPTTPurchase200L" class="btn btn-primary">
+                        <i class="fas fa-check me-2"></i>ยืนยันการซื้อ
                     </button>
                 </div>
             </form>

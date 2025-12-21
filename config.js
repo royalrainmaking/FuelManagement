@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTfDsPADMtP_moASrFjI5QwU415kkIqT-KVI3jFL9BN0SYl0ULSgixOyis-zWFcqwX/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBexs1-w1G2EHPKZ3ruoFVfQq60DMOA-PPCBfQh1Ti90EXrLeYHlrJ1PTwmPuObxDS/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -37,8 +37,8 @@ const SHEET_GIDS = {
     // Sheet สำหรับเก็บข้อมูล Inventory (แหล่งน้ำมัน)
     INVENTORY: '1942506251',
     
-    // Sheet สำหรับเก็บประวัติราคา
-    PRICE_HISTORY: '1959869787',
+    // Sheet สำหรับเก็บข้อมูลราคา PTT (จังหวัด-ราคา)
+    PTT_PRICES: '1828300695',
     
     // Sheet สำหรับเก็บ Transaction History
     TRANSACTION_HISTORY: '0', // GID 0 คือ Sheet แรก
