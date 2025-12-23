@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBexs1-w1G2EHPKZ3ruoFVfQq60DMOA-PPCBfQh1Ti90EXrLeYHlrJ1PTwmPuObxDS/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm7MLOstjCO15fnCOhvfFnwH7A7Ccrt7zjHQn7CAsI4491u6ZKR4Pk4iIueCQsoruo/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)

@@ -434,11 +434,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="operatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="operatingUnit" name="operatingUnit" required>
-                        <option value="">เลือกหน่วยปฏิบัติการ</option>
-                        <!-- จังหวัดจะถูกเพิ่มโดย JavaScript -->
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="operatingUnit">
+                        <input type="text" class="dropdown-search" id="operatingUnit" name="operatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -777,10 +778,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="pttOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="pttOperatingUnit" name="pttOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="pttOperatingUnit">
+                        <input type="text" class="dropdown-search" id="pttOperatingUnit" name="pttOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -923,10 +926,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="transactionNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="transactionNakhonsawanOperatingUnit" name="transactionNakhonsawanOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="transactionNakhonsawanOperatingUnit">
+                        <input type="text" class="dropdown-search" id="transactionNakhonsawanOperatingUnit" name="transactionNakhonsawanOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -941,7 +946,7 @@
                 <div id="transactionNakhonsawanDrainFields" style="display: none;">
                     <div class="form-group">
                         <label for="transactionNakhonsawanDrainLiters">จำนวนลิตร:</label>
-                        <input type="number" id="transactionNakhonsawanDrainLiters" name="transactionNakhonsawanDrainLiters" step="0.01" min="0" required>
+                        <input type="number" id="transactionNakhonsawanDrainLiters" name="transactionNakhonsawanDrainLiters" step="0.01" min="0">
                     </div>
                 </div>
                 
@@ -1076,10 +1081,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="transactionKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="transactionKhlongLuangOperatingUnit" name="transactionKhlongLuangOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="transactionKhlongLuangOperatingUnit">
+                        <input type="text" class="dropdown-search" id="transactionKhlongLuangOperatingUnit" name="transactionKhlongLuangOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1094,7 +1101,7 @@
                 <div id="transactionKhlongLuangDrainFields" style="display: none;">
                     <div class="form-group">
                         <label for="transactionKhlongLuangDrainLiters">จำนวนลิตร:</label>
-                        <input type="number" id="transactionKhlongLuangDrainLiters" name="transactionKhlongLuangDrainLiters" step="0.01" min="0" required>
+                        <input type="number" id="transactionKhlongLuangDrainLiters" name="transactionKhlongLuangDrainLiters" step="0.01" min="0">
                     </div>
                 </div>
                 
@@ -1229,10 +1236,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="returnOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="returnOperatingUnit" name="returnOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="returnOperatingUnit">
+                        <input type="text" class="dropdown-search" id="returnOperatingUnit" name="returnOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1283,10 +1292,12 @@
                 </div>
                 
                 <div class="form-group" style="display: none;">
-                    <label for="pttPurchase200LOperatingUnit">หน่วยปฏิบัติการ (ไม่จำเป็น):</label>
-                    <select id="pttPurchase200LOperatingUnit" name="pttPurchase200LOperatingUnit">
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ (ไม่จำเป็น):</label>
+                    <div class="searchable-dropdown" data-dropdown-id="pttPurchase200LOperatingUnit">
+                        <input type="text" class="dropdown-search" id="pttPurchase200LOperatingUnit" name="pttPurchase200LOperatingUnit" placeholder="ค้นหาจังหวัด..." autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1347,10 +1358,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="removeNakhonsawanOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="removeNakhonsawanOperatingUnit" name="removeNakhonsawanOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="removeNakhonsawanOperatingUnit">
+                        <input type="text" class="dropdown-search" id="removeNakhonsawanOperatingUnit" name="removeNakhonsawanOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1507,10 +1520,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="removeKhlongLuangOperatingUnit">หน่วยปฏิบัติการ:</label>
-                    <select id="removeKhlongLuangOperatingUnit" name="removeKhlongLuangOperatingUnit" required>
-                        <option value="">เลือกจังหวัด</option>
-                    </select>
+                    <label>หน่วยปฏิบัติการ:</label>
+                    <div class="searchable-dropdown" data-dropdown-id="removeKhlongLuangOperatingUnit">
+                        <input type="text" class="dropdown-search" id="removeKhlongLuangOperatingUnit" name="removeKhlongLuangOperatingUnit" placeholder="ค้นหาจังหวัด..." required autocomplete="off">
+                        <div class="dropdown-options"></div>
+                        <input type="hidden" class="dropdown-value">
+                    </div>
                 </div>
                 
                 <div class="form-group">

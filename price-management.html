@@ -373,7 +373,8 @@
             
             if (password === ADMIN_PASSWORD) {
                 sessionStorage.setItem('priceManagementAuth', 'true');
-                showManagementPanel();
+                // เปิดลิงค์ไปยัง Google Sheets แทนการแสดง management panel
+                window.location.href = 'https://docs.google.com/spreadsheets/d/18EaX2GwcZaPFXzcL0B9T4gFRAOhBXdHqZHm1bMJ8-sE/edit?gid=1828300695#gid=1828300695';
             } else {
                 showLoginError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
             }

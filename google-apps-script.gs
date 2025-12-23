@@ -487,6 +487,8 @@ function doGet(e) {
         return getPTTPricesByProvince(e.parameter.province, sheetsId, gid);
       case 'getPTTPricesByLocationName':
         return getPTTPricesByLocationName(e.parameter.locationName, sheetsId, gid);
+      case 'cancelTransaction':
+        return cancelTransaction(e.parameter.uid, sheetsId, e.parameter.cancellerName);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1377,6 +1379,296 @@ function logTransaction(dataString, sheetsId) {
         logs: logs
       }))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ยกเลิกรายการเดินบัญชี (Cancel Transaction)
+ * ย้ายรายการจาก Transaction_Log ไปยัง Transaction_Archive และคืนลิตรกลับไปที่ Inventory
+ */
+function cancelTransaction(uid, sheetsId, cancellerName) {
+  try {
+    // Validation: Check UID parameter
+    if (!uid || !uid.trim()) {
+      throw new Error('ต้องระบุ UID ของรายการที่ต้องการยกเลิก');
+    }
+    
+    if (!sheetsId || !sheetsId.trim()) {
+      throw new Error('Sheet ID ไม่ถูกต้อง');
+    }
+    
+    // Validation: Check canceller name
+    if (!cancellerName || !cancellerName.trim()) {
+      throw new Error('ต้องระบุชื่อของผู้ยกเลิก');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // หา Transaction_Log sheet
+    let transactionSheet = null;
+    try {
+      transactionSheet = spreadsheet.getSheetByName('Transaction_Log');
+    } catch (e) {
+      throw new Error('ไม่พบ Transaction_Log sheet');
+    }
+    
+    if (!transactionSheet) {
+      throw new Error('ไม่พบ Transaction_Log sheet');
+    }
+    
+    // หารายการที่ตรงกับ UID
+    const transactionRowData = findTransactionByUID(transactionSheet, uid);
+    if (!transactionRowData) {
+      throw new Error('ไม่พบรายการที่ต้องการยกเลิก (UID: ' + uid + ')');
+    }
+    
+    const rowIndex = transactionRowData.rowIndex;
+    const rowData = transactionRowData.rowData;
+    
+    // ดึงข้อมูลที่จำเป็น
+    const source = rowData[4] || ''; // Column E: source_name
+    const liters = parseFloat(rowData[16]) || 0; // Column Q: volumeLiters (ตัวเลขจริง)
+    const destination = rowData[5] || ''; // Column F: destination_name
+    
+    // Validation: Check required data
+    if (!source || !source.trim()) {
+      throw new Error('แหล่งจ่ายของรายการไม่ถูกต้อง');
+    }
+    
+    if (liters <= 0) {
+      throw new Error('จำนวนลิตรของรายการไม่ถูกต้อง');
+    }
+    
+    // สร้าง Archive sheet ถ้าไม่มี
+    let archiveSheet = null;
+    try {
+      archiveSheet = spreadsheet.getSheetByName('Transaction_Archive');
+    } catch (e) {
+      // สร้าง sheet ใหม่
+      archiveSheet = createTransactionArchiveSheet(spreadsheet);
+    }
+    
+    if (!archiveSheet) {
+      archiveSheet = createTransactionArchiveSheet(spreadsheet);
+    }
+    
+    // เตรียมข้อมูลสำหรับ Archive (เพิ่ม metadata ของการยกเลิก)
+    const now = new Date();
+    const cancelledAt = Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+    const archiveRowData = [...rowData];
+    
+    // เพิ่ม metadata ในคอลัมน์เพิ่มเติม
+    archiveRowData.push(cancelledAt);      // คอลัมน์ W: cancelled_at
+    archiveRowData.push(cancellerName);    // คอลัมน์ X: cancelled_by (ชื่อของผู้ยกเลิก)
+    
+    // ย้ายรายการไปยัง Archive sheet
+    archiveSheet.appendRow(archiveRowData);
+    
+    // ลบรายการจาก Transaction_Log
+    transactionSheet.deleteRow(rowIndex);
+    
+    // หา Inventory sheet และคืนลิตรกลับ
+    let inventorySheet = null;
+    try {
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getName() === 'Inventory') {
+          inventorySheet = sheet;
+          break;
+        }
+      }
+    } catch (e) {
+      console.log('ไม่พบ Inventory sheet');
+    }
+    
+    if (inventorySheet) {
+      restoreInventoryFromTransaction(inventorySheet, source, destination, liters);
+    }
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'ยกเลิกรายการสำเร็จ',
+        data: {
+          transactionUID: uid,
+          source: source,
+          destination: destination,
+          liters: liters,
+          archivedAt: cancelledAt
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in cancelTransaction:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ค้นหารายการ Transaction จาก UID
+ * คืนค่า object { rowIndex: number, rowData: array }
+ */
+function findTransactionByUID(transactionSheet, uid) {
+  try {
+    const lastRow = transactionSheet.getLastRow();
+    
+    if (lastRow < 2) {
+      return null;
+    }
+    
+    // Trim the search UID
+    const trimmedSearchUid = uid.toString().trim();
+    
+    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย (ข้าม header)
+    const dataRange = transactionSheet.getRange(2, 1, lastRow - 1, 22);
+    const values = dataRange.getValues();
+    
+    for (let i = 0; i < values.length; i++) {
+      const row = values[i];
+      const sheetUid = row[0] ? row[0].toString().trim() : '';
+      
+      // Compare with trimmed values
+      if (sheetUid === trimmedSearchUid) {
+        return {
+          rowIndex: i + 2, // Google Sheets rows are 1-indexed, +2 because header is row 1
+          rowData: row
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error in findTransactionByUID:', error);
+    return null;
+  }
+}
+
+/**
+ * สร้าง Transaction_Archive sheet
+ */
+function createTransactionArchiveSheet(spreadsheet) {
+  try {
+    // ตรวจสอบว่ามี sheet อยู่แล้วหรือไม่
+    try {
+      const existing = spreadsheet.getSheetByName('Transaction_Archive');
+      if (existing) {
+        return existing;
+      }
+    } catch (e) {
+      // ไม่มี sheet นี้
+    }
+    
+    // สร้าง sheet ใหม่
+    const archiveSheet = spreadsheet.insertSheet('Transaction_Archive');
+    
+    // สร้าง header เดียวกับ Transaction_Log แต่เพิ่ม 2 คอลัมน์สำหรับ metadata
+    archiveSheet.getRange(1, 1, 1, 24).setValues([[
+      'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
+      'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
+      'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters', 'ภาระกิจ',
+      'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID',
+      'Cancelled At', 'Cancelled By'
+    ]]);
+    
+    // จัดรูปแบบ header
+    const headerRange = archiveSheet.getRange(1, 1, 1, 24);
+    headerRange.setFontWeight('bold');
+    headerRange.setBackground('#FF6B6B');
+    headerRange.setFontColor('#FFFFFF');
+    
+    archiveSheet.autoResizeColumns(1, 24);
+    archiveSheet.setFrozenRows(1);
+    
+    return archiveSheet;
+    
+  } catch (error) {
+    console.error('Error in createTransactionArchiveSheet:', error);
+    return null;
+  }
+}
+
+/**
+ * คืนลิตรกลับไปที่ Inventory
+ */
+function restoreInventoryFromTransaction(inventorySheet, sourceName, destinationName, litersToRestore) {
+  try {
+    if (!inventorySheet || !sourceName || litersToRestore <= 0) {
+      return false;
+    }
+    
+    // อ่านข้อมูล Inventory ทั้งหมด
+    const dataRange = inventorySheet.getDataRange();
+    const values = dataRange.getValues();
+    const headers = values[0];
+    
+    // หา column ที่เกี่ยวข้อง
+    const nameCol = findColumnIndex(headers, ['name', 'source_name', 'ชื่อ']);
+    const stockCol = findColumnIndex(headers, ['current_stock', 'คงเหลือ', 'stock']);
+    
+    if (nameCol === -1 || stockCol === -1) {
+      throw new Error('ไม่พบ column ที่จำเป็นใน Inventory sheet');
+    }
+    
+    // ตรวจสอบว่า source เป็น "ซื้อจาก ปตท." หรือ "PTT Purchase" variants
+    const isPTTSource = sourceName === 'ซื้อจาก ปตท.' || 
+                        sourceName === 'จัดซื้อจาก ปตท.' ||
+                        sourceName === 'Buy from PTT' ||
+                        sourceName === 'PTT Purchase - 200L' ||
+                        sourceName === 'PTT Purchase' ||
+                        sourceName === 'ปตท.';
+    
+    if (isPTTSource) {
+      // กรณียกเลิกจากแหล่งจ่าย PTT: ลบออกจาก PTT inventory
+      for (let i = 1; i < values.length; i++) {
+        const inventoryName = values[i][nameCol] ? values[i][nameCol].toString().trim() : '';
+        if (inventoryName === 'ปตท.' || 
+            inventoryName === 'PTT' || 
+            inventoryName === 'PTT Purchase - 200L' ||
+            inventoryName.includes('ปตท') ||
+            inventoryName.toUpperCase().includes('PTT')) {
+          const currentStock = parseFloat(values[i][stockCol]) || 0;
+          values[i][stockCol] = currentStock - litersToRestore;
+          console.log('Restored (PTT source): Subtracted ' + litersToRestore + ' liters from PTT inventory (' + inventoryName + ')');
+          break;
+        }
+      }
+    } else {
+      // กรณีปกติ: บวกลิตรกลับให้กับแหล่งจ่าย
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][nameCol] === sourceName) {
+          const currentStock = parseFloat(values[i][stockCol]) || 0;
+          values[i][stockCol] = currentStock + litersToRestore;
+          console.log('Restored (normal source): Added ' + litersToRestore + ' liters back to ' + sourceName);
+          break;
+        }
+      }
+    }
+    
+    // จัดการกับปลายทาง: ลบจำนวนลิตรออกจากปลายทาง
+    if (destinationName && destinationName.trim()) {
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][nameCol] === destinationName) {
+          const currentStock = parseFloat(values[i][stockCol]) || 0;
+          values[i][stockCol] = currentStock - litersToRestore;
+          console.log('Restored (destination): Subtracted ' + litersToRestore + ' liters from destination ' + destinationName);
+          break;
+        }
+      }
+    }
+    
+    // เขียนข้อมูลกลับ (หลังจากจัดการทั้ง source และ destination)
+    dataRange.setValues(values);
+    return true;
+    
+  } catch (error) {
+    console.error('Error in restoreInventoryFromTransaction:', error);
+    throw error;
   }
 }
 

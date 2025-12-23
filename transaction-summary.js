@@ -36,6 +36,8 @@ const startDateFilter = document.getElementById('startDateFilter');
 const endDateFilter = document.getElementById('endDateFilter');
 
 let detailModal = null;
+let cancelConfirmationModal = null;
+let currentTransactionForCancel = null;
 
 /**
  * Initialization
@@ -47,6 +49,16 @@ document.addEventListener('DOMContentLoaded', function() {
         detailModal = new bootstrap.Modal(modalElement, {
             backdrop: true,
             keyboard: true,
+            focus: true
+        });
+    }
+    
+    // Initialize Cancel Confirmation Modal
+    const cancelConfirmElement = document.getElementById('cancelConfirmationModal');
+    if (cancelConfirmElement && typeof bootstrap !== 'undefined') {
+        cancelConfirmationModal = new bootstrap.Modal(cancelConfirmElement, {
+            backdrop: 'static',
+            keyboard: false,
             focus: true
         });
     }
@@ -127,6 +139,23 @@ function setupEventListeners() {
     if (exportAllBtn) {
         exportAllBtn.addEventListener('click', () => exportToExcel(true));
     }
+    
+    // Cancel Transaction Button
+    const cancelTransactionBtn = document.getElementById('cancelTransactionBtn');
+    if (cancelTransactionBtn) {
+        cancelTransactionBtn.addEventListener('click', () => {
+            if (currentTransactionForCancel) {
+                showCancelConfirmation(currentTransactionForCancel);
+            }
+        });
+    }
+    
+    // Confirm Cancel Button
+    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+    if (confirmCancelBtn) {
+        confirmCancelBtn.addEventListener('click', handleCancelConfirm);
+    }
+    
 }
 
 /**
@@ -258,7 +287,8 @@ function applyFilters() {
             transaction.source_name.toLowerCase().includes(searchText) ||
             transaction.destination_name.toLowerCase().includes(searchText) ||
             transaction.operator_name.toLowerCase().includes(searchText) ||
-            transaction.transaction_type.toLowerCase().includes(searchText);
+            transaction.transaction_type.toLowerCase().includes(searchText) ||
+            (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText));
 
         // Source filter (multiple selection)
         const matchesSource = selectedSources.length === 0 || 
@@ -315,10 +345,10 @@ function sortTransactions(transactions, sortBy) {
             transactions.sort((a, b) => new Date(getDateTimeString(b)) - new Date(getDateTimeString(a)));
             break;
         case 'volume_asc':
-            transactions.sort((a, b) => a.volume - b.volume);
+            transactions.sort((a, b) => (parseFloat(a.volume_liters) || 0) - (parseFloat(b.volume_liters) || 0));
             break;
         case 'volume_desc':
-            transactions.sort((a, b) => b.volume - a.volume);
+            transactions.sort((a, b) => (parseFloat(b.volume_liters) || 0) - (parseFloat(a.volume_liters) || 0));
             break;
         case 'cost_desc':
             transactions.sort((a, b) => b.total_cost - a.total_cost);
@@ -333,7 +363,7 @@ function sortTransactions(transactions, sortBy) {
  */
 function updateSummaryStatistics() {
     const totalCount = filteredTransactions.length;
-    const totalVolume = filteredTransactions.reduce((sum, t) => sum + t.volume, 0);
+    const totalVolume = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.volume_liters) || 0), 0);
     const totalCost = filteredTransactions.reduce((sum, t) => sum + t.total_cost, 0);
     const averagePrice = totalVolume > 0 ? (totalCost / totalVolume).toFixed(2) : 0;
 
@@ -357,7 +387,7 @@ function renderTable(isAppend = false) {
     if (pageTransactions.length === 0 && currentPage === 1) {
         transactionsTableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-5">
+                <td colspan="9" class="text-center text-muted py-5">
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <i class="fas fa-inbox"></i>
@@ -376,6 +406,7 @@ function renderTable(isAppend = false) {
         
         return `
             <tr>
+                <td><small style="font-family: 'Courier New', monospace; color: #dc3545; font-weight: 600;">${transaction.uid || '-'}</small></td>
                 <td><small class="text-muted">${formatDate(transaction.date)}</small></td>
                 <td><small class="text-muted">${transaction.time || '-'}</small></td>
                 <td>
@@ -390,15 +421,18 @@ function renderTable(isAppend = false) {
                     <strong>${formatNumber(transaction.total_cost)}</strong>
                 </td>
                 <td class="table-cell-action">
-                    <div class="btn-group" role="group" style="gap: 3px;">
-                        <button class="btn btn-sm btn-info btn-detail" onclick="showDetailModal('${transactionId}')" title="ดูรายละเอียด">
-                            <i class="fas fa-eye"></i> ดู
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn btn-sm btn-info btn-detail" onclick="showDetailModal('${transactionId}')" title="ดูรายละเอียด" style="width: 36px; padding: 0.25rem;">
+                            <i class="fas fa-eye"></i>
                         </button>
                         ${transaction.image_url ? `
-                        <button class="btn btn-sm btn-success btn-detail" onclick="viewImageModal('${transaction.image_url}', '${(transaction.image_filename || '').replace(/'/g, "\\'")}', '${transactionId}')" title="ดูรูปภาพ">
-                            <i class="fas fa-image"></i> รูป
+                        <button class="btn btn-sm btn-success btn-detail" onclick="viewImageModal('${transaction.image_url}', '${(transaction.image_filename || '').replace(/'/g, "\\'")}', '${transactionId}')" title="ดูรูปภาพ" style="width: 36px; padding: 0.25rem;">
+                            <i class="fas fa-image"></i>
                         </button>
                         ` : ''}
+                        <button class="btn btn-sm btn-danger btn-detail" onclick="cancelTransactionByUID('${transaction.uid}')" title="ยกเลิกรายการ" style="width: 36px; padding: 0.25rem;">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -442,135 +476,191 @@ function showDetailModal(transactionId) {
             alert('ไม่พบข้อมูลรายการนี้');
             return;
         }
+        
+        // Store current transaction for cancel functionality
+        currentTransactionForCancel = transaction;
 
         const detailsHTML = `
-            <!-- Row 1: Date & Time -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-calendar-alt me-1"></i>วันที่</div>
-                    <div class="detail-value">${formatDate(transaction.date)}</div>
+            <!-- UID Display -->
+            <div class="uid-display">
+                <div class="detail-label"><i class="fas fa-fingerprint"></i>UID</div>
+                <div class="uid-value">${transaction.uid || '-'}</div>
+            </div>
+
+            <!-- Section 1: Basic Information -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-info-circle"></i> ข้อมูลพื้นฐาน
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-clock me-1"></i>เวลา</div>
-                    <div class="detail-value">${transaction.time || '-'}</div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-calendar-alt"></i>วันที่</div>
+                        <div class="detail-value">${formatDate(transaction.date)}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-clock"></i>เวลา</div>
+                        <div class="detail-value">${transaction.time || '-'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-tag"></i>ประเภท</div>
+                        <div class="detail-value">${transaction.transaction_type}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-user"></i>ผู้บันทึก</div>
+                        <div class="detail-value">${transaction.operator_name || '-'}</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row 2: Transaction Type & Operator -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-tag me-1"></i>ประเภท</div>
-                    <div class="detail-value">${transaction.transaction_type}</div>
+            <!-- Section 2: Source & Destination -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-route"></i> ต้นทางและปลายทาง
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-user me-1"></i>ผู้บันทึก</div>
-                    <div class="detail-value">${transaction.operator_name || '-'}</div>
-                </div>
-            </div>
-
-            <!-- Row 3: Source & Destination -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-location-dot me-1"></i>แหล่ง</div>
-                    <div class="detail-value">${transaction.source_name}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-location-dot me-1"></i>ปลายทาง</div>
-                    <div class="detail-value">${transaction.destination_name}</div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>แหล่งที่มา</div>
+                        <div class="detail-value">${transaction.source_name}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>ปลายทาง</div>
+                        <div class="detail-value">${transaction.destination_name}</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row 4: Volume & Unit -->
-            <div class="detail-row">
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-droplet me-1"></i>ปริมาณ</div>
-                    <div class="detail-value">${formatNumber(transaction.volume)} <span style="font-size: 0.85rem; color: #6c757d; font-weight: 500;">ลิตร</span></div>
+            <!-- Section 3: Volume & Pricing -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-calculator"></i> ปริมาณและราคา
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-cube me-1"></i>หน่วย</div>
-                    <div class="detail-value">${transaction.unit || '-'}</div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-droplet"></i>ปริมาณ</div>
+                        <div class="detail-value">${formatNumber(transaction.volume_liters)}<span class="detail-value-unit">ลิตร</span></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-cube"></i>หน่วย</div>
+                        <div class="detail-value">${transaction.unit || '-'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item highlight">
+                        <div class="detail-label"><i class="fas fa-money-bill-wave"></i>ราคา/ลิตร</div>
+                        <div class="detail-value">${formatNumber(transaction.price_per_liter)}<span class="detail-value-unit">บาท</span></div>
+                    </div>
+                    <div class="detail-item highlight">
+                        <div class="detail-label"><i class="fas fa-receipt"></i>มูลค่ารวม</div>
+                        <div class="detail-value" style="font-size: 1.15rem;">${formatNumber(transaction.total_cost)}<span class="detail-value-unit">บาท</span></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row 5: Price & Total Cost (Highlight) -->
-            <div class="detail-row">
-                <div class="detail-item" style="border-left-color: #198754; background: #f0f9f4;">
-                    <div class="detail-label"><i class="fas fa-tag me-1" style="color: #198754;"></i>ราคา/ลิตร</div>
-                    <div class="detail-value" style="color: #198754;">${formatNumber(transaction.price_per_liter)} <span style="font-size: 0.85rem; color: #6c757d; font-weight: 500;">บาท</span></div>
-                </div>
-                <div class="detail-item" style="border-left-color: #0d6efd; background: #f0f7ff;">
-                    <div class="detail-label"><i class="fas fa-money-bill me-1" style="color: #0d6efd;"></i>มูลค่ารวม</div>
-                    <div class="detail-value" style="color: #0d6efd; font-size: 1.15rem;">${formatNumber(transaction.total_cost)} <span style="font-size: 0.85rem; color: #6c757d; font-weight: 500;">บาท</span></div>
-                </div>
-            </div>
-
-            <!-- Row 6: Aircraft Info (if available) -->
+            <!-- Section 4: Aircraft Info (if available) -->
             ${(transaction.aircraft_type || transaction.aircraft_number) ? `
-            <div class="detail-row">
-                ${transaction.aircraft_type ? `
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-plane me-1"></i>ประเภทอากาศยาน</div>
-                    <div class="detail-value">${transaction.aircraft_type}</div>
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-plane"></i> ข้อมูลอากาศยาน
                 </div>
-                ` : ''}
-                ${transaction.aircraft_number ? `
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-id-card me-1"></i>เลขทะเบียน</div>
-                    <div class="detail-value">${transaction.aircraft_number}</div>
+                
+                <div class="detail-row">
+                    ${transaction.aircraft_type ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-plane"></i>ประเภท</div>
+                        <div class="detail-value">${transaction.aircraft_type}</div>
+                    </div>
+                    ` : ''}
+                    ${transaction.aircraft_number ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-id-card"></i>เลขทะเบียน</div>
+                        <div class="detail-value">${transaction.aircraft_number}</div>
+                    </div>
+                    ` : ''}
                 </div>
-                ` : ''}
             </div>
             ` : ''}
 
-            <!-- Row 7: Book & Receipt Info (if available) -->
+            <!-- Section 5: Document Info (if available) -->
             ${(transaction.book_no || transaction.receipt_no) ? `
-            <div class="detail-row">
-                ${transaction.book_no ? `
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-book me-1"></i>Book No.</div>
-                    <div class="detail-value">${transaction.book_no}</div>
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-file-invoice"></i> เลขเอกสาร
                 </div>
-                ` : ''}
-                ${transaction.receipt_no ? `
-                <div class="detail-item">
-                    <div class="detail-label"><i class="fas fa-receipt me-1"></i>Receipt No.</div>
-                    <div class="detail-value">${transaction.receipt_no}</div>
+                
+                <div class="detail-row">
+                    ${transaction.book_no ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-book"></i>Book No.</div>
+                        <div class="detail-value">${transaction.book_no}</div>
+                    </div>
+                    ` : ''}
+                    ${transaction.receipt_no ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-receipt"></i>Receipt No.</div>
+                        <div class="detail-value">${transaction.receipt_no}</div>
+                    </div>
+                    ` : ''}
                 </div>
-                ` : ''}
             </div>
             ` : ''}
 
-            <!-- Additional Info (if available) -->
+            <!-- Section 6: Additional Info -->
             ${transaction.missions ? `
-            <div class="detail-row">
-                <div class="detail-item" style="grid-column: 1 / -1;">
-                    <div class="detail-label"><i class="fas fa-tasks me-1"></i>ภาระกิจ</div>
-                    <div class="detail-value">${transaction.missions}</div>
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-tasks"></i> ภาระกิจ
+                </div>
+                
+                <div class="detail-row full">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภาระกิจ</div>
+                        <div class="detail-value">${transaction.missions}</div>
+                    </div>
                 </div>
             </div>
             ` : ''}
             
             ${transaction.notes ? `
-            <div class="detail-row">
-                <div class="detail-item" style="grid-column: 1 / -1;">
-                    <div class="detail-label"><i class="fas fa-note-sticky me-1"></i>หมายเหตุ</div>
-                    <div class="detail-value">${transaction.notes}</div>
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-note-sticky"></i> หมายเหตุ
+                </div>
+                
+                <div class="detail-row full">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-note-sticky"></i>บันทึก</div>
+                        <div class="detail-value">${transaction.notes}</div>
+                    </div>
                 </div>
             </div>
             ` : ''}
 
-            <!-- Image Section -->
+            <!-- Section 7: Image Section -->
             ${transaction.image_url ? `
-            <div class="detail-row">
-                <div class="detail-item" style="grid-column: 1 / -1;">
-                    <div class="detail-label"><i class="fas fa-image me-1"></i>รูปภาพเอกสาร</div>
-                    <div style="margin-top: 1rem;">
-                        <div style="max-width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
-                            <img src="${transaction.image_url}" alt="รูปภาพรายการ" style="width: 100%; height: auto; display: block;">
-                        </div>
-                        <div style="margin-top: 0.8rem; font-size: 0.85rem; color: #6c757d;">
-                            <div><strong>ไฟล์:</strong> ${transaction.image_filename || '-'}</div>
-                            <div><strong>วันที่อัพโหลด:</strong> ${transaction.image_upload_date ? new Date(transaction.image_upload_date).toLocaleString('th-TH') : '-'}</div>
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-image"></i> รูปภาพเอกสาร
+                </div>
+                
+                <div class="detail-row full">
+                    <div style="max-width: 100%; border-radius: 12px; overflow: hidden; border: 2px solid #e9ecef; background: white; padding: 1rem;">
+                        <img src="${transaction.image_url}" alt="รูปภาพรายการ" style="width: 100%; height: auto; display: block; border-radius: 8px;">
+                        <div style="margin-top: 1.25rem; font-size: 0.9rem; padding-top: 1rem; border-top: 1px solid #e9ecef;">
+                            <div style="margin-bottom: 0.5rem;">
+                                <span style="color: #6c757d; font-weight: 600;">ไฟล์:</span>
+                                <span style="color: #2c3e50; font-weight: 500;">${transaction.image_filename || '-'}</span>
+                            </div>
+                            <div>
+                                <span style="color: #6c757d; font-weight: 600;">วันที่อัพโหลด:</span>
+                                <span style="color: #2c3e50; font-weight: 500;">${transaction.image_upload_date ? new Date(transaction.image_upload_date).toLocaleString('th-TH') : '-'}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -827,7 +917,7 @@ function exportToExcel(exportAll) {
         ]);
         
         // Add summary row
-        const totalVolume = dataToExport.reduce((sum, t) => sum + t.volume, 0);
+        const totalVolume = dataToExport.reduce((sum, t) => sum + (parseFloat(t.volume_liters) || 0), 0);
         const totalCost = dataToExport.reduce((sum, t) => sum + t.total_cost, 0);
         const averagePrice = totalVolume > 0 ? (totalCost / totalVolume).toFixed(2) : 0;
         
@@ -999,5 +1089,484 @@ function viewImageModal(imageUrl, filename, transactionId) {
     } catch (error) {
         console.error('Error viewing image:', error);
         alert('เกิดข้อผิดพลาดในการแสดงรูปภาพ: ' + error.message);
+    }
+}
+
+
+
+/**
+ * Cancel Transaction by UID - finds transaction and shows confirmation modal
+ */
+function cancelTransactionByUID(uid) {
+    try {
+        if (!uid || !uid.trim()) {
+            showNotification('UID ไม่ถูกต้อง', 'error');
+            return;
+        }
+        
+        // Find transaction in allTransactions by UID
+        const transaction = allTransactions.find(t => 
+            t.uid && t.uid.toString().trim() === uid.trim()
+        );
+        
+        if (!transaction) {
+            showNotification('ไม่พบข้อมูลรายการที่ต้องการยกเลิก (UID: ' + uid + ')', 'error');
+            return;
+        }
+        
+        // Store for later use and show confirmation
+        currentTransactionForCancel = transaction;
+        showCancelConfirmation(transaction);
+    } catch (error) {
+        console.error('Error in cancelTransactionByUID:', error);
+        showNotification('เกิดข้อผิดพลาด: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Show Cancel Confirmation Modal
+ */
+function showCancelConfirmation(transaction) {
+    try {
+        if (!transaction) {
+            alert('ไม่สามารถยกเลิกรายการนี้ได้');
+            return;
+        }
+        
+        const detailsHTML = `
+            <!-- UID Display -->
+            <div class="uid-display">
+                <div class="detail-label"><i class="fas fa-fingerprint"></i>UID</div>
+                <div class="uid-value">${transaction.uid || '-'}</div>
+            </div>
+
+            <!-- Section 1: Basic Information -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-info-circle"></i> ข้อมูลพื้นฐาน
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-calendar-alt"></i>วันที่</div>
+                        <div class="detail-value">${formatDate(transaction.date)}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-clock"></i>เวลา</div>
+                        <div class="detail-value">${transaction.time || '-'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-tag"></i>ประเภท</div>
+                        <div class="detail-value">${transaction.transaction_type}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-user"></i>ผู้บันทึก</div>
+                        <div class="detail-value">${transaction.operator_name || '-'}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Source & Destination -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-route"></i> ต้นทางและปลายทาง
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>แหล่งที่มา</div>
+                        <div class="detail-value">${transaction.source_name}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>ปลายทาง</div>
+                        <div class="detail-value">${transaction.destination_name}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Volume & Pricing -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-calculator"></i> ปริมาณและราคา
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-droplet"></i>ปริมาณ</div>
+                        <div class="detail-value">${formatNumber(transaction.volume_liters)}<span class="detail-value-unit">ลิตร</span></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-cube"></i>หน่วย</div>
+                        <div class="detail-value">${transaction.unit || '-'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item highlight">
+                        <div class="detail-label"><i class="fas fa-money-bill-wave"></i>ราคา/ลิตร</div>
+                        <div class="detail-value">${formatNumber(transaction.price_per_liter)}<span class="detail-value-unit">บาท</span></div>
+                    </div>
+                    <div class="detail-item highlight">
+                        <div class="detail-label"><i class="fas fa-receipt"></i>มูลค่ารวม</div>
+                        <div class="detail-value" style="font-size: 1.15rem;">${formatNumber(transaction.total_cost)}<span class="detail-value-unit">บาท</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Aircraft Info (if available) -->
+            ${(transaction.aircraft_type || transaction.aircraft_number) ? `
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-plane"></i> ข้อมูลอากาศยาน
+                </div>
+                
+                <div class="detail-row">
+                    ${transaction.aircraft_type ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-plane"></i>ประเภท</div>
+                        <div class="detail-value">${transaction.aircraft_type}</div>
+                    </div>
+                    ` : ''}
+                    ${transaction.aircraft_number ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-id-card"></i>เลขทะเบียน</div>
+                        <div class="detail-value">${transaction.aircraft_number}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Section 5: Document Info (if available) -->
+            ${(transaction.book_no || transaction.receipt_no) ? `
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-file-invoice"></i> เลขเอกสาร
+                </div>
+                
+                <div class="detail-row">
+                    ${transaction.book_no ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-book"></i>Book No.</div>
+                        <div class="detail-value">${transaction.book_no}</div>
+                    </div>
+                    ` : ''}
+                    ${transaction.receipt_no ? `
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-receipt"></i>Receipt No.</div>
+                        <div class="detail-value">${transaction.receipt_no}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Section 6: Additional Info -->
+            ${transaction.missions ? `
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-tasks"></i> ภาระกิจ
+                </div>
+                
+                <div class="detail-row full">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภาระกิจ</div>
+                        <div class="detail-value">${transaction.missions}</div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${transaction.notes ? `
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-note-sticky"></i> หมายเหตุ
+                </div>
+                
+                <div class="detail-row full">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="fas fa-note-sticky"></i>บันทึก</div>
+                        <div class="detail-value">${transaction.notes}</div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+        `;
+        
+        // Populate full details
+        const detailsContainer = document.getElementById('cancelConfirmationDetails');
+        if (detailsContainer) {
+            detailsContainer.innerHTML = detailsHTML;
+        }
+        
+        // Clear and focus on canceller name input
+        const cancellerNameInput = document.getElementById('cancellerName');
+        if (cancellerNameInput) {
+            cancellerNameInput.value = '';
+            // Auto-focus for better UX
+            setTimeout(() => {
+                cancellerNameInput.focus();
+            }, 300);
+        }
+        
+        // Hide detail modal and show confirmation modal
+        if (detailModal) {
+            detailModal.hide();
+        }
+        
+        if (cancelConfirmationModal) {
+            cancelConfirmationModal.show();
+        }
+    } catch (error) {
+        console.error('Error showing cancel confirmation:', error);
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+    }
+}
+
+/**
+ * Handle Cancel Confirmation
+ */
+function handleCancelConfirm() {
+    try {
+        // Validation: Check if transaction data exists
+        if (!currentTransactionForCancel) {
+            showNotification('ไม่พบข้อมูลรายการที่ต้องการยกเลิก', 'error');
+            return;
+        }
+        
+        const uid = currentTransactionForCancel.uid;
+        const source = currentTransactionForCancel.source_name;
+        const liters = currentTransactionForCancel.volume_liters;
+        
+        // Validation: Check required fields
+        if (!uid || !uid.trim()) {
+            showNotification('UID ของรายการไม่ถูกต้อง', 'error');
+            return;
+        }
+        
+        if (!source || !source.trim()) {
+            showNotification('แหล่งจ่ายของรายการไม่ถูกต้อง', 'error');
+            return;
+        }
+        
+        if (!liters || liters <= 0) {
+            showNotification('จำนวนลิตรของรายการไม่ถูกต้อง', 'error');
+            return;
+        }
+        
+        // Validation: Check if UID already contains cancelled marker (simple check)
+        if (uid.toLowerCase().includes('cancelled') || uid.toLowerCase().includes('archive')) {
+            showNotification('รายการนี้ถูกยกเลิกแล้ว', 'error');
+            return;
+        }
+        
+        // Validation: Get and validate canceller name
+        const cancellerNameInput = document.getElementById('cancellerName');
+        if (!cancellerNameInput) {
+            showNotification('เกิดข้อผิดพลาดในการได้รับข้อมูลผู้ยกเลิก', 'error');
+            return;
+        }
+        
+        const cancellerName = cancellerNameInput.value.trim();
+        if (!cancellerName) {
+            showNotification('โปรดกรอกชื่อของคุณเพื่อยืนยันการยกเลิกรายการ', 'error');
+            cancellerNameInput.focus();
+            return;
+        }
+        
+        if (cancellerName.length < 2) {
+            showNotification('โปรดกรอกชื่อให้ถูกต้อง (อย่างน้อย 2 ตัวอักษร)', 'error');
+            cancellerNameInput.focus();
+            return;
+        }
+        
+        // Show loading spinner in modal
+        const loadingSpinner = document.getElementById('cancelLoadingSpinner');
+        const confirmBtn = document.getElementById('confirmCancelBtn');
+        const closeBtn = document.getElementById('cancelModalCloseBtn');
+        
+        if (loadingSpinner) loadingSpinner.style.display = 'flex';
+        if (confirmBtn) confirmBtn.disabled = true;
+        if (closeBtn) closeBtn.disabled = true;
+        
+        // Show loading overlay (page-wide)
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('active');
+        }
+        
+        // Call backend API to cancel transaction
+        const apiUrl = `${GOOGLE_SCRIPT_URL}?action=cancelTransaction&sheetsId=${GOOGLE_SHEETS_ID}&uid=${encodeURIComponent(uid)}&cancellerName=${encodeURIComponent(cancellerName)}`;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.API_TIMEOUT);
+        
+        fetch(apiUrl, {
+            method: 'GET',
+            signal: controller.signal
+        })
+        .then(response => {
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Hide loading indicators
+            if (loadingSpinner) loadingSpinner.style.display = 'none';
+            if (confirmBtn) confirmBtn.disabled = false;
+            if (closeBtn) closeBtn.disabled = false;
+            if (loadingOverlay) {
+                loadingOverlay.classList.remove('active');
+            }
+            
+            if (data.success) {
+                // Show success notification
+                showNotification('ยกเลิกรายการสำเร็จ (' + uid + ')', 'success');
+                
+                // Hide confirmation modal
+                if (cancelConfirmationModal) {
+                    cancelConfirmationModal.hide();
+                }
+                
+                // Clear current transaction
+                currentTransactionForCancel = null;
+                
+                // Clear the canceller name input
+                if (cancellerNameInput) {
+                    cancellerNameInput.value = '';
+                }
+                
+                // Refresh transaction data after a short delay
+                setTimeout(() => {
+                    loadTransactionData();
+                }, 800);
+            } else {
+                // Server returned error
+                const errorMessage = data.error || 'เกิดข้อผิดพลาดในการยกเลิกรายการ';
+                throw new Error(errorMessage);
+            }
+        })
+        .catch(error => {
+            // Hide loading indicators
+            if (loadingSpinner) loadingSpinner.style.display = 'none';
+            if (confirmBtn) confirmBtn.disabled = false;
+            if (closeBtn) closeBtn.disabled = false;
+            if (loadingOverlay) {
+                loadingOverlay.classList.remove('active');
+            }
+            
+            // Handle abort/timeout errors
+            if (error.name === 'AbortError') {
+                console.error('Request timeout');
+                showNotification('หมดเวลาการรอ - กรุณาลองใหม่', 'error');
+            } else {
+                console.error('Error cancelling transaction:', error);
+                const errorMsg = error.message || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ';
+                showNotification('เกิดข้อผิดพลาด: ' + errorMsg, 'error');
+            }
+        });
+    } catch (error) {
+        // Hide loading indicators
+        const loadingSpinner = document.getElementById('cancelLoadingSpinner');
+        const confirmBtn = document.getElementById('confirmCancelBtn');
+        const closeBtn = document.getElementById('cancelModalCloseBtn');
+        
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (closeBtn) closeBtn.disabled = false;
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('active');
+        }
+        
+        console.error('Error in handleCancelConfirm:', error);
+        showNotification('เกิดข้อผิดพลาด: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Show notification toast
+ */
+function showNotification(message, type = 'success') {
+    try {
+        // Create toast element if not exists
+        let toastContainer = document.getElementById('notificationToastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'notificationToastContainer';
+            toastContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Determine color based on type
+        const bgColor = type === 'success' ? '#28a745' : (type === 'error' ? '#dc3545' : '#0d6efd');
+        const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+        
+        // Create toast HTML
+        const toastId = 'toast_' + Date.now();
+        const toastHTML = `
+            <div id="${toastId}" style="
+                background-color: ${bgColor};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                animation: slideIn 0.3s ease-out;
+            ">
+                <i class="fas ${icon}" style="font-size: 1.2rem;"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        // Add CSS animation if not exists
+        if (!document.getElementById('notificationStyles')) {
+            const style = document.createElement('style');
+            style.id = 'notificationStyles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            const toastElement = document.getElementById(toastId);
+            if (toastElement) {
+                toastElement.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    toastElement.remove();
+                }, 300);
+            }
+        }, 3000);
+    } catch (error) {
+        console.error('Error showing notification:', error);
     }
 }

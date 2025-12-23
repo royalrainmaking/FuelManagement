@@ -40,7 +40,8 @@ const defaultFuelSources = [
         name: 'สนามบินนครสวรรค์ แท๊ง 2',
         capacity: 20000,
         currentStock: 0,
-        type: 'tank'
+        type: 'tank',
+        status: 'deactivate'
     },
     {
         id: 'khlong_luang_tank1',
@@ -171,7 +172,7 @@ function updateLastTransactionUIDFromSheets(transactionLogs) {
 }
 
 function populateProvinceSelects() {
-    const selectIds = [
+    const dropdownIds = [
         'operatingUnit',
         'pttOperatingUnit',
         'returnOperatingUnit',
@@ -182,21 +183,126 @@ function populateProvinceSelects() {
         'removeKhlongLuangOperatingUnit'
     ];
     
-    selectIds.forEach(selectId => {
-        const selectElement = document.getElementById(selectId);
-        if (selectElement && typeof THAI_PROVINCES !== 'undefined') {
-            while (selectElement.options.length > 1) {
-                selectElement.remove(1);
+    if (typeof THAI_PROVINCES === 'undefined') return;
+    
+    dropdownIds.forEach(dropdownId => {
+        const searchInput = document.getElementById(dropdownId);
+        const dropdownContainer = searchInput?.closest('.searchable-dropdown');
+        const optionsContainer = dropdownContainer?.querySelector('.dropdown-options');
+        
+        if (!dropdownContainer || !optionsContainer) return;
+        
+        optionsContainer.innerHTML = '';
+        
+        THAI_PROVINCES.forEach(province => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'dropdown-option';
+            optionDiv.textContent = province.nameThai;
+            optionDiv.dataset.value = province.nameThai;
+            optionsContainer.appendChild(optionDiv);
+        });
+        
+        initializeSearchableDropdown(dropdownContainer);
+        console.log(`✅ เพิ่มจังหวัดเข้า #${dropdownId} แล้ว (${THAI_PROVINCES.length} จังหวัด)`);
+    });
+}
+
+function initializeSearchableDropdown(dropdownContainer) {
+    const searchInput = dropdownContainer.querySelector('.dropdown-search');
+    const optionsContainer = dropdownContainer.querySelector('.dropdown-options');
+    const hiddenValue = dropdownContainer.querySelector('.dropdown-value');
+    const allOptions = optionsContainer.querySelectorAll('.dropdown-option');
+    
+    let selectedValue = '';
+    let allProvinceNames = Array.from(allOptions).map(opt => opt.dataset.value);
+    
+    searchInput.addEventListener('focus', () => {
+        optionsContainer.classList.add('show');
+        searchInput.classList.remove('is-invalid');
+        filterOptions('');
+    });
+    
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        filterOptions(query);
+    });
+    
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const visibleOptions = Array.from(allOptions).filter(opt => opt.style.display !== 'none');
+            if (visibleOptions.length === 1) {
+                visibleOptions[0].click();
             }
+        }
+    });
+    
+    function filterOptions(query) {
+        let visibleCount = 0;
+        
+        allOptions.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            if (text.includes(query)) {
+                option.style.display = 'block';
+                visibleCount++;
+            } else {
+                option.style.display = 'none';
+            }
+        });
+        
+        if (visibleCount === 0 && query.length > 0) {
+            if (!optionsContainer.querySelector('.no-match')) {
+                const noMatch = document.createElement('div');
+                noMatch.className = 'dropdown-option no-match';
+                noMatch.textContent = 'ไม่พบผลลัพธ์';
+                optionsContainer.appendChild(noMatch);
+            }
+        } else {
+            const noMatch = optionsContainer.querySelector('.no-match');
+            if (noMatch) noMatch.remove();
+        }
+    }
+    
+    allOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            searchInput.value = value;
+            hiddenValue.value = value;
+            selectedValue = value;
             
-            THAI_PROVINCES.forEach(province => {
-                const option = document.createElement('option');
-                option.value = province.nameThai;
-                option.textContent = province.nameThai;
-                selectElement.appendChild(option);
-            });
+            allOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
             
-            console.log(`✅ เพิ่มจังหวัดเข้า #${selectId} แล้ว (${THAI_PROVINCES.length} จังหวัด)`);
+            optionsContainer.classList.remove('show');
+            searchInput.classList.remove('is-invalid');
+            searchInput.focus();
+            
+            searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+    
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            optionsContainer.classList.remove('show');
+            if (!selectedValue && searchInput.value) {
+                const trimmedValue = searchInput.value.trim();
+                if (!allProvinceNames.includes(trimmedValue)) {
+                    searchInput.value = '';
+                    searchInput.classList.add('is-invalid');
+                } else {
+                    selectedValue = trimmedValue;
+                    searchInput.classList.remove('is-invalid');
+                }
+            } else if (selectedValue) {
+                searchInput.classList.remove('is-invalid');
+            }
+        }, 100);
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!dropdownContainer.contains(e.target)) {
+            optionsContainer.classList.remove('show');
         }
     });
 }
@@ -1365,6 +1471,10 @@ async function logTransactionToSheets(logEntry) {
             transactionType = 'เดรนน้ำมัน';
             sourceName = String(logEntry.source || logEntry.sourceName || '');
             destinationName = 'เดรนออก';
+        } else if (logEntry.transactionType === 'purchase_drum_200l') {
+            transactionType = 'ซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท.');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
         } else {
             transactionType = 'จ่ายออก';
             sourceName = String(logEntry.source || logEntry.sourceName || '');
@@ -1533,8 +1643,9 @@ function createFuelCards() {
         'drum': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">water_bottle_large</span> ถัง 200 ลิตร', sources: [] }
     };
     
-    // จัดกลุ่มแหล่งน้ำมันตามประเภท
+    // จัดกลุ่มแหล่งน้ำมันตามประเภท (ข้าม deactivated sources)
     fuelSources.forEach(source => {
+        if (source.status === 'deactivate') return;
         if (categories[source.type]) {
             categories[source.type].sources.push(source);
         }
@@ -1683,13 +1794,6 @@ function createFuelCards() {
                         </div>
                         ${progressTankHTML}
                     </div>
-                    ${source.id !== 'purchase' && source.id !== 'purchase_drum_200l' ? `
-                    <div class="card-footer-section" id="footer-${source.id}">
-                        <button class="btn-confirm-daily" onclick="event.stopPropagation(); openDailyConfirmationModal('${source.id}', '${source.name}')" id="btn-${source.id}">
-                            <i class="fas fa-check-circle"></i> ยืนยันยอด
-                        </button>
-                    </div>
-                    ` : ''}
                 </div>
             `;
             
@@ -1708,12 +1812,12 @@ function createFuelCards() {
                 overlay.innerHTML = '<div class="deactivate-text">ไม่พร้อมใช้งาน</div>';
                 card.appendChild(overlay);
             }
-            // ถ้ายังไม่ยืนยันยอด (และไม่ใช่ purchase) ให้เปลี่ยนพื้นหลังเป็นสีแดง
-            else if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
-                card.style.backgroundColor = '#ffebee'; // สีแดงอ่อน
-                card.style.borderColor = '#ef5350'; // สีแดงเข้ม
-                card.style.border = '2px solid #ef5350';
-            }
+            // Daily confirmation system is disabled
+            // else if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
+            //     card.style.backgroundColor = '#ffebee'; // สีแดงอ่อน
+            //     card.style.borderColor = '#ef5350'; // สีแดงเข้ม
+            //     card.style.border = '2px solid #ef5350';
+            // }
             
             categoryGrid.appendChild(card);
         });
@@ -1796,13 +1900,15 @@ async function submitDailyConfirmation() {
             timestamp: new Date().toISOString()
         };
         
-        // Send to Google Apps Script
-        const url = `${GOOGLE_SCRIPT_URL}?action=logDailyConfirmation&sheetsId=${GOOGLE_SHEETS_ID}&gid=1512968674&data=${encodeURIComponent(JSON.stringify(confirmData))}`;
+        // Send to Google Apps Script - DISABLED
+        // const url = `${GOOGLE_SCRIPT_URL}?action=logDailyConfirmation&sheetsId=${GOOGLE_SHEETS_ID}&gid=1512968674&data=${encodeURIComponent(JSON.stringify(confirmData))}`;
         
-        console.log('📤 Sending daily confirmation:', confirmData);
+        // console.log('📤 Sending daily confirmation:', confirmData);
         
-        const response = await fetch(url);
-        const result = await response.json();
+        // const response = await fetch(url);
+        // const result = await response.json();
+        
+        const result = { success: true };
         
         if (result.success) {
             // Save confirmation status
@@ -2778,11 +2884,11 @@ async function updatePTTPurchaseVolume(additionalLiters) {
 
 // เปิด modal สำหรับทำรายการ
 function openTransactionModal(source) {
-    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่ (ยกเว้น purchase sources)
-    if (source.id !== 'purchase' && source.id !== 'purchase_drum_200l' && !isSourceConfirmedToday(source.id)) {
-        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "${source.name}" ก่อนทำรายการอื่นๆ`);
-        return; // ไม่เปิด modal
-    }
+    // Daily confirmation check disabled
+    // if (source.id !== 'purchase' && source.id !== 'purchase_drum_200l' && !isSourceConfirmedToday(source.id)) {
+    //     alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "${source.name}" ก่อนทำรายการอื่นๆ`);
+    //     return; // ไม่เปิด modal
+    // }
     
     currentSelectedSource = source;
     const modal = document.getElementById('transactionModal');
@@ -3411,11 +3517,11 @@ window.nakhonsawanPttRefillData = null;
 let isLoadingNakhonsawan = false;
 
 async function openTransactionNakhonsawanModal(pttRefillData = null) {
-    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่
-    if (!isSourceConfirmedToday('drum_nakhonsawan')) {
-        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินนครสวรรค์ - ถัง 200L" ก่อนทำรายการ`);
-        return;
-    }
+    // Daily confirmation check disabled
+    // if (!isSourceConfirmedToday('drum_nakhonsawan')) {
+    //     alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินนครสวรรค์ - ถัง 200L" ก่อนทำรายการ`);
+    //     return;
+    // }
     
     if (isLoadingNakhonsawan) return;
     
@@ -3423,14 +3529,14 @@ async function openTransactionNakhonsawanModal(pttRefillData = null) {
     showLoading('กำลังเตรียมข้อมูล...');
     
     try {
-        // ดึงราคาจาก location name
-        if (!pttRefillData) {
-            const prices = await fetchPTTPricesByLocationName('สนามบินนครสวรรค์ - ถัง 200L');
-            pttRefillData = {
-                sourceId: 'purchase',
-                pricePerDrum: prices.pricePerDrum
-            };
-        }
+        // ดึงราคาจาก location name - DISABLED (not purchasing)
+        // if (!pttRefillData) {
+        //     const prices = await fetchPTTPricesByLocationName('สนามบินนครสวรรค์ - ถัง 200L');
+        //     pttRefillData = {
+        //         sourceId: 'purchase',
+        //         pricePerDrum: prices.pricePerDrum
+        //     };
+        // }
         
         window.nakhonsawanPttRefillData = pttRefillData;
         document.getElementById('transactionNakhonsawanModal').style.display = 'block';
@@ -3472,6 +3578,7 @@ async function handleTransactionNakhonsawanSubmit() {
     const operatorName = document.getElementById('transactionNakhonsawanOperatorName').value.trim();
     const operatingUnit = document.getElementById('transactionNakhonsawanOperatingUnit').value.trim();
     const destinationType = document.getElementById('transactionNakhonsawanDestinationType').value;
+    const notes = document.getElementById('transactionNakhonsawanNotes').value.trim();
     const sourceId = 'drum_nakhonsawan';
     
     try {
@@ -3562,49 +3669,30 @@ async function handleTransactionNakhonsawanSubmit() {
         let pricePerDrum = null;
         let totalAmount = null;
         
-        // ถ้าเป็นการเติมจาก PTT
-        if (pttData && pttData.sourceId === 'purchase') {
-            destinationId = 'purchase';
-            destinationName = 'ปตท.';
-            pricePerDrum = pttData.pricePerDrum;
-            totalAmount = drumCount * pricePerDrum;
-        } else {
-            // Normal transaction
-            if (destinationType === 'aircraft') {
-                destinationId = document.getElementById('transactionNakhonsawanAircraftSelect').value;
-                destinationName = destinationId;
-                if (!destinationId) {
-                    throw new Error('กรุณาเลือกเครื่องบิน');
-                }
-            } else if (destinationType === 'tank') {
-                destinationId = document.getElementById('transactionNakhonsawanTankSelect').value;
-                if (!destinationId) {
-                    throw new Error('กรุณาเลือกแหล่งน้ำมัน');
-                }
-                
-                const selectedSource = fuelSources.find(s => s.id === destinationId);
-                destinationName = selectedSource ? selectedSource.name : destinationId;
-                
-                if (destinationName.includes('สนามบิน')) {
-                    const prices = await fetchPTTPricesByLocationName(destinationName);
-                    if (prices && prices.pricePerDrum) {
-                        pricePerDrum = prices.pricePerDrum;
-                        totalAmount = drumCount * pricePerDrum;
-                        console.log('✅ Fetched airport fuel price:', { destinationName, pricePerDrum, totalAmount });
-                    } else {
-                        console.warn('⚠️ Could not fetch price for airport fuel source:', destinationName);
-                    }
-                }
+        // Get destination from user selection (aircraft or tank)
+        if (destinationType === 'aircraft') {
+            destinationId = document.getElementById('transactionNakhonsawanAircraftSelect').value;
+            destinationName = destinationId;
+            if (!destinationId) {
+                throw new Error('กรุณาเลือกเครื่องบิน');
             }
+        } else if (destinationType === 'tank') {
+            destinationId = document.getElementById('transactionNakhonsawanTankSelect').value;
+            if (!destinationId) {
+                throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+            }
+            
+            const selectedSource = fuelSources.find(s => s.id === destinationId);
+            destinationName = selectedSource ? selectedSource.name : destinationId;
         }
-        
-        setButtonLoading('submitTransactionNakhonsawan', true);
-        showLoading('กำลังบันทึกการทำรายการ...');
         
         const drumSource = fuelSources.find(s => s.id === sourceId);
         if (!drumSource) {
             throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
         }
+        
+        setButtonLoading('submitTransactionNakhonsawan', true);
+        showLoading('กำลังบันทึกการทำรายการ...');
         
         const liters = drumCount * DRUM_CAPACITY_LITERS;
         
@@ -3633,12 +3721,12 @@ async function handleTransactionNakhonsawanSubmit() {
             date: new Date().toLocaleDateString('th-TH'),
             time: new Date().toLocaleTimeString('th-TH'),
             transactionType: transactionType,
-            sourceId: pttData ? 'purchase' : sourceId,
-            sourceName: pttData ? 'ปตท.' : drumSource.name,
-            sourceType: pttData ? 'purchase' : drumSource.type,
-            destinationId: sourceId,
-            destinationName: drumSource.name,
-            destinationType: 'tank',
+            sourceId: sourceId,
+            sourceName: drumSource.name,
+            sourceType: drumSource.type,
+            destinationId: destinationId,
+            destinationName: destinationName,
+            destinationType: destinationType,
             liters: liters,
             volume: `${drumCount} ถัง (${liters} ลิตร)`,
             pricePerLiter: pricePerDrum ? (totalAmount / liters) : null,
@@ -3686,11 +3774,11 @@ window.khlongluangPttRefillData = null;
 let isLoadingKhlongLuang = false;
 
 async function openTransactionKhlongLuangModal(pttRefillData = null) {
-    // ตรวจสอบว่าได้ยืนยันยอดแล้วหรือไม่
-    if (!isSourceConfirmedToday('drum_khlong_luang')) {
-        alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินคลองหลวง - ถัง 200L" ก่อนทำรายการ`);
-        return;
-    }
+    // Daily confirmation check disabled
+    // if (!isSourceConfirmedToday('drum_khlong_luang')) {
+    //     alert(`⚠️ ต้องยืนยันยอดก่อน\n\nกรุณายืนยันยอด "สนามบินคลองหลวง - ถัง 200L" ก่อนทำรายการ`);
+    //     return;
+    // }
     
     if (isLoadingKhlongLuang) return;
     
@@ -3698,14 +3786,14 @@ async function openTransactionKhlongLuangModal(pttRefillData = null) {
     showLoading('กำลังเตรียมข้อมูล...');
     
     try {
-        // ดึงราคาจาก location name
-        if (!pttRefillData) {
-            const prices = await fetchPTTPricesByLocationName('สนามบินคลองหลวง - ถัง 200L');
-            pttRefillData = {
-                sourceId: 'purchase',
-                pricePerDrum: prices.pricePerDrum
-            };
-        }
+        // ดึงราคาจาก location name - DISABLED (not purchasing)
+        // if (!pttRefillData) {
+        //     const prices = await fetchPTTPricesByLocationName('สนามบินคลองหลวง - ถัง 200L');
+        //     pttRefillData = {
+        //         sourceId: 'purchase',
+        //         pricePerDrum: prices.pricePerDrum
+        //     };
+        // }
         
         window.khlongluangPttRefillData = pttRefillData;
         document.getElementById('transactionKhlongLuangModal').style.display = 'block';
@@ -3747,6 +3835,7 @@ async function handleTransactionKhlongLuangSubmit() {
     const operatorName = document.getElementById('transactionKhlongLuangOperatorName').value.trim();
     const operatingUnit = document.getElementById('transactionKhlongLuangOperatingUnit').value.trim();
     const destinationType = document.getElementById('transactionKhlongLuangDestinationType').value;
+    const notes = document.getElementById('transactionKhlongLuangNotes').value.trim();
     const sourceId = 'drum_khlong_luang';
     
     try {
@@ -3837,49 +3926,30 @@ async function handleTransactionKhlongLuangSubmit() {
         let pricePerDrum = null;
         let totalAmount = null;
         
-        // ถ้าเป็นการเติมจาก PTT
-        if (pttData && pttData.sourceId === 'purchase') {
-            destinationId = 'purchase';
-            destinationName = 'ปตท.';
-            pricePerDrum = pttData.pricePerDrum;
-            totalAmount = drumCount * pricePerDrum;
-        } else {
-            // Normal transaction
-            if (destinationType === 'aircraft') {
-                destinationId = document.getElementById('transactionKhlongLuangAircraftSelect').value;
-                destinationName = destinationId;
-                if (!destinationId) {
-                    throw new Error('กรุณาเลือกเครื่องบิน');
-                }
-            } else if (destinationType === 'tank') {
-                destinationId = document.getElementById('transactionKhlongLuangTankSelect').value;
-                if (!destinationId) {
-                    throw new Error('กรุณาเลือกแหล่งน้ำมัน');
-                }
-                
-                const selectedSource = fuelSources.find(s => s.id === destinationId);
-                destinationName = selectedSource ? selectedSource.name : destinationId;
-                
-                if (destinationName.includes('สนามบิน')) {
-                    const prices = await fetchPTTPricesByLocationName(destinationName);
-                    if (prices && prices.pricePerDrum) {
-                        pricePerDrum = prices.pricePerDrum;
-                        totalAmount = drumCount * pricePerDrum;
-                        console.log('✅ Fetched airport fuel price:', { destinationName, pricePerDrum, totalAmount });
-                    } else {
-                        console.warn('⚠️ Could not fetch price for airport fuel source:', destinationName);
-                    }
-                }
+        // Get destination from user selection (aircraft or tank)
+        if (destinationType === 'aircraft') {
+            destinationId = document.getElementById('transactionKhlongLuangAircraftSelect').value;
+            destinationName = destinationId;
+            if (!destinationId) {
+                throw new Error('กรุณาเลือกเครื่องบิน');
             }
+        } else if (destinationType === 'tank') {
+            destinationId = document.getElementById('transactionKhlongLuangTankSelect').value;
+            if (!destinationId) {
+                throw new Error('กรุณาเลือกแหล่งน้ำมัน');
+            }
+            
+            const selectedSource = fuelSources.find(s => s.id === destinationId);
+            destinationName = selectedSource ? selectedSource.name : destinationId;
         }
-        
-        setButtonLoading('submitTransactionKhlongLuang', true);
-        showLoading('กำลังบันทึกการทำรายการ...');
         
         const drumSource = fuelSources.find(s => s.id === sourceId);
         if (!drumSource) {
             throw new Error('ไม่พบแหล่งถัง 200L ที่เลือก');
         }
+        
+        setButtonLoading('submitTransactionKhlongLuang', true);
+        showLoading('กำลังบันทึกการทำรายการ...');
         
         const liters = drumCount * DRUM_CAPACITY_LITERS;
         
@@ -3908,12 +3978,12 @@ async function handleTransactionKhlongLuangSubmit() {
             date: new Date().toLocaleDateString('th-TH'),
             time: new Date().toLocaleTimeString('th-TH'),
             transactionType: transactionType,
-            sourceId: pttData ? 'purchase' : sourceId,
-            sourceName: pttData ? 'ปตท.' : drumSource.name,
-            sourceType: pttData ? 'purchase' : drumSource.type,
-            destinationId: sourceId,
-            destinationName: drumSource.name,
-            destinationType: 'tank',
+            sourceId: sourceId,
+            sourceName: drumSource.name,
+            sourceType: drumSource.type,
+            destinationId: destinationId,
+            destinationName: destinationName,
+            destinationType: destinationType,
             liters: liters,
             volume: `${drumCount} ถัง (${liters} ลิตร)`,
             pricePerLiter: pricePerDrum ? (totalAmount / liters) : null,
@@ -4237,19 +4307,23 @@ function initializeEventListeners() {
             const aircraftDestination = document.getElementById('transactionNakhonsawanAircraftDestination');
             const tankDestination = document.getElementById('transactionNakhonsawanTankDestination');
             const drainFields = document.getElementById('transactionNakhonsawanDrainFields');
+            const drainLitersInput = document.getElementById('transactionNakhonsawanDrainLiters');
             
             if (this.value === 'aircraft') {
                 aircraftDestination.style.display = 'block';
                 tankDestination.style.display = 'none';
                 if (drainFields) drainFields.style.display = 'none';
+                if (drainLitersInput) drainLitersInput.removeAttribute('required');
             } else if (this.value === 'drain') {
                 aircraftDestination.style.display = 'none';
                 tankDestination.style.display = 'none';
                 if (drainFields) drainFields.style.display = 'block';
+                if (drainLitersInput) drainLitersInput.setAttribute('required', 'required');
             } else {
                 aircraftDestination.style.display = 'none';
                 tankDestination.style.display = 'block';
                 if (drainFields) drainFields.style.display = 'none';
+                if (drainLitersInput) drainLitersInput.removeAttribute('required');
             }
         });
         
@@ -4270,19 +4344,23 @@ function initializeEventListeners() {
             const aircraftDestination = document.getElementById('transactionKhlongLuangAircraftDestination');
             const tankDestination = document.getElementById('transactionKhlongLuangTankDestination');
             const drainFields = document.getElementById('transactionKhlongLuangDrainFields');
+            const drainLitersInput = document.getElementById('transactionKhlongLuangDrainLiters');
             
             if (this.value === 'aircraft') {
                 aircraftDestination.style.display = 'block';
                 tankDestination.style.display = 'none';
                 if (drainFields) drainFields.style.display = 'none';
+                if (drainLitersInput) drainLitersInput.removeAttribute('required');
             } else if (this.value === 'drain') {
                 aircraftDestination.style.display = 'none';
                 tankDestination.style.display = 'none';
                 if (drainFields) drainFields.style.display = 'block';
+                if (drainLitersInput) drainLitersInput.setAttribute('required', 'required');
             } else {
                 aircraftDestination.style.display = 'none';
                 tankDestination.style.display = 'block';
                 if (drainFields) drainFields.style.display = 'none';
+                if (drainLitersInput) drainLitersInput.removeAttribute('required');
             }
         });
         

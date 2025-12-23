@@ -114,39 +114,175 @@
             background: #fafbfc;
         }
 
+        .detail-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .detail-section:last-child {
+            border-bottom: none;
+        }
+
+        .detail-section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #0d6efd;
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
         .detail-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
+            gap: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-row.full {
+            grid-template-columns: 1fr;
         }
 
         .detail-item {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 3px solid #0d6efd;
-            transition: all 0.2s ease;
+            background: #ffffff;
+            padding: 1.25rem;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            transition: all 0.25s ease;
         }
 
         .detail-item:hover {
-            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
+            border-color: #dee2e6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .detail-item.highlight {
+            background: #fffaeb;
+            border-color: #ffd966;
+        }
+
+        .detail-item.highlight:hover {
+            border-color: #ffc107;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.12);
+        }
+
+        .detail-item.success {
+            background: #ffffff;
+            border-color: #e9ecef;
+        }
+
+        .detail-item.primary {
+            background: #ffffff;
+            border-color: #e9ecef;
+        }
+
+        .detail-item.info {
+            background: #ffffff;
+            border-color: #e9ecef;
         }
 
         .detail-label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: #6c757d;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .detail-label i {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        .detail-item.highlight .detail-label {
+            color: #b8860b;
+        }
+
+        .detail-item.highlight .detail-label i {
+            opacity: 1;
+            color: #b8860b;
+        }
+
+        .detail-item.success .detail-label {
+            color: #6c757d;
+        }
+
+        .detail-item.primary .detail-label {
+            color: #6c757d;
+        }
+
+        .detail-item.info .detail-label {
+            color: #6c757d;
         }
 
         .detail-value {
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 1.05rem;
+            font-weight: 700;
             color: #2c3e50;
             word-break: break-word;
+        }
+
+        .detail-item.highlight .detail-value {
+            color: #b8860b;
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+
+        .detail-item.success .detail-value {
+            color: #2c3e50;
+        }
+
+        .detail-item.primary .detail-value {
+            color: #2c3e50;
+        }
+
+        .detail-item.info .detail-value {
+            color: #2c3e50;
+        }
+
+        .detail-value-unit {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 500;
+            margin-left: 0.4rem;
+        }
+
+        .detail-item.highlight .detail-value-unit {
+            color: #b8860b;
+            font-weight: 600;
+        }
+
+        .uid-display {
+            background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+            border: 2px solid #0d6efd;
+            border-radius: 12px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .uid-display .detail-label {
+            margin-bottom: 1rem;
+            justify-content: center;
+            color: #0d6efd;
+            font-size: 0.75rem;
+        }
+
+        .uid-value {
+            font-family: 'Courier New', monospace;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #0d6efd;
+            letter-spacing: 2px;
+            word-break: break-all;
         }
 
         .modal-title {
@@ -282,6 +418,14 @@
                 gap: 1rem;
             }
 
+            .detail-item {
+                padding: 1rem;
+            }
+
+            .detail-item.highlight .detail-value {
+                font-size: 1.1rem;
+            }
+
             .transaction-table {
                 font-size: 0.9rem;
             }
@@ -383,12 +527,13 @@
         <div class="transaction-filters">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label fw-bold">ค้นหา</label>
+                    <label class="form-label fw-bold">ค้นหารายการ</label>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" class="form-control" id="searchInput" placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง หรือผู้บันทึก...">
+                        <input type="text" class="form-control" id="searchInput" placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง ผู้บันทึก UID...">
                     </div>
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label fw-bold">จำนวนรายการ</label>
                     <select class="form-select" id="itemsPerPageFilter">
@@ -408,18 +553,16 @@
                         <option value="cost_desc">มูลค่ามากสุด</option>
                     </select>
                 </div>
-                <div class="col-md-3 d-flex align-items-end gap-2">
+                <div class="col-md-4 d-flex align-items-end gap-2">
                     <button class="btn btn-primary flex-grow-1" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-success" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
-                            <i class="fas fa-file-excel me-1"></i> Export
-                        </button>
-                        <button type="button" class="btn btn-outline-success" id="exportAllBtn" title="Export ทั้งหมด">
-                            <i class="fas fa-download me-1"></i>ทั้งหมด
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-success flex-grow-1" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
+                        <i class="fas fa-file-excel me-1"></i> Export ที่กรอง
+                    </button>
+                    <button type="button" class="btn btn-outline-success flex-grow-1" id="exportAllBtn" title="Export ทั้งหมด">
+                        <i class="fas fa-download me-1"></i> Export ทั้งหมด
+                    </button>
                 </div>
             </div>
             
@@ -473,19 +616,20 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
+                            <th style="width: 8%;"><i class="fas fa-hashtag"></i> UID</th>
                             <th style="width: 10%;">วันที่</th>
-                            <th style="width: 10%;">เวลา</th>
-                            <th style="width: 15%;">ประเภท</th>
-                            <th style="width: 15%;">แหล่งน้ำมัน</th>
-                            <th style="width: 15%;">ปลายทาง</th>
+                            <th style="width: 8%;">เวลา</th>
+                            <th style="width: 12%;">ประเภท</th>
+                            <th style="width: 14%;">แหล่งน้ำมัน</th>
+                            <th style="width: 14%;">ปลายทาง</th>
                             <th style="width: 12%;">ปริมาณ (ลิตร)</th>
                             <th style="width: 12%;">มูลค่า (บาท)</th>
-                            <th style="width: 11%;" class="table-cell-action">การจัดการ</th>
+                            <th style="width: 10%;" class="table-cell-action">การจัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="transactionsTableBody">
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="9" class="text-center text-muted py-4">
                                 <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
                             </td>
                         </tr>
@@ -522,6 +666,9 @@
                     <!-- Details will be populated here -->
                 </div>
                 <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-danger" id="cancelTransactionBtn" style="display: none;">
+                        <i class="fas fa-trash-alt me-1"></i>ยกเลิกรายการ
+                    </button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i>ปิด
                     </button>
@@ -560,6 +707,68 @@
                     <a id="imageModalDownloadBtn" class="btn btn-primary" target="_blank">
                         <i class="fas fa-download me-1"></i>ดาวน์โหลด
                     </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Confirmation Modal -->
+    <div class="modal fade" id="cancelConfirmationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content border-0">
+                <div class="modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%); color: white;">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ยืนยันการยกเลิกรายการ
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <!-- Warning Section (Non-scrollable) -->
+                <div style="padding: 1.5rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; color: #856404; flex-shrink: 0;"></i>
+                        <div>
+                            <h6 style="color: #856404; margin-bottom: 0.5rem; font-weight: 600;">เตือน: การยกเลิกถาวร</h6>
+                            <p style="color: #856404; margin-bottom: 0; font-size: 0.9rem;">
+                                การยกเลิกรายการจะนำรายการออกจากระบบและคืนลิตรกลับไปยังแหล่งจ่าย 
+                                ต้องการดำเนินการต่อหรือไม่?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- Full Transaction Details -->
+                    <div id="cancelConfirmationDetails" style="margin-bottom: 1.5rem;">
+                        <!-- Details will be populated here -->
+                    </div>
+
+                    <!-- Canceller Name Verification -->
+                    <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #0c5ed6; text-transform: uppercase; display: block; margin-bottom: 0.5rem;">
+                            <i class="fas fa-user-check me-1"></i>ยืนยันตัวตนของผู้ยกเลิก
+                        </label>
+                        <p style="font-size: 0.85rem; color: #0c5ed6; margin-bottom: 1rem;">
+                            โปรดกรอกชื่อของคุณเพื่อยืนยันการยกเลิกรายการ
+                        </p>
+                        <input type="text" class="form-control" id="cancellerName" placeholder="กรอกชื่อของคุณ (เช่น สมชาย ใจดี)" style="border-radius: 6px;">
+                        <small style="color: #0c5ed6; display: block; margin-top: 0.5rem;">
+                            <i class="fas fa-info-circle me-1"></i>ข้อมูลนี้จะถูกบันทึกในระบบเพื่อการตรวจสอบ
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <div id="cancelLoadingSpinner" style="display: none; margin-right: auto;">
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="color: #dc3545;"></span>
+                        <span style="color: #dc3545; font-weight: 500;">กำลังประมวลผล...</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="cancelModalCloseBtn">
+                        <i class="fas fa-times me-1"></i>ยกเลิก
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmCancelBtn">
+                        <i class="fas fa-check me-1"></i>ยืนยันการยกเลิก
+                    </button>
                 </div>
             </div>
         </div>
