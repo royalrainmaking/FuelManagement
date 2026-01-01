@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm7MLOstjCO15fnCOhvfFnwH7A7Ccrt7zjHQn7CAsI4491u6ZKR4Pk4iIueCQsoruo/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw14r5lkPICAAsm05EZkF7S8Wgvbt9pNP-Y_3rmxylKsgJ4A-XoBgOPcaTRua3Imeol/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -107,7 +107,7 @@ const LINE_CONFIG = {
     CHANNEL_ACCESS_TOKEN: 'Ts3qJEyllswxdeuw+EJP8JToU0YygwxcfKkvkwIA6J1PxGYo1DzkQoem2TwBvhfKuk3dvthfEM7ItJDJjZJI1GINn6TyjRpPD6428bZrFRJDiGgq6Cwz4PIgs/8NsDCbdle9fvMf0ispJucL45SVowdB04t89/1O/w1cDnyilFU=',
     
     // LINE Group ID - กลุ่มที่จะส่งแจ้งเตือน
-    GROUP_ID: 'C31b16b0dcb85b6e706b7a4f0e551d787',
+    GROUP_ID: 'C724f2ac2b1c9c41f24a9127726ef947a',
     
     // Delay ระหว่าง notification (milliseconds)
     // เพื่อป้องกัน spam

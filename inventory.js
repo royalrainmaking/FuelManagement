@@ -9,6 +9,27 @@ if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
 const INVENTORY_SHEET_GID = SHEET_GIDS.INVENTORY;
 const TRANSACTION_LOG_SHEET_GID = SHEET_GIDS.TRANSACTION_HISTORY;
 
+function convertGoogleDriveUrl(googleDriveUrl) {
+    if (!googleDriveUrl) return '';
+    
+    let fileId = '';
+    
+    if (googleDriveUrl.includes('/d/')) {
+        const match = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        fileId = match ? match[1] : '';
+    } else if (googleDriveUrl.includes('id=')) {
+        const match = googleDriveUrl.match(/id=([a-zA-Z0-9-_]+)/);
+        fileId = match ? match[1] : '';
+    }
+    
+    if (!fileId) {
+        console.warn('⚠️ ไม่สามารถแยก File ID จาก URL:', googleDriveUrl);
+        return googleDriveUrl;
+    }
+    
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+}
+
 // ข้อมูลแหล่งน้ำมัน (จะถูกโหลดจาก Google Sheets)
 let fuelSources = [];
 
@@ -1528,7 +1549,7 @@ async function logTransactionToSheets(logEntry) {
             notes: logEntry.notes || '',
             bookNo: logEntry.bookNo || '',
             receiptNo: logEntry.receiptNo || '',
-            imageUrl: logEntry.imageUrl || '',
+            imageUrl: convertGoogleDriveUrl(logEntry.imageUrl || ''),
             imageFilename: logEntry.imageFilename || '',
             imageDriveId: logEntry.imageDriveId || '',
             imageUploadDate: logEntry.imageUploadDate || ''

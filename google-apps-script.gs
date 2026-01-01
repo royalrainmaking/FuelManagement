@@ -17,7 +17,7 @@ const ADMIN_CODE_FUEL_EDIT = 'admin123';
  */
 const LINE_CONFIG = {
     CHANNEL_ACCESS_TOKEN: 'Ts3qJEyllswxdeuw+EJP8JToU0YygwxcfKkvkwIA6J1PxGYo1DzkQoem2TwBvhfKuk3dvthfEM7ItJDJjZJI1GINn6TyjRpPD6428bZrFRJDiGgq6Cwz4PIgs/8NsDCbdle9fvMf0ispJucL45SVowdB04t89/1O/w1cDnyilFU=',
-    GROUP_ID: 'C31b16b0dcb85b6e706b7a4f0e551d787',
+    GROUP_ID: 'C724f2ac2b1c9c41f24a9127726ef947a',
     NOTIFICATION_DELAY: 1000,
     LINE_API_URL: 'https://api.line.me/v2/bot/message/push',
     ENABLED: true
@@ -393,10 +393,10 @@ function uploadImageToGoogleDrive(base64ImageData, filename, folderIdString) {
     // ตั้งค่าสิทธิ์เป็น "Anyone with the link can view"
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
-    // สร้าง shareable URL
-    const imageUrl = file.getUrl();
     const fileId = file.getId();
     const uploadDate = new Date().toISOString();
+    
+    const imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
     
     Logger.log('✅ Image uploaded successfully:');
     Logger.log('   - File ID: ' + fileId);
