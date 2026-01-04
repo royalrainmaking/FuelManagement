@@ -20,7 +20,7 @@ const LINE_CONFIG = {
     GROUP_ID: 'C724f2ac2b1c9c41f24a9127726ef947a',
     NOTIFICATION_DELAY: 1000,
     LINE_API_URL: 'https://api.line.me/v2/bot/message/push',
-    ENABLED: true
+    ENABLED: false
 };
 
 /**

@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw14r5lkPICAAsm05EZkF7S8Wgvbt9pNP-Y_3rmxylKsgJ4A-XoBgOPcaTRua3Imeol/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxZyCK-LpovET3lEwHiaUnjIEmRd_aP69jNgpEZBY64R0kTbJWYLbz0wi52ZsdCi7pR/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -117,7 +117,7 @@ const LINE_CONFIG = {
     LINE_API_URL: 'https://api.line.me/v2/bot/message/push',
     
     // เปิด/ปิดการส่ง notification
-    ENABLED: true
+    ENABLED: false
 };
 
 // ========================================

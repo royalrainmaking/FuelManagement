@@ -1598,6 +1598,9 @@ async function logTransactionToSheets(logEntry) {
         
         if (result.success) {
             console.log('✅ บันทึก log ไปยัง Google Sheets สำเร็จ');
+            
+            // 🔄 โหลดข้อมูล Transaction Logs ใหม่เพื่อให้ real-time ในหน้าอื่นๆ
+            loadTransactionLogsFromSheets(true);
         } else {
             throw new Error(result.error || 'ไม่สามารถบันทึก log ได้');
         }
@@ -2843,63 +2846,6 @@ async function getSummaryFromSheets() {
     } catch (error) {
         console.error('Error getting summary from sheets:', error);
         return null;
-    }
-}
-
-// ฟังก์ชันอัพเดท D2 (จำนวนลิตรที่ซื้อจาก ปตท.) ใน Google Sheets
-async function updatePTTPurchaseVolume(additionalLiters) {
-    try {
-        console.log(`กำลังอัพเดท PTT Purchase Volume: +${additionalLiters} ลิตร`);
-        
-        // หา PTT Purchase source และอัพเดท currentStock
-        const pttSource = fuelSources.find(source => source.id === 'purchase' || source.name.includes('ปตท'));
-        if (pttSource) {
-            pttSource.currentStock += additionalLiters;
-            console.log(`PTT Source ใหม่: ${pttSource.currentStock} ลิตร`);
-        } else {
-            console.warn('ไม่พบ PTT Purchase source');
-        }
-        
-        // เตรียมข้อมูลสำหรับอัพเดต
-        const updateData = {};
-        fuelSources.forEach(source => {
-            updateData[source.name] = source.currentStock;
-        });
-        
-        // ใช้ updateInventory action ที่มีอยู่แล้ว
-        const params = new URLSearchParams({
-            action: 'updateInventory',
-            data: JSON.stringify(updateData),
-            sheetsId: GOOGLE_SHEETS_ID,
-            gid: INVENTORY_SHEET_GID
-        });
-        
-        const urlWithParams = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
-        const response = await fetch(urlWithParams, {
-            method: 'GET',
-            mode: 'cors'
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('อัพเดท PTT Purchase Volume สำเร็จ:', result.data);
-            
-            // บันทึกข้อมูล local ด้วย (สำหรับ backup)
-            saveData();
-            
-            return true;
-        } else {
-            console.error('Error updating PTT purchase volume:', result.error);
-            return false;
-        }
-    } catch (error) {
-        console.error('Error updating PTT purchase volume:', error);
-        return false;
     }
 }
 
@@ -4799,7 +4745,7 @@ async function handleRefillSubmit() {
             fuelSources[destIndex].currentStock += liters;
         }
         
-        // อัพเดท current stock ของ ปตท. (id = 'purchase') ด้วย
+        // ✅ อัพเดท current stock ของ ปตท. (id = 'purchase') ด้วย
         const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
         if (pttIndex !== -1) {
             fuelSources[pttIndex].currentStock += liters;
@@ -4872,8 +4818,7 @@ async function handleRefillSubmit() {
         // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
         await Promise.all([
             saveInventoryToSheets(),
-            logTransactionToSheets(logEntry),
-            updatePTTPurchaseVolume(liters)
+            logTransactionToSheets(logEntry)
         ]);
         
         // อัพเดท UI
@@ -5544,6 +5489,11 @@ async function handlePttPurchaseSubmit() {
         // อัปเดตสต็อกปลายทาง
         destination.currentStock += liters;
         
+        // อัปเดตสต็อก ปตท. (แหล่งที่มา)
+        if (pttSource) {
+            pttSource.currentStock += liters;
+        }
+        
         // สร้าง UID สำหรับธุรกรรมนี้
         const transactionUID = generateUID();
         
@@ -5581,8 +5531,7 @@ async function handlePttPurchaseSubmit() {
         // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
         await Promise.all([
             saveInventoryToSheets(),
-            logTransactionToSheets(logEntry),
-            updatePTTPurchaseVolume(liters)
+            logTransactionToSheets(logEntry)
         ]);
         
         // อัพเดท UI

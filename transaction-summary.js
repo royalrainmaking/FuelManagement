@@ -213,26 +213,12 @@ function populateFilterOptions() {
 function loadTransactionData() {
     showLoading(true);
     
-    // 💾 ตรวจสอบ sessionStorage cache ก่อน
-    try {
-        const cachedData = sessionStorage.getItem('transactionLogsCache');
-        if (cachedData) {
-            const cacheObj = JSON.parse(cachedData);
-            if (cacheObj.success && cacheObj.data && Array.isArray(cacheObj.data)) {
-                console.log('✅ ใช้ข้อมูลจาก sessionStorage cache:', cacheObj.data.length, 'transactions');
-                allTransactions = cacheObj.data;
-                filteredTransactions = [...allTransactions];
-                populateFilterOptions();
-                applyFilters();
-                showLoading(false);
-                return;
-            }
-        }
-    } catch (cacheError) {
-        console.warn('⚠️ ไม่สามารถอ่าน sessionStorage cache:', cacheError);
-    }
+    // 💡 ล้าง cache ก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุด (Real-time)
+    // หรือตรวจสอบ timestamp ถ้าต้องการประหยัด bandwidth
+    // ในที่นี้เราล้างออกเพื่อให้ข้อมูลตรงกับความต้องการ "Real-time" ของผู้ใช้
+    sessionStorage.removeItem('transactionLogsCache');
     
-    // หากไม่มี cache หรือ cache ไม่ถูกต้อง ให้ดึงจาก API
+    // ดึงข้อมูลจาก API โดยตรง
     const url = `${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.TRANSACTION_HISTORY}`;
     
     console.log('Loading transactions from API:', url);
