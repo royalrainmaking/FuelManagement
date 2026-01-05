@@ -330,7 +330,13 @@ function initializeSearchableDropdown(dropdownContainer) {
 
 function getSelectedMissions() {
     const checkboxes = document.querySelectorAll('input[name="missions"]:checked');
-    const missions = Array.from(checkboxes).map(cb => cb.value);
+    const missions = Array.from(checkboxes).map(cb => {
+        if (cb.id === 'missionOther') {
+            const details = document.getElementById('otherMissionDetails').value.trim();
+            return details ? `อื่นๆ: ${details}` : 'อื่นๆ';
+        }
+        return cb.value;
+    });
     return missions.length > 0 ? missions.join(',') : '';
 }
 
@@ -4108,6 +4114,23 @@ function initializeEventListeners() {
                 }
             });
         }
+    }
+
+    // Toggle Other Mission Details
+    const missionOtherCheckbox = document.getElementById('missionOther');
+    const otherMissionDetailsContainer = document.getElementById('otherMissionDetailsContainer');
+    const otherMissionDetailsInput = document.getElementById('otherMissionDetails');
+
+    if (missionOtherCheckbox && otherMissionDetailsContainer) {
+        missionOtherCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                otherMissionDetailsContainer.style.display = 'block';
+                otherMissionDetailsInput.focus();
+            } else {
+                otherMissionDetailsContainer.style.display = 'none';
+                otherMissionDetailsInput.value = ''; // Clear details when unchecked
+            }
+        });
     }
     
     // Admin buttons

@@ -1242,6 +1242,33 @@ header h1 {
     gap: 0.8rem;
 }
 
+.other-details-container {
+    margin-left: 1.5rem;
+    margin-top: -0.4rem;
+    margin-bottom: 0.4rem;
+    animation: fadeIn 0.3s ease;
+}
+
+#otherMissionDetails {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+#otherMissionDetails:focus {
+    border-color: #1e3c72;
+    box-shadow: 0 0 0 2px rgba(30, 60, 114, 0.1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .mission-checkbox-item {
     display: flex;
     align-items: center;
