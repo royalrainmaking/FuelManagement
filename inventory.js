@@ -1835,6 +1835,17 @@ function createFuelCards() {
                 overlay.className = 'deactivate-overlay';
                 overlay.innerHTML = '<div class="deactivate-text">ไม่พร้อมใช้งาน</div>';
                 card.appendChild(overlay);
+            } else if ((source.type === 'tank' || source.type === 'truck' || source.type === 'drum') && source.currentStock === 0) {
+                // กรณีน้ำมันหมด (0 ลิตร) สำหรับ Tank, Truck, Drum
+                card.classList.add('empty-card');
+                card.style.filter = 'grayscale(100%) opacity(0.6)';
+                card.style.pointerEvents = 'none';
+                
+                // สร้าง overlay overlay text "หมด"
+                const overlay = document.createElement('div');
+                overlay.className = 'deactivate-overlay';
+                overlay.innerHTML = '<div class="deactivate-text">หมด</div>';
+                card.appendChild(overlay);
             }
             // Daily confirmation system is disabled
             // else if (source.id !== 'purchase' && !isSourceConfirmedToday(source.id)) {
