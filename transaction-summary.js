@@ -4,6 +4,7 @@
  */
 
 // ตัวแปรสำเหร็จ
+let currentUserRole = 'admin'; // หน้าสรุปรายการให้เห็นทั้งหมด (Admin view)
 let allTransactions = [];
 let filteredTransactions = [];
 let currentPage = 1;
@@ -23,7 +24,7 @@ const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 const paginationContainer = document.getElementById('paginationContainer');
 const paginationInfo = document.getElementById('paginationInfo');
 const paginationNav = document.getElementById('paginationNav');
-const detailModalBody = document.getElementById('detailModalBody');
+const detailModalContent = document.getElementById('detailModalContent');
 
 // Advanced Filters
 const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFilters');
@@ -485,194 +486,147 @@ function showDetailModal(transactionId) {
         currentTransactionForCancel = transaction;
 
         const detailsHTML = `
-            <!-- UID Display -->
-            <div class="uid-display">
-                <div class="detail-label"><i class="fas fa-fingerprint"></i>UID</div>
-                <div class="uid-value">${transaction.uid || '-'}</div>
-            </div>
+            <div style="position: relative; text-align: center; padding: 10px 20px 20px 20px; background: #fafbfc; overflow-y: auto; max-height: 90vh;">
+                <!-- Close Button -->
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; right: 20px; top: 20px; z-index: 10;"></button>
 
-            <!-- Section 1: Basic Information -->
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-info-circle"></i> ข้อมูลพื้นฐาน
+                <!-- Transaction ID Display - Styled like Success Modal -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; margin-bottom: 25px; margin-top: 20px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25);">
+                    <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">Transaction ID</div>
+                    <div style="color: white; font-size: 2.2rem; font-weight: bold; letter-spacing: 3px; font-family: 'Courier New', monospace;">
+                        ${transaction.uid || '-'}
+                    </div>
                 </div>
                 
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-calendar-alt"></i>วันที่</div>
-                        <div class="detail-value">${formatDate(transaction.date)}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-clock"></i>เวลา</div>
-                        <div class="detail-value">${transaction.time || '-'}</div>
-                    </div>
-                </div>
-
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-tag"></i>ประเภท</div>
-                        <div class="detail-value">${transaction.transaction_type}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-user"></i>ผู้บันทึก</div>
-                        <div class="detail-value">${transaction.operator_name || '-'}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 2: Source & Destination -->
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-route"></i> ต้นทางและปลายทาง
-                </div>
-                
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-location-dot"></i>แหล่งที่มา</div>
-                        <div class="detail-value">${transaction.source_name}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-location-dot"></i>ปลายทาง</div>
-                        <div class="detail-value">${transaction.destination_name}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 3: Volume & Pricing -->
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-calculator"></i> ปริมาณและราคา
-                </div>
-                
-                <div class="detail-row">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-droplet"></i>ปริมาณ</div>
-                        <div class="detail-value">${formatNumber(transaction.volume_liters)}<span class="detail-value-unit">ลิตร</span></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-cube"></i>หน่วย</div>
-                        <div class="detail-value">${transaction.unit || '-'}</div>
-                    </div>
-                </div>
-
-                <div class="detail-row">
-                    <div class="detail-item highlight">
-                        <div class="detail-label"><i class="fas fa-money-bill-wave"></i>ราคา/ลิตร</div>
-                        <div class="detail-value">${formatNumber(transaction.price_per_liter)}<span class="detail-value-unit">บาท</span></div>
-                    </div>
-                    <div class="detail-item highlight">
-                        <div class="detail-label"><i class="fas fa-receipt"></i>มูลค่ารวม</div>
-                        <div class="detail-value" style="font-size: 1.15rem;">${formatNumber(transaction.total_cost)}<span class="detail-value-unit">บาท</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 4: Aircraft Info (if available) -->
-            ${(transaction.aircraft_type || transaction.aircraft_number) ? `
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-plane"></i> ข้อมูลอากาศยาน
-                </div>
-                
-                <div class="detail-row">
-                    ${transaction.aircraft_type ? `
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-plane"></i>ประเภท</div>
-                        <div class="detail-value">${transaction.aircraft_type}</div>
-                    </div>
-                    ` : ''}
-                    ${transaction.aircraft_number ? `
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-id-card"></i>เลขทะเบียน</div>
-                        <div class="detail-value">${transaction.aircraft_number}</div>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-            ` : ''}
-
-            <!-- Section 5: Document Info (if available) -->
-            ${(transaction.book_no || transaction.receipt_no) ? `
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-file-invoice"></i> เลขเอกสาร
-                </div>
-                
-                <div class="detail-row">
-                    ${transaction.book_no ? `
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-book"></i>Book No.</div>
-                        <div class="detail-value">${transaction.book_no}</div>
-                    </div>
-                    ` : ''}
-                    ${transaction.receipt_no ? `
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-receipt"></i>Receipt No.</div>
-                        <div class="detail-value">${transaction.receipt_no}</div>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-            ` : ''}
-
-            <!-- Section 6: Additional Info -->
-            ${transaction.missions ? `
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-tasks"></i> ภารกิจ
-                </div>
-                
-                <div class="detail-row full">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภารกิจ</div>
-                        <div class="detail-value">${transaction.missions}</div>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-            
-            ${transaction.notes ? `
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-note-sticky"></i> หมายเหตุ
-                </div>
-                
-                <div class="detail-row full">
-                    <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-note-sticky"></i>บันทึก</div>
-                        <div class="detail-value">${transaction.notes}</div>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-
-            <!-- Section 7: Image Section -->
-            ${transaction.image_url ? `
-            <div class="detail-section">
-                <div class="detail-section-title">
-                    <i class="fas fa-image"></i> รูปภาพเอกสาร
-                </div>
-                
-                <div class="detail-row full">
-                    <div style="max-width: 100%; border-radius: 12px; overflow: hidden; border: 2px solid #e9ecef; background: white; padding: 1rem;">
-                        <img src="${transaction.image_url}" alt="รูปภาพรายการ" style="width: 100%; height: auto; display: block; border-radius: 8px;">
-                        <div style="margin-top: 1.25rem; font-size: 0.9rem; padding-top: 1rem; border-top: 1px solid #e9ecef;">
-                            <div style="margin-bottom: 0.5rem;">
-                                <span style="color: #6c757d; font-weight: 600;">ไฟล์:</span>
-                                <span style="color: #2c3e50; font-weight: 500;">${transaction.image_filename || '-'}</span>
-                            </div>
-                            <div>
-                                <span style="color: #6c757d; font-weight: 600;">วันที่อัพโหลด:</span>
-                                <span style="color: #2c3e50; font-weight: 500;">${transaction.image_upload_date ? new Date(transaction.image_upload_date).toLocaleString('th-TH') : '-'}</span>
-                            </div>
+                <!-- Transaction Summary Details - Structured Rows -->
+                <div style="background: white; padding: 20px; border-radius: 12px; text-align: left; border: 1px solid #e9ecef; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <h5 style="margin-bottom: 20px; color: #2c3e50; font-weight: 700; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #f8f9fa; padding-bottom: 12px;">
+                        <i class="fas fa-file-alt text-primary"></i>รายละเอียดรายการ
+                    </h5>
+                    
+                    <div style="display: grid; gap: 2px;">
+                        <!-- Row: Date & Time -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-calendar-alt me-2" style="width: 18px;"></i>วันที่/เวลา:</span>
+                            <strong style="color: #2c3e50;">${formatDate(transaction.date)} ${transaction.time || ''}</strong>
                         </div>
+
+                        <!-- Row: Type -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-tag me-2" style="width: 18px;"></i>ประเภท:</span>
+                            <strong>${getTransactionTypeBadge(transaction.transaction_type)}</strong>
+                        </div>
+
+                        <!-- Row: Source -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-out-alt me-2" style="width: 18px;"></i>แหล่งที่มา/ต้นทาง:</span>
+                            <strong style="color: #2c3e50;">${transaction.source_name}</strong>
+                        </div>
+
+                        <!-- Row: Destination -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-in-alt me-2" style="width: 18px;"></i>ปลายทาง:</span>
+                            <strong style="color: #2c3e50;">${transaction.destination_name}</strong>
+                        </div>
+
+                        <!-- Row: Volume -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5; background: #f8fbff; margin: 4px -10px; padding: 12px 10px; border-radius: 8px;">
+                            <span style="color: #0d6efd; font-weight: 600;"><i class="fas fa-gas-pump me-2" style="width: 18px;"></i>ปริมาณ:</span>
+                            <strong style="color: #0d6efd; font-size: 1.2rem;">${formatNumber(transaction.volume_liters)} <span style="font-size: 0.9rem; font-weight: 500;">ลิตร</span></strong>
+                        </div>
+
+                        <!-- Row: Price/Liter -->
+                        ${transaction.price_per_liter ? `
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-coins me-2" style="width: 18px;"></i>ราคาต่อลิตร:</span>
+                            <strong style="color: #2c3e50;">${formatNumber(transaction.price_per_liter)} บาท</strong>
+                        </div>
+                        ` : ''}
+
+                        <!-- Row: Total Cost -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5; background: #fffaf0; margin: 4px -10px; padding: 12px 10px; border-radius: 8px;">
+                            <span style="color: #b8860b; font-weight: 600;"><i class="fas fa-money-bill-wave me-2" style="width: 18px;"></i>มูลค่ารวม:</span>
+                            <strong style="color: #b8860b; font-size: 1.2rem;">${formatNumber(transaction.total_cost)} <span style="font-size: 0.9rem; font-weight: 500;">บาท</span></strong>
+                        </div>
+
+                        <!-- Row: Operator -->
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-user-edit me-2" style="width: 18px;"></i>ผู้บันทึก:</span>
+                            <strong style="color: #2c3e50;">${transaction.operator_name || '-'}</strong>
+                        </div>
+
+                        <!-- Row: Unit -->
+                        ${transaction.unit ? `
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-building me-2" style="width: 18px;"></i>หน่วย:</span>
+                            <strong style="color: #2c3e50;">${transaction.unit}</strong>
+                        </div>
+                        ` : ''}
+
+                        <!-- Row: Mission -->
+                        ${transaction.missions ? `
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-tasks me-2" style="width: 18px;"></i>ภารกิจ:</span>
+                            <strong style="color: #2c3e50;">${transaction.missions}</strong>
+                        </div>
+                        ` : ''}
+
+                        <!-- Row: Book/Receipt -->
+                        ${(transaction.book_no || transaction.receipt_no) ? `
+                        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-file-invoice me-2" style="width: 18px;"></i>เลขเอกสาร:</span>
+                            <strong style="color: #2c3e50;">${transaction.book_no ? 'เล่มที่ ' + transaction.book_no : ''} ${transaction.receipt_no ? 'เลขที่ ' + transaction.receipt_no : ''}</strong>
+                        </div>
+                        ` : ''}
+
+                        <!-- Row: Notes -->
+                        ${transaction.notes ? `
+                        <div style="display: flex; flex-direction: column; padding: 12px 0;">
+                            <span style="color: #6c757d; font-weight: 500; margin-bottom: 5px;"><i class="fas fa-sticky-note me-2" style="width: 18px;"></i>หมายเหตุ:</span>
+                            <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; color: #495057; font-size: 0.95rem; border-left: 3px solid #dee2e6;">${transaction.notes}</div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
+
+                <!-- Image Section if available -->
+                ${transaction.image_url ? `
+                <div style="margin-top: 25px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e9ecef; text-align: left;">
+                    <h5 style="margin-bottom: 15px; color: #2c3e50; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-image text-success"></i>รูปภาพหลักฐาน
+                    </h5>
+                    <div style="border-radius: 10px; overflow: hidden; border: 1px solid #f1f3f5;">
+                        <img src="${convertGoogleDriveUrl(transaction.image_url)}" alt="เอกสาร" style="width: 100%; height: auto; display: block; cursor: pointer;" onclick="viewImageModal('${transaction.image_url}', '${(transaction.image_filename || '').replace(/'/g, "\\'")}', '${transactionId}')">
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85rem; color: #6c757d; display: flex; justify-content: space-between;">
+                        <span><i class="fas fa-file me-1"></i>${transaction.image_filename || 'image.jpg'}</span>
+                        <span><i class="fas fa-clock me-1"></i>${transaction.image_upload_date ? new Date(transaction.image_upload_date).toLocaleDateString('th-TH') : ''}</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Action Buttons - Matching UID Modal -->
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f1f3f5;">
+                    <button class="btn btn-primary" style="padding: 10px 20px; border-radius: 10px; font-weight: 600;" onclick="copyToClipboard('${transaction.uid}')">
+                        <i class="fas fa-copy me-2"></i>คัดลอก UID
+                    </button>
+                    <button class="btn btn-secondary" style="padding: 10px 20px; border-radius: 10px; font-weight: 600;" onclick="printTransactionReceipt('${transactionId}')">
+                        <i class="fas fa-print me-2"></i>พิมพ์
+                    </button>
+                    <button class="btn btn-success" style="padding: 10px 20px; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">
+                        <i class="fas fa-check me-2"></i>เสร็จสิ้น
+                    </button>
+                    
+                    <!-- Cancel Button -->
+                    <button class="btn btn-danger" id="modalCancelBtn" style="display: inline-block; padding: 10px 20px; border-radius: 10px; font-weight: 600;" onclick="cancelTransactionByUID('${transaction.uid}')">
+                        <i class="fas fa-trash-alt me-2"></i>ยกเลิก
+                    </button>
+                </div>
             </div>
-            ` : ''}
         `;
 
-        detailModalBody.innerHTML = detailsHTML;
+        const modalContent = document.getElementById('detailModalContent');
+        modalContent.innerHTML = detailsHTML;
         
         // Show modal using Bootstrap
         if (detailModal && typeof detailModal.show === 'function') {
@@ -1098,20 +1052,8 @@ function viewImageModal(imageUrl, filename, transactionId) {
         }
         
         // Determine the display URL
-        let displayUrl = imageUrl;
+        let displayUrl = convertGoogleDriveUrl(imageUrl);
         const transaction = transactionStore[transactionId];
-        
-        if (transaction && transaction.image_drive_id) {
-            // Use direct link if Drive ID is available
-            // Use lh3.googleusercontent.com for better image embedding support
-            displayUrl = `https://lh3.googleusercontent.com/d/${transaction.image_drive_id}`;
-        } else if (imageUrl && imageUrl.includes('drive.google.com') && imageUrl.includes('/d/')) {
-            // Extract ID from URL if possible
-            const match = imageUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-                displayUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
-            }
-        }
         
         imageModalImage.src = displayUrl;
         imageModalImage.alt = filename || 'รูปภาพรายการ';
@@ -1651,4 +1593,227 @@ function showNotification(message, type = 'success') {
     } catch (error) {
         console.error('Error showing notification:', error);
     }
+}
+
+/**
+ * Copy text to clipboard
+ */
+function copyToClipboard(text) {
+    if (!text) return;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('คัดลอก UID: ' + text + ' เรียบร้อยแล้ว');
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+        
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showNotification('คัดลอก UID: ' + text + ' เรียบร้อยแล้ว');
+        } catch (err) {
+            alert('ไม่สามารถคัดลอกได้: ' + text);
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
+/**
+ * Print transaction receipt
+ */
+function printTransactionReceipt(transactionId) {
+    const transaction = transactionStore[transactionId];
+    if (!transaction) return;
+    
+    // สร้างหน้าพิมพ์
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Transaction Receipt - ${transaction.uid}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    font-family: 'Sarabun', Arial, sans-serif;
+                    padding: 40px;
+                    max-width: 650px;
+                    margin: 0 auto;
+                    color: #333;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    border-bottom: 3px solid #0d6efd;
+                    padding-bottom: 20px;
+                }
+                .header h1 {
+                    margin: 0;
+                    color: #0d6efd;
+                    font-size: 28px;
+                }
+                .header p {
+                    margin: 5px 0 0 0;
+                    color: #666;
+                }
+                .uid-box {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 25px;
+                    text-align: center;
+                    border-radius: 15px;
+                    margin: 30px 0;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                }
+                .uid-box .label {
+                    font-size: 14px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    margin-bottom: 10px;
+                    opacity: 0.9;
+                }
+                .uid-box .uid {
+                    font-size: 40px;
+                    font-weight: bold;
+                    letter-spacing: 4px;
+                    font-family: 'Courier New', monospace;
+                }
+                .section-title {
+                    font-weight: bold;
+                    font-size: 18px;
+                    margin-top: 25px;
+                    margin-bottom: 15px;
+                    color: #2c3e50;
+                    border-left: 5px solid #0d6efd;
+                    padding-left: 10px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                }
+                td {
+                    padding: 12px 15px;
+                    border-bottom: 1px solid #eee;
+                }
+                td:first-child {
+                    width: 40%;
+                    color: #666;
+                    font-weight: 500;
+                }
+                td:last-child {
+                    font-weight: bold;
+                    text-align: right;
+                }
+                .highlight-row {
+                    background-color: #f8fbff;
+                }
+                .highlight-row td:last-child {
+                    color: #0d6efd;
+                    font-size: 20px;
+                }
+                .footer {
+                    margin-top: 50px;
+                    text-align: center;
+                    color: #999;
+                    font-size: 12px;
+                    border-top: 1px solid #eee;
+                    padding-top: 20px;
+                }
+                @media print {
+                    body { padding: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>ใบยืนยันรายการน้ำมัน</h1>
+                <p>กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</p>
+            </div>
+            
+            <div class="uid-box">
+                <div class="label">Transaction ID</div>
+                <div class="uid">${transaction.uid}</div>
+            </div>
+            
+            <div class="section-title">รายละเอียดรายการ</div>
+            <table>
+                <tr>
+                    <td>วันที่/เวลา</td>
+                    <td>${formatDate(transaction.date)} ${transaction.time || ''}</td>
+                </tr>
+                <tr>
+                    <td>ประเภทรายการ</td>
+                    <td>${transaction.transaction_type}</td>
+                </tr>
+                <tr>
+                    <td>แหล่งที่มา/ต้นทาง</td>
+                    <td>${transaction.source_name}</td>
+                </tr>
+                <tr>
+                    <td>ปลายทาง</td>
+                    <td>${transaction.destination_name}</td>
+                </tr>
+                <tr class="highlight-row">
+                    <td>ปริมาณ</td>
+                    <td>${formatNumber(transaction.volume_liters)} ลิตร</td>
+                </tr>
+                ${transaction.price_per_liter ? `
+                <tr>
+                    <td>ราคาต่อลิตร</td>
+                    <td>${formatNumber(transaction.price_per_liter)} บาท</td>
+                </tr>
+                ` : ''}
+                <tr style="background-color: #fffaf0;">
+                    <td>มูลค่ารวม</td>
+                    <td style="color: #b8860b; font-size: 20px;">${formatNumber(transaction.total_cost)} บาท</td>
+                </tr>
+                <tr>
+                    <td>ผู้บันทึกรายการ</td>
+                    <td>${transaction.operator_name || '-'}</td>
+                </tr>
+                ${transaction.unit ? `
+                <tr>
+                    <td>หน่วยงาน</td>
+                    <td>${transaction.unit}</td>
+                </tr>
+                ` : ''}
+                ${(transaction.aircraft_type || transaction.aircraft_number) ? `
+                <tr>
+                    <td>อากาศยาน/พาหนะ</td>
+                    <td>${transaction.aircraft_type || ''} ${transaction.aircraft_number || ''}</td>
+                </tr>
+                ` : ''}
+                ${transaction.missions ? `
+                <tr>
+                    <td>ภารกิจ</td>
+                    <td>${transaction.missions}</td>
+                </tr>
+                ` : ''}
+            </table>
+            
+            <div class="footer">
+                <p>พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+                <p>เอกสารฉบับนี้พิมพ์จากระบบจัดการน้ำมันอัตโนมัติ</p>
+            </div>
+            
+            <script>
+                window.onload = () => {
+                    setTimeout(() => {
+                        window.print();
+                        // window.close(); // นำออกเพื่อให้ผู้ใช้ดูได้ก่อนถ้าต้องการ
+                    }, 500);
+                };
+            </script>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.open();
+    printWindow.document.write(printContent);
+    printWindow.document.close();
 }

@@ -469,7 +469,7 @@ function uploadImageToGoogleDrive(base64ImageData, filename, folderIdString) {
     const fileId = file.getId();
     const uploadDate = new Date().toISOString();
     
-    const imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    const imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
     
     Logger.log('✅ Image uploaded successfully:');
     Logger.log('   - File ID: ' + fileId);

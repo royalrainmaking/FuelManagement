@@ -9,25 +9,75 @@ if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
 const INVENTORY_SHEET_GID = SHEET_GIDS.INVENTORY;
 const TRANSACTION_LOG_SHEET_GID = SHEET_GIDS.TRANSACTION_HISTORY;
 
-function convertGoogleDriveUrl(googleDriveUrl) {
-    if (!googleDriveUrl) return '';
+// ===== Role Management =====
+// ให้เลือกทุกครั้งที่เข้าหน้า index
+let currentUserRole = null; 
+
+/**
+ * ฟังก์ชันสำหรับเลือกบทบาทผู้ใช้งาน
+ */
+function selectRole(role) {
+    currentUserRole = role;
+    // ไม่เก็บลง localStorage เพื่อให้เลือกใหม่ทุกครั้งที่เข้า index
+    // localStorage.setItem('userRole', role); 
+    document.getElementById('roleModal').style.display = 'none';
     
-    let fileId = '';
+    // แสดงชื่อบทบาทบน UI
+    updateRoleUI();
     
-    if (googleDriveUrl.includes('/d/')) {
-        const match = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        fileId = match ? match[1] : '';
-    } else if (googleDriveUrl.includes('id=')) {
-        const match = googleDriveUrl.match(/id=([a-zA-Z0-9-_]+)/);
-        fileId = match ? match[1] : '';
+    // โหลดข้อมูลใหม่ตามบทบาท
+    if (typeof loadInventoryData === 'function') {
+        loadInventoryData();
+    } else {
+        createFuelCards();
+    }
+}
+
+/**
+ * ฟังก์ชันสำหรับตรวจสอบบทบาทเมื่อเริ่มต้น
+ */
+function checkUserRole() {
+    const roleModal = document.getElementById('roleModal');
+    if (!roleModal) return;
+    
+    // แสดง modal ทุกครั้งที่เข้าหน้า index ตามความต้องการของผู้ใช้
+    roleModal.style.display = 'flex';
+}
+
+/**
+ * ฟังก์ชันสำหรับอัพเดท UI ตามบทบาท
+ */
+function updateRoleUI() {
+    const roleBadge = document.getElementById('roleBadge');
+    const adminOnlyElements = document.querySelectorAll('.admin-only');
+    
+    // ปรับแต่งการแสดงผลตามบทบาท
+    const roleNames = {
+        'admin': 'ผู้ดูแลระบบ',
+        'ptt': 'ซื้อจาก ปตท.',
+        'khlong_luang': 'สนามบินคลองหลวง',
+        'nakhonsawan': 'สนามบินนครสวรรค์'
+    };
+    
+    if (roleBadge) {
+        roleBadge.textContent = roleNames[currentUserRole] || 'ยังไม่ได้เลือก';
+        roleBadge.style.display = 'inline-block';
     }
     
-    if (!fileId) {
-        console.warn('⚠️ ไม่สามารถแยก File ID จาก URL:', googleDriveUrl);
-        return googleDriveUrl;
+    // ซ่อน/แสดงองค์ประกอบสำหรับแอดมิน
+    adminOnlyElements.forEach(el => {
+        el.style.display = (currentUserRole === 'admin') ? 'block' : 'none';
+    });
+}
+
+/**
+ * ฟังก์ชันสำหรับเปลี่ยนบทบาท
+ */
+function switchRole() {
+    const roleModal = document.getElementById('roleModal');
+    if (roleModal) {
+        roleModal.style.display = 'flex';
     }
-    
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
 }
 
 // ข้อมูลแหล่งน้ำมัน (จะถูกโหลดจาก Google Sheets)
@@ -1765,6 +1815,24 @@ function createFuelCards() {
     const container = document.getElementById('fuelCards');
     container.innerHTML = '';
     
+    // กรองแหล่งน้ำมันตามบทบาท
+    let filteredSources = fuelSources;
+    if (currentUserRole === 'ptt') {
+        filteredSources = fuelSources.filter(source => 
+            source.name.includes('ปตท.') || source.name.includes('PTT')
+        );
+    } else if (currentUserRole === 'khlong_luang') {
+        filteredSources = fuelSources.filter(source => 
+            source.name.includes('คลองหลวง') || source.name.includes('55-0946')
+        );
+    } else if (currentUserRole === 'nakhonsawan') {
+        // นครสวรรค์เห็นทั้งหมดที่เหลือ (ไม่ใช่ ปตท. และไม่ใช่ คลองหลวง)
+        filteredSources = fuelSources.filter(source => 
+            !source.name.includes('ปตท.') && !source.name.includes('PTT') && 
+            !source.name.includes('คลองหลวง') && !source.name.includes('55-0946')
+        );
+    }
+    
     // แบ่งหมวดหมู่
     const categories = {
         'purchase': { title: '<span class="material-symbols-outlined" style="vertical-align: middle; font-size: 1.2em;">shopping_cart</span> จัดซื้อจาก ปตท.', sources: [] },
@@ -1774,7 +1842,7 @@ function createFuelCards() {
     };
     
     // จัดกลุ่มแหล่งน้ำมันตามประเภท (ข้าม deactivated sources)
-    fuelSources.forEach(source => {
+    filteredSources.forEach(source => {
         if (source.status === 'deactivate') return;
         if (categories[source.type]) {
             categories[source.type].sources.push(source);
@@ -4268,7 +4336,7 @@ function initializeEventListeners() {
     
     // Admin buttons
     document.getElementById('refreshDataBtn').onclick = async function() {
-        handleRefreshDataClick();
+        await handleRefreshDataClick();
     };
     
     const pttPurchaseBtn = document.getElementById('pttPurchaseBtn');
@@ -4503,6 +4571,62 @@ function initializeEventListeners() {
             handleTransactionKhlongLuangSubmit();
         };
     }
+}
+
+/**
+ * ฟังก์ชันสำหรับจัดการการกดปุ่มรีเฟรชข้อมูล
+ */
+async function handleRefreshDataClick() {
+    try {
+        console.log('🔄 กำลังรีเฟรชข้อมูลจาก Google Sheets...');
+        showLoading('กำลังรีเฟรชข้อมูล...');
+        
+        // 1. โหลดข้อมูล Inventory
+        await loadInventoryFromSheets();
+        
+        // 2. โหลดข้อมูล Transaction Logs
+        if (typeof loadTransactionLogsFromSheets === 'function') {
+            await loadTransactionLogsFromSheets(false);
+        }
+        
+        // 3. อัปเดต UI ทั้งหมด
+        if (typeof createFuelCards === 'function') {
+            createFuelCards();
+        }
+        
+        if (typeof updateSummary === 'function') {
+            await updateSummary();
+        }
+        
+        if (typeof updateDailyConfirmationButtons === 'function') {
+            updateDailyConfirmationButtons();
+        }
+        
+        hideLoading();
+        console.log('✅ รีเฟรชข้อมูลสำเร็จ');
+        alert('รีเฟรชข้อมูลสำเร็จ');
+        
+    } catch (error) {
+        console.error('❌ เกิดข้อผิดพลาดในการรีเฟรชข้อมูล:', error);
+        hideLoading();
+        alert('ไม่สามารถรีเฟรชข้อมูลได้: ' + error.message);
+    }
+}
+
+/**
+ * ฟังก์ชันสำหรับจัดการการกดปุ่มตรวจสอบข้อมูล
+ */
+function handleValidateDataClick() {
+    console.log('🔍 Validate Data Clicked');
+    alert('ฟังก์ชันตรวจสอบข้อมูลกำลังอยู่ในการพัฒนา');
+}
+
+/**
+ * ฟังก์ชันสำหรับจัดการการกดปุ่มตรวจสอบข้อมูลซ้ำ
+ */
+function handleDebugDuplicateClick() {
+    console.log('🐞 Debug Duplicate Clicked');
+    alert('ฟังก์ชันตรวจสอบข้อมูลซ้ำกำลังอยู่ในการพัฒนา');
 }
 
 function updateRefillTypeVisibility() {

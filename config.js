@@ -120,6 +120,35 @@ const LINE_CONFIG = {
     ENABLED: false
 };
 
+/**
+ * ฟังก์ชันสำหรับแปลง URL ของ Google Drive เป็น URL สำหรับแสดงผลรูปภาพ
+ * @param {string} googleDriveUrl - URL เดิมจาก Google Drive
+ * @returns {string} - URL ที่แปลงแล้วสำหรับแสดงผล
+ */
+function convertGoogleDriveUrl(googleDriveUrl) {
+    if (!googleDriveUrl) return '';
+    
+    // หากเป็น URL ที่ถูกต้องอยู่แล้วไม่ต้องแปลง
+    if (googleDriveUrl.includes('lh3.googleusercontent.com')) return googleDriveUrl;
+    
+    let fileId = '';
+    
+    if (googleDriveUrl.includes('/d/')) {
+        const match = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        fileId = match ? match[1] : '';
+    } else if (googleDriveUrl.includes('id=')) {
+        const match = googleDriveUrl.match(/id=([a-zA-Z0-9-_]+)/);
+        fileId = match ? match[1] : '';
+    }
+    
+    if (!fileId) {
+        return googleDriveUrl;
+    }
+    
+    // Use lh3.googleusercontent.com for better image embedding support
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
+}
+
 // ========================================
 // Export Configuration
 // ========================================
