@@ -556,7 +556,7 @@
                         <option value="cost_desc">มูลค่ามากสุด</option>
                     </select>
                 </div>
-                <div class="col-md-4 d-flex align-items-end gap-2">
+                <div class="col-md-5 d-flex align-items-end gap-2">
                     <button class="btn btn-primary flex-grow-1" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>
@@ -565,6 +565,9 @@
                     </button>
                     <button type="button" class="btn btn-outline-success flex-grow-1" id="exportAllBtn" title="Export ทั้งหมด">
                         <i class="fas fa-download me-1"></i> Export ทั้งหมด
+                    </button>
+                    <button type="button" class="btn btn-outline-info flex-grow-1" id="exportInventoryBtn" title="Export แหล่งน้ำมัน">
+                        <i class="fas fa-gas-pump me-1"></i> Export แหล่งน้ำมัน
                     </button>
                 </div>
             </div>
@@ -600,13 +603,13 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">เครื่องบิน</label>
-                        <div id="aircraftFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <label class="form-label fw-bold">หน่วย</label>
+                        <div id="unitFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">หน่วย</label>
-                        <div id="unitFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <label class="form-label fw-bold">ภารกิจ</label>
+                        <div id="missionFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                 </div>
@@ -619,14 +622,14 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th style="width: 8%;"><i class="fas fa-hashtag"></i> UID</th>
+                            <th style="width: 10%;"><i class="fas fa-hashtag"></i> UID</th>
                             <th style="width: 10%;">วันที่</th>
-                            <th style="width: 8%;">เวลา</th>
-                            <th style="width: 12%;">ประเภท</th>
-                            <th style="width: 14%;">แหล่งน้ำมัน</th>
-                            <th style="width: 14%;">ปลายทาง</th>
-                            <th style="width: 12%;">ปริมาณ (ลิตร)</th>
-                            <th style="width: 12%;">มูลค่า (บาท)</th>
+                            <th style="width: 10%;">ประเภท</th>
+                            <th style="width: 12%;">แหล่งน้ำมัน</th>
+                            <th style="width: 12%;">ปลายทาง</th>
+                            <th style="width: 14%;">ภารกิจ</th>
+                            <th style="width: 11%;">ปริมาณ (ลิตร)</th>
+                            <th style="width: 11%;">มูลค่า (บาท)</th>
                             <th style="width: 10%;" class="table-cell-action">การจัดการ</th>
                         </tr>
                     </thead>

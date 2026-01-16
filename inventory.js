@@ -712,6 +712,64 @@ function showUIDModal(transactionData) {
     const operatorText = transactionData.operator || transactionData.operatorName || '-';
     document.getElementById('uidOperator').textContent = operatorText;
     
+    // แสดงหน่วย
+    const unitRow = document.getElementById('uidUnitRow');
+    const unitText = transactionData.unit || transactionData.operatingUnit || null;
+    if (unitText) {
+        document.getElementById('uidUnit').textContent = unitText;
+        unitRow.style.display = 'flex';
+    } else {
+        unitRow.style.display = 'none';
+    }
+    
+    // แสดงเครื่องบิน/ยานพาหนะ
+    const aircraftRow = document.getElementById('uidAircraftRow');
+    const aircraftText = transactionData.aircraft || transactionData.aircraftNumber || transactionData.aircraftType || null;
+    if (aircraftText) {
+        document.getElementById('uidAircraft').textContent = aircraftText;
+        aircraftRow.style.display = 'flex';
+    } else {
+        aircraftRow.style.display = 'none';
+    }
+    
+    // แสดงภารกิจ
+    const missionsRow = document.getElementById('uidMissionsRow');
+    const missionsText = transactionData.missions || null;
+    if (missionsText) {
+        document.getElementById('uidMissions').textContent = missionsText;
+        missionsRow.style.display = 'flex';
+    } else {
+        missionsRow.style.display = 'none';
+    }
+    
+    // แสดงราคาและมูลค่ารวม
+    const priceRow = document.getElementById('uidPriceRow');
+    const totalCostRow = document.getElementById('uidTotalCostRow');
+    
+    if (transactionData.pricePerLiter) {
+        document.getElementById('uidPrice').textContent = `${parseFloat(transactionData.pricePerLiter).toLocaleString()} บาท/ลิตร`;
+        priceRow.style.display = 'flex';
+    } else {
+        priceRow.style.display = 'none';
+    }
+    
+    if (transactionData.totalCost) {
+        document.getElementById('uidTotalCost').textContent = `${parseFloat(transactionData.totalCost).toLocaleString()} บาท`;
+        totalCostRow.style.display = 'flex';
+    } else {
+        totalCostRow.style.display = 'none';
+    }
+    
+    // แสดงหมายเหตุ
+    const notesRow = document.getElementById('uidNotesRow');
+    const notesText = transactionData.notes || null;
+    if (notesText) {
+        document.getElementById('uidNotes').textContent = notesText;
+        notesRow.style.display = 'flex';
+    } else {
+        notesRow.style.display = 'none';
+    }
+    
     // แสดงเวลา - ใช้เวลาที่ส่งมา หรือเวลาปัจจุบัน
     const timestamp = transactionData.timestamp || new Date().toLocaleString('th-TH');
     document.getElementById('uidTimestamp').textContent = timestamp;
@@ -838,16 +896,52 @@ function setupUIDModalListeners(transactionData) {
                     <table>
                         <tr>
                             <td>ประเภท:</td>
-                            <td>${transactionData.transactionType === 'refill' ? 'ซื้อเข้า' : 'เติมน้ำมัน'}</td>
+                            <td>${transactionData.transactionType === 'refill' ? 'ซื้อเข้า' : (transactionData.transactionType === 'dispense' ? 'เติมน้ำมัน' : (transactionData.transactionType === 'drain' ? 'เดรนน้ำมัน' : transactionData.transactionType))}</td>
                         </tr>
                         <tr>
                             <td>แหล่ง:</td>
-                            <td>${transactionData.sourceName || '-'}</td>
+                            <td>${transactionData.sourceName || transactionData.source || '-'}</td>
                         </tr>
+                        ${(transactionData.destinationName || transactionData.destination) ? `
+                        <tr>
+                            <td>ปลายทาง:</td>
+                            <td>${transactionData.destinationName || transactionData.destination}</td>
+                        </tr>
+                        ` : ''}
                         <tr>
                             <td>ปริมาณ:</td>
-                            <td>${transactionData.volume || '-'}</td>
+                            <td>${transactionData.volume || (transactionData.liters ? `${transactionData.liters} ลิตร` : '-')}</td>
                         </tr>
+                        ${(transactionData.unit || transactionData.operatingUnit) ? `
+                        <tr>
+                            <td>หน่วย:</td>
+                            <td>${transactionData.unit || transactionData.operatingUnit}</td>
+                        </tr>
+                        ` : ''}
+                        ${(transactionData.aircraft || transactionData.aircraftNumber || transactionData.aircraftType) ? `
+                        <tr>
+                            <td>เครื่องบิน/ยานพาหนะ:</td>
+                            <td>${transactionData.aircraft || transactionData.aircraftNumber || transactionData.aircraftType}</td>
+                        </tr>
+                        ` : ''}
+                        ${transactionData.missions ? `
+                        <tr>
+                            <td>ภารกิจ:</td>
+                            <td>${transactionData.missions}</td>
+                        </tr>
+                        ` : ''}
+                        ${transactionData.pricePerLiter ? `
+                        <tr>
+                            <td>ราคาต่อลิตร:</td>
+                            <td>${parseFloat(transactionData.pricePerLiter).toLocaleString()} บาท/ลิตร</td>
+                        </tr>
+                        ` : ''}
+                        ${transactionData.totalCost ? `
+                        <tr>
+                            <td>มูลค่ารวม:</td>
+                            <td>${parseFloat(transactionData.totalCost).toLocaleString()} บาท</td>
+                        </tr>
+                        ` : ''}
                         ${transactionData.bookNo ? `
                         <tr>
                             <td>Book No.:</td>
@@ -860,13 +954,19 @@ function setupUIDModalListeners(transactionData) {
                             <td>${transactionData.receiptNo}</td>
                         </tr>
                         ` : ''}
+                        ${transactionData.notes ? `
+                        <tr>
+                            <td>หมายเหตุ:</td>
+                            <td>${transactionData.notes}</td>
+                        </tr>
+                        ` : ''}
                         <tr>
                             <td>ผู้ทำรายการ:</td>
-                            <td>${transactionData.operatorName || '-'}</td>
+                            <td>${transactionData.operatorName || transactionData.operator || '-'}</td>
                         </tr>
                         <tr>
-                            <td>เวลา:</td>
-                            <td>${new Date().toLocaleString('th-TH')}</td>
+                            <td>เวลาทำรายการ:</td>
+                            <td>${transactionData.timestamp || new Date().toLocaleString('th-TH')}</td>
                         </tr>
                     </table>
                     <div class="footer">
@@ -2401,10 +2501,9 @@ function updateSummaryUI(summaryData) {
     document.getElementById('totalPurchaseAmount').textContent = 
         (summaryData.totalPurchaseAmount || 0).toLocaleString();
     
-    // อัพเดท Total Fuel Info และ Liquid Fill Gauge visualization
+    // อัพเดท Total Fuel Info และ Circular Gauge visualization
     const totalFuelInfoElement = document.getElementById('totalFuelInfo');
-    const liquidWave = document.getElementById('liquidWave');
-    const liquidPercentage = document.getElementById('liquidPercentage');
+    const fuelGaugePath = document.getElementById('fuelGaugePath');
     const fuelGaugePercentage = document.getElementById('fuelGaugePercentage');
     const fuelProgressFill = document.getElementById('fuelProgressFill');
     
@@ -2418,17 +2517,22 @@ function updateSummaryUI(summaryData) {
             totalFuelInfoElement.textContent = `${currentStock.toLocaleString()}/${totalCapacity.toLocaleString()} ลิตร`;
         }
         
-        // อัพเดท Liquid Fill Gauge visualization
-        if (liquidWave) {
-            // คำนวณความสูงของน้ำจาก 0-200 (เมื่อ 0% ที่ y=200, 100% ที่ y=0)
-            const fillHeight = 200 - (capacityPercentage / 100) * 200;
-            // สร้าง wave path ที่ตามระดับน้ำ
-            liquidWave.setAttribute('d', 
-                `M0,${fillHeight} Q50,${fillHeight - 10} 100,${fillHeight} T200,${fillHeight} L200,200 L0,200 Z`
-            );
-        }
-        if (liquidPercentage) {
-            liquidPercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
+        // อัพเดท Circular Gauge
+        if (fuelGaugePath) {
+            fuelGaugePath.style.strokeDasharray = `${capacityPercentage.toFixed(1)}, 100`;
+            
+            // อัพเดทสี Gauge ตามระดับน้ำมัน
+            const parentSvg = fuelGaugePath.closest('svg');
+            if (parentSvg) {
+                parentSvg.classList.remove('low', 'medium', 'success');
+                if (capacityPercentage < 30) {
+                    parentSvg.classList.add('low');
+                } else if (capacityPercentage < 70) {
+                    parentSvg.classList.add('medium');
+                } else {
+                    parentSvg.classList.add('success');
+                }
+            }
         }
         if (fuelGaugePercentage) {
             fuelGaugePercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
@@ -2449,11 +2553,8 @@ function updateSummaryUI(summaryData) {
         if (totalFuelInfoElement) {
             totalFuelInfoElement.textContent = `${currentStock.toLocaleString()}/0 ลิตร`;
         }
-        if (liquidWave) {
-            liquidWave.setAttribute('d', 'M0,200 Q50,190 100,200 T200,200 L200,200 L0,200 Z');
-        }
-        if (liquidPercentage) {
-            liquidPercentage.textContent = '0%';
+        if (fuelGaugePath) {
+            fuelGaugePath.style.strokeDasharray = `0, 100`;
         }
         if (fuelGaugePercentage) {
             fuelGaugePercentage.textContent = '0%';
@@ -2490,49 +2591,60 @@ async function updateBudgetDisplay() {
         const result = await response.json();
         
         if (result.success && result.data) {
-            const { totalBudget, totalPurchaseAmount, remainingBudget } = result.data;
+            const { totalBudget, totalPurchaseAmount, remainingBudget, plans } = result.data;
             
-            // อัพเดตการแสดงผล
-            const remainingBudgetEl = document.getElementById('remainingBudget');
-            const budgetDetailsEl = document.getElementById('budgetDetails');
-            const totalBudgetEl = document.getElementById('totalBudgetAmount');
-            
-            if (remainingBudgetEl) {
-                remainingBudgetEl.textContent = remainingBudget.toLocaleString('th-TH', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
+            // อัพเดตงบประมาณแยกตามแผน (Dynamic Rendering)
+            if (plans) {
+                // 1. อัพเดตค่าใน Quick Status (ตามโครงสร้างใหม่ใน index.html)
+                const planQuickMapping = {
+                    'แผนบรู': 'quickRemainingBru',
+                    'แผนยุทธศาสตร์': 'quickRemainingYuttaya',
+                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'quickRemainingDust',
+                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'quickRemainingCentral'
+                };
+
+                Object.keys(planQuickMapping).forEach(planName => {
+                    const elementId = planQuickMapping[planName];
+                    const planData = plans[planName];
+                    const el = document.getElementById(elementId);
+                    if (el && planData) {
+                        el.textContent = planData.remaining.toLocaleString('th-TH');
+                    }
                 });
-                
-                // เปลี่ยนสีตามสถานะ
-                if (remainingBudget < 0) {
-                    remainingBudgetEl.classList.add('text-danger');
-                    remainingBudgetEl.classList.remove('text-success');
-                } else if (remainingBudget < totalBudget * 0.2) {
-                    remainingBudgetEl.classList.add('text-warning');
-                    remainingBudgetEl.classList.remove('text-danger', 'text-success');
-                } else {
-                    remainingBudgetEl.classList.add('text-success');
-                    remainingBudgetEl.classList.remove('text-danger', 'text-warning');
-                }
-            }
-            
-            if (budgetDetailsEl) {
-                budgetDetailsEl.textContent = 
-                    `งบรวม: ${totalBudget.toLocaleString('th-TH')} บาท | ใช้ไป: ${totalPurchaseAmount.toLocaleString('th-TH')} บาท`;
-            }
-            
-            if (totalBudgetEl) {
-                totalBudgetEl.textContent = totalBudget.toLocaleString('th-TH', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
+
+                // 2. อัพเดตการแสดงผลใน Card (ถ้ามี element ตรงกับชื่อแผน)
+                const planIdMapping = {
+                    'แผนบรู': 'Bru',
+                    'แผนยุทธศาสตร์': 'Yuttaya',
+                    'แผนยุทธ': 'Yuttaya',
+                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'Dust',
+                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'Central',
+                    'งบกลาง/อื่นๆ': 'Central'
+                };
+
+                Object.keys(plans).forEach(planName => {
+                    const planData = plans[planName];
+                    const suffix = planIdMapping[planName];
+                    
+                    if (suffix) {
+                        const budgetEl = document.getElementById(`budget${suffix}`);
+                        const remainingEl = document.getElementById(`remaining${suffix}`);
+                        const progressEl = document.getElementById(`progress${suffix}`);
+                        const quickEl = document.getElementById(`quickRemaining${suffix}`);
+
+                        if (budgetEl) budgetEl.textContent = `${planData.budget.toLocaleString('th-TH')} บาท`;
+                        if (remainingEl) remainingEl.textContent = `${planData.remaining.toLocaleString('th-TH')} บาท`;
+                        if (quickEl) quickEl.textContent = planData.remaining.toLocaleString('th-TH');
+                        
+                        if (progressEl) {
+                            const percent = planData.budget > 0 ? (planData.used / planData.budget) * 100 : 0;
+                            progressEl.style.width = `${Math.min(percent, 100)}%`;
+                        }
+                    }
                 });
             }
             
-            console.log('✅ อัพเดตงบประมาณสำเร็จ:', {
-                totalBudget,
-                totalPurchaseAmount,
-                remainingBudget
-            });
+            console.log('✅ อัพเดตงบประมาณสำเร็จ:', result.data);
         } else {
             console.warn('⚠️ ไม่สามารถดึงข้อมูลงบประมาณ:', result.error);
         }
@@ -2952,6 +3064,27 @@ function openReturnDrumModal() {
 // ปิด modal สำหรับคืนถังน้ำมัน
 function closeBudgetModal() {
     document.getElementById('budgetManagementModal').style.display = 'none';
+}
+
+function openBudgetModal() {
+    // ดึงค่าปัจจุบันจากหน้าจอ
+    const getAmount = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        return parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
+    };
+
+    document.getElementById('budgetBruInput').value = getAmount('budgetBru');
+    document.getElementById('budgetYuttayaInput').value = getAmount('budgetYuttaya');
+    document.getElementById('budgetDustInput').value = getAmount('budgetDust');
+    document.getElementById('budgetCentralInput').value = getAmount('budgetCentral');
+
+    document.getElementById('budgetManagementModal').style.display = 'block';
+}
+
+function saveBudget() {
+    alert('⚠️ ระบบถูกตั้งค่าให้อ่านข้อมูลจาก Google Sheets เท่านั้น ไม่สามารถแก้ไขผ่านหน้าเว็บได้ในขณะนี้');
+    closeBudgetModal();
 }
 
 function closeReturnDrumModal() {

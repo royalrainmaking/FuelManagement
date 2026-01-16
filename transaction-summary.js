@@ -30,8 +30,8 @@ const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFilters'
 const advancedFiltersPanel = document.getElementById('advancedFiltersPanel');
 const sourceFilterContainer = document.getElementById('sourceFilterContainer');
 const destinationFilterContainer = document.getElementById('destinationFilterContainer');
-const aircraftFilterContainer = document.getElementById('aircraftFilterContainer');
 const unitFilterContainer = document.getElementById('unitFilterContainer');
+const missionFilterContainer = document.getElementById('missionFilterContainer');
 const startDateFilter = document.getElementById('startDateFilter');
 const endDateFilter = document.getElementById('endDateFilter');
 
@@ -122,8 +122,10 @@ function setupEventListeners() {
     // Advanced Filter Checkboxes
     sourceFilterContainer.addEventListener('change', applyFilters);
     destinationFilterContainer.addEventListener('change', applyFilters);
-    aircraftFilterContainer.addEventListener('change', applyFilters);
     unitFilterContainer.addEventListener('change', applyFilters);
+    if (missionFilterContainer) {
+        missionFilterContainer.addEventListener('change', applyFilters);
+    }
     
     // Date Range Filters
     startDateFilter.addEventListener('change', applyFilters);
@@ -132,12 +134,16 @@ function setupEventListeners() {
     // Export buttons
     const exportFilteredBtn = document.getElementById('exportFilteredBtn');
     const exportAllBtn = document.getElementById('exportAllBtn');
+    const exportInventoryBtn = document.getElementById('exportInventoryBtn');
     
     if (exportFilteredBtn) {
         exportFilteredBtn.addEventListener('click', () => exportToExcel(false));
     }
     if (exportAllBtn) {
         exportAllBtn.addEventListener('click', () => exportToExcel(true));
+    }
+    if (exportInventoryBtn) {
+        exportInventoryBtn.addEventListener('click', exportInventoryToExcel);
     }
     
     // Cancel Transaction Button
@@ -164,14 +170,20 @@ function setupEventListeners() {
 function populateFilterOptions() {
     const sources = new Set();
     const destinations = new Set();
-    const aircrafts = new Set();
     const units = new Set();
+    const missions = new Set();
     
     allTransactions.forEach(transaction => {
         if (transaction.source_name) sources.add(transaction.source_name);
         if (transaction.destination_name) destinations.add(transaction.destination_name);
-        if (transaction.aircraft_type) aircrafts.add(transaction.aircraft_type);
         if (transaction.unit) units.add(transaction.unit);
+        if (transaction.missions) {
+            // Missions can be a comma-separated string
+            transaction.missions.split(',').forEach(m => {
+                const trimmed = m.trim();
+                if (trimmed) missions.add(trimmed);
+            });
+        }
     });
     
     // Helper function to create checkboxes
@@ -203,8 +215,10 @@ function populateFilterOptions() {
     
     createCheckboxGroup(sources, 'sourceFilterContainer');
     createCheckboxGroup(destinations, 'destinationFilterContainer');
-    createCheckboxGroup(aircrafts, 'aircraftFilterContainer');
     createCheckboxGroup(units, 'unitFilterContainer');
+    if (missionFilterContainer) {
+        createCheckboxGroup(missions, 'missionFilterContainer');
+    }
 }
 
 /**
@@ -261,8 +275,8 @@ function applyFilters() {
     const searchText = searchInput.value.toLowerCase();
     const selectedSources = Array.from(sourceFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     const selectedDestinations = Array.from(destinationFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-    const selectedAircrafts = Array.from(aircraftFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     const selectedUnits = Array.from(unitFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const selectedMissions = missionFilterContainer ? Array.from(missionFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
     const startDate = startDateFilter.value;
     const endDate = endDateFilter.value;
     const sortBy = sortByFilter.value;
@@ -274,6 +288,7 @@ function applyFilters() {
             transaction.destination_name.toLowerCase().includes(searchText) ||
             transaction.operator_name.toLowerCase().includes(searchText) ||
             transaction.transaction_type.toLowerCase().includes(searchText) ||
+            (transaction.missions && transaction.missions.toLowerCase().includes(searchText)) ||
             (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText));
 
         // Source filter (multiple selection)
@@ -284,18 +299,21 @@ function applyFilters() {
         const matchesDestination = selectedDestinations.length === 0 || 
             selectedDestinations.includes(transaction.destination_name);
 
-        // Aircraft filter (multiple selection)
-        const matchesAircraft = selectedAircrafts.length === 0 || 
-            selectedAircrafts.includes(transaction.aircraft_type);
-
         // Unit filter (multiple selection)
         const matchesUnit = selectedUnits.length === 0 || 
             selectedUnits.includes(transaction.unit);
 
+        // Mission filter (multiple selection)
+        let matchesMission = selectedMissions.length === 0;
+        if (!matchesMission && transaction.missions) {
+            const rowMissions = transaction.missions.split(',').map(m => m.trim());
+            matchesMission = selectedMissions.some(m => rowMissions.includes(m));
+        }
+
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
 
-        return matchesSearch && matchesSource && matchesDestination && matchesAircraft && matchesUnit && matchesDateRange;
+        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesDateRange;
     });
 
     // Apply sorting
@@ -394,12 +412,12 @@ function renderTable(isAppend = false) {
             <tr>
                 <td><small style="font-family: 'Courier New', monospace; color: #dc3545; font-weight: 600;">${transaction.uid || '-'}</small></td>
                 <td><small class="text-muted">${formatDate(transaction.date)}</small></td>
-                <td><small class="text-muted">${transaction.time || '-'}</small></td>
                 <td>
                     ${getTransactionTypeBadge(transaction.transaction_type)}
                 </td>
                 <td><small>${transaction.source_name}</small></td>
                 <td><small>${transaction.destination_name}</small></td>
+                <td><small class="text-truncate d-inline-block" style="max-width: 120px;" title="${transaction.missions || '-'}">${transaction.missions || '-'}</small></td>
                 <td class="text-end">
                     <strong>${formatNumber(transaction.volume)}</strong>
                 </td>
@@ -601,12 +619,12 @@ function showDetailModal(transactionId) {
             ${transaction.missions ? `
             <div class="detail-section">
                 <div class="detail-section-title">
-                    <i class="fas fa-tasks"></i> ภาระกิจ
+                    <i class="fas fa-tasks"></i> ภารกิจ
                 </div>
                 
                 <div class="detail-row full">
                     <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภาระกิจ</div>
+                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภารกิจ</div>
                         <div class="detail-value">${transaction.missions}</div>
                     </div>
                 </div>
@@ -784,8 +802,10 @@ function resetFilters() {
     // Uncheck all checkboxes
     sourceFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     destinationFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    aircraftFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     unitFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    if (missionFilterContainer) {
+        missionFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    }
     
     currentPage = 1;
     applyFilters();
@@ -878,7 +898,7 @@ function exportToExcel(exportAll) {
             'เลขทะเบียน',
             'Book No.',
             'Receipt No.',
-            'ภาระกิจ',
+            'ภารกิจ',
             'หมายเหตุ'
         ];
         
@@ -944,7 +964,7 @@ function exportToExcel(exportAll) {
             { wch: 15 },  // เลขทะเบียน
             { wch: 15 },  // Book No.
             { wch: 15 },  // Receipt No.
-            { wch: 30 },  // ภาระกิจ
+            { wch: 30 },  // ภารกิจ
             { wch: 20 }   // หมายเหตุ
         ];
         worksheetFinal['!cols'] = colWidths;
@@ -984,6 +1004,82 @@ function exportToExcel(exportAll) {
         console.error('Export error:', error);
         alert('เกิดข้อผิดพลาดในการส่งออก: ' + error.message);
     }
+}
+
+/**
+ * Export Fuel Sources (Inventory) to Excel
+ */
+function exportInventoryToExcel() {
+    showLoading(true);
+    
+    // ดึงข้อมูลจาก API Master Data (แหล่งน้ำมัน)
+    const url = `${GOOGLE_SCRIPT_URL}?action=getMasterData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.INVENTORY}`;
+    
+    console.log('Fetching inventory data for export:', url);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data) {
+                const inventoryData = data.data;
+                
+                if (inventoryData.length === 0) {
+                    alert('ไม่มีข้อมูลแหล่งน้ำมันสำหรับการส่งออก');
+                    return;
+                }
+                
+                // คอลัมน์ B, C, D (ชื่อแหล่งน้ำมัน, ความจุ, ปริมาณคงเหลือ)
+                const headers = [
+                    'ชื่อแหล่งน้ำมัน',
+                    'ความจุ (ลิตร)',
+                    'ปริมาณคงเหลือ (ลิตร)'
+                ];
+                
+                // Map data to rows - คัดเลือกเฉพาะ Name, Capacity, Stock
+                const rows = inventoryData.map(source => [
+                    source.name || source.source_name || '-',
+                    source.capacity || '-',
+                    parseFloat(source.current_stock) || 0
+                ]);
+                
+                // Create workbook
+                const workbook = XLSX.utils.book_new();
+                
+                // Create worksheet
+                const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                
+                // Set column widths
+                const colWidths = [
+                    { wch: 35 }, // ชื่อแหล่งน้ำมัน
+                    { wch: 15 }, // ความจุ
+                    { wch: 20 }  // ปริมาณคงเหลือ
+                ];
+                worksheet['!cols'] = colWidths;
+                
+                // Add sheet to workbook
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventory');
+                
+                // Generate filename
+                const fileName = `Fuel_Inventory_${new Date().getTime()}.xlsx`;
+                
+                // Write file
+                XLSX.writeFile(workbook, fileName);
+                
+                console.log(`Inventory export successful: ${fileName}`);
+            } else {
+                throw new Error(data.error || 'ข้อมูลไม่ถูกต้อง');
+            }
+        })
+        .catch(error => {
+            console.error('Inventory export error:', error);
+            alert('เกิดข้อผิดพลาดในการส่งออกข้อมูลแหล่งน้ำมัน: ' + error.message);
+        })
+        .finally(() => {
+            showLoading(false);
+        });
 }
 
 /**
@@ -1254,12 +1350,12 @@ function showCancelConfirmation(transaction) {
             ${transaction.missions ? `
             <div class="detail-section">
                 <div class="detail-section-title">
-                    <i class="fas fa-tasks"></i> ภาระกิจ
+                    <i class="fas fa-tasks"></i> ภารกิจ
                 </div>
                 
                 <div class="detail-row full">
                     <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภาระกิจ</div>
+                        <div class="detail-label"><i class="fas fa-tasks"></i>ประเภทภารกิจ</div>
                         <div class="detail-value">${transaction.missions}</div>
                     </div>
                 </div>

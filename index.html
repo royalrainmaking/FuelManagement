@@ -67,28 +67,6 @@
                 <!-- สรุปภาพรวม -->
                 <div class="row mb-3 g-2">
                     <div class="col-lg-4 col-md-6">
-                        <div class="card border-0 shadow-lg overview-card h-100" style="background: linear-gradient(135deg, #f3e5f5 0%, #ffffff 100%);">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <div class="overview-icon-wrapper bg-purple bg-opacity-10 rounded-circle">
-                                        <i class="fas fa-wallet text-purple"></i>
-                                    </div>
-                                    <div class="overview-trend text-purple">
-                                        <i class="fas fa-money-bill-wave fa-sm"></i>
-                                    </div>
-                                </div>
-                                <div class="overview-content">
-                                    <p class="text-muted mb-2 fw-medium">วงเงินสัญญาซื้อน้ำมันอากาศยาน</p>
-                                    <div class="d-flex align-items-baseline">
-                                        <h2 class="mb-0 fw-bold me-2" id="totalBudgetAmount" style="font-size: 2rem; color: #7c3aed;">0</h2>
-                                        <span class="text-muted fs-6">บาท</span>
-                                    </div>
-                                </div>
-                                <div class="overview-border-accent" style="background: #7c3aed;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-6">
                         <div class="card border-0 shadow-lg overview-card h-100" style="background: linear-gradient(135deg, #e7f8e7 0%, #ffffff 100%);">
                             <div class="card-body">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -100,12 +78,58 @@
                                     </div>
                                 </div>
                                 <div class="overview-content">
-                                    <p class="text-muted mb-2 fw-medium">วงเงินสัญญาคงเหลือ</p>
-                                    <div class="d-flex align-items-baseline">
-                                        <h2 class="mb-0 fw-bold text-success me-2" id="remainingBudget" style="font-size: 2rem;">0</h2>
-                                        <span class="text-muted fs-6">บาท</span>
+                                    <p class="text-muted mb-3 fw-medium">วงเงินสัญญาคงเหลือตามแผน</p>
+                                    
+                                    <!-- แถวสรุปงบประมาณแยกตามแผน -->
+                                    <div id="quickBudgetStatus" class="d-flex flex-column gap-2">
+                                        <!-- แผนบรู -->
+                                        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-warning bg-opacity-10 border-start border-4 border-warning">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-cloud-rain text-warning me-2" style="width: 20px;"></i>
+                                                <span class="fw-bold text-dark">บรู</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="fw-bold text-warning" id="quickRemainingBru">0</span>
+                                                <small class="text-muted ms-1">บาท</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- แผนยุทธ -->
+                                        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-primary bg-opacity-10 border-start border-4 border-primary">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-shield-alt text-primary me-2" style="width: 20px;"></i>
+                                                <span class="fw-bold text-dark">ยุทธ</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="fw-bold text-primary" id="quickRemainingYuttaya">0</span>
+                                                <small class="text-muted ms-1">บาท</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- แผนฝุ่น -->
+                                        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-info bg-opacity-10 border-start border-4 border-info">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-smog text-info me-2" style="width: 20px;"></i>
+                                                <span class="fw-bold text-dark">ดัดแปลงสภาพอากาศ (ฝุ่น)</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="fw-bold text-info" id="quickRemainingDust">0</span>
+                                                <small class="text-muted ms-1">บาท</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- แผนลูกเห็บ -->
+                                        <div class="d-flex justify-content-between align-items-center p-2 rounded bg-danger bg-opacity-10 border-start border-4 border-danger">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-gem text-danger me-2" style="width: 20px;"></i>
+                                                <span class="fw-bold text-dark">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</span>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="fw-bold text-danger" id="quickRemainingCentral">0</span>
+                                                <small class="text-muted ms-1">บาท</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <small class="text-muted" id="budgetDetails">งบรวม: 0 บาท | ใช้ไป: 0 บาท</small>
                                 </div>
                                 <div class="overview-border-accent bg-success"></div>
                             </div>
@@ -126,19 +150,24 @@
                                 <div class="overview-content">
                                     <p class="text-muted mb-3 fw-medium">ความจุคงเหลือทั้งหมด</p>
                                     
-                                    <!-- Enhanced Fuel Capacity Display -->
-                                    <div class="d-flex flex-column gap-2">
-                                        <!-- Volume Info -->
-                                        <div class="fuel-volume-value" id="totalFuelInfo">63,057/115,000 ลิตร</div>
+                                    <div class="d-flex flex-column align-items-center gap-2">
+                                        <!-- Circular Gauge -->
+                                        <div class="fuel-gauge-container">
+                                            <svg viewBox="0 0 36 36" class="circular-chart success">
+                                                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                                <path class="circle" id="fuelGaugePath" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                                <text x="18" y="20.35" class="percentage" id="fuelGaugePercentage">0%</text>
+                                            </svg>
+                                        </div>
                                         
-                                        <!-- Progress Bar with Percentage -->
-                                        <div class="fuel-progress-container">
-                                            <div class="d-flex align-items-center justify-content-between mb-1">
-                                                <span style="font-size: 0.75rem; color: #6c757d;"></span>
-                                                <span class="fuel-progress-percentage" id="fuelGaugePercentage">55%</span>
-                                            </div>
-                                            <div class="fuel-progress-bar" id="fuelProgressBar">
-                                                <div class="fuel-progress-fill" id="fuelProgressFill" style="width: 55%"></div>
+                                        <!-- Info -->
+                                        <div class="w-100">
+                                            <div class="fuel-status-label mb-1">สถานะคลังน้ำมัน</div>
+                                            <div class="fuel-volume-large" id="totalFuelInfo">0/0 ลิตร</div>
+                                            <div class="fuel-progress-mini" style="display: none;">
+                                                <div class="fuel-progress-bar-mini">
+                                                    <div class="fuel-progress-fill-mini" id="fuelProgressFill" style="width: 0%"></div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -234,24 +263,24 @@
                                 </div>
                             </div>
                             <div class="col-lg-3 col-md-6">
-                                <div class="card border border-secondary bg-secondary bg-opacity-10 h-100">
+                                <div class="card border border-info bg-info bg-opacity-10 h-100">
                                     <div class="card-body p-3">
                                         <div class="d-flex align-items-center mb-2">
-                                            <div class="bg-secondary bg-opacity-25 rounded-circle p-2 me-2">
-                                                <i class="fas fa-smog text-secondary"></i>
+                                            <div class="bg-info bg-opacity-25 rounded-circle p-2 me-2">
+                                                <i class="fas fa-smog text-info"></i>
                                             </div>
-                                            <h6 class="mb-0 fw-bold">แผนฝุ่น</h6>
+                                            <h6 class="mb-0 fw-bold">ดัดแปลงสภาพอากาศ (ฝุ่น)</h6>
                                         </div>
                                         <div class="mb-2">
                                             <small class="text-muted">งบที่ได้รับ:</small>
-                                            <div class="fw-bold text-secondary" id="budgetDust">0 บาท</div>
+                                            <div class="fw-bold text-info" id="budgetDust">0 บาท</div>
                                         </div>
                                         <div class="mb-2">
                                             <small class="text-muted">คงเหลือ:</small>
                                             <div class="fw-bold" id="remainingDust">0 บาท</div>
                                         </div>
                                         <div class="progress" style="height: 4px;">
-                                            <div class="progress-bar bg-secondary" id="progressDust" style="width: 0%"></div>
+                                            <div class="progress-bar bg-info" id="progressDust" style="width: 0%"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -261,20 +290,20 @@
                                     <div class="card-body p-3">
                                         <div class="d-flex align-items-center mb-2">
                                             <div class="bg-danger bg-opacity-25 rounded-circle p-2 me-2">
-                                                <i class="fas fa-meteor text-danger"></i>
+                                                <i class="fas fa-gem text-danger"></i>
                                             </div>
                                             <h6 class="mb-0 fw-bold">แผนลูกเห็บ</h6>
                                         </div>
                                         <div class="mb-2">
                                             <small class="text-muted">งบที่ได้รับ:</small>
-                                            <div class="fw-bold text-danger" id="budgetHail">0 บาท</div>
+                                            <div class="fw-bold text-danger" id="budgetCentral">0 บาท</div>
                                         </div>
                                         <div class="mb-2">
                                             <small class="text-muted">คงเหลือ:</small>
-                                            <div class="fw-bold" id="remainingHail">0 บาท</div>
+                                            <div class="fw-bold" id="remainingCentral">0 บาท</div>
                                         </div>
                                         <div class="progress" style="height: 4px;">
-                                            <div class="progress-bar bg-danger" id="progressHail" style="width: 0%"></div>
+                                            <div class="progress-bar bg-danger" id="progressCentral" style="width: 0%"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -397,10 +426,10 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="budgetHailInput" class="form-label">
-                                <i class="fas fa-meteor text-danger me-2"></i>งบประมาณแผนลูกเห็บ (บาท)
+                            <label for="budgetCentralInput" class="form-label">
+                                <i class="fas fa-coins text-danger me-2"></i>งบประมาณงบกลาง/อื่นๆ (บาท)
                             </label>
-                            <input type="number" class="form-control" id="budgetHailInput" name="budgetHail" min="0" step="1" placeholder="0">
+                            <input type="number" class="form-control" id="budgetCentralInput" name="budgetCentral" min="0" step="1" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -446,7 +475,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>ภาระกิจ:</label>
+                    <label>ภารกิจ:</label>
                     <div class="missions-group">
                         <label class="mission-checkbox-item">
                             <input type="checkbox" id="mission1" name="missions" value="บินบริการ">
@@ -457,8 +486,12 @@
                             ปฏิบัติการฝนหลวง
                         </label>
                         <label class="mission-checkbox-item">
-                            <input type="checkbox" id="mission3" name="missions" value="ดัดแปลงสภาพอากาศ">
-                            ดัดแปลงสภาพอากาศ
+                            <input type="checkbox" id="mission3" name="missions" value="ดัดแปลงสภาพอากาศ (ฝุ่น)">
+                            ดัดแปลงสภาพอากาศ (ฝุ่น)
+                        </label>
+                        <label class="mission-checkbox-item">
+                            <input type="checkbox" id="mission6" name="missions" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)">
+                            ดัดแปลงสภาพอากาศ (ลูกเห็บ)
                         </label>
                         <label class="mission-checkbox-item">
                             <input type="checkbox" id="mission4" name="missions" value="บินสำรวจ">
@@ -473,7 +506,7 @@
                             อื่นๆ (ระบุ)
                         </label>
                         <div id="otherMissionDetailsContainer" class="other-details-container" style="display: none;">
-                            <input type="text" id="otherMissionDetails" placeholder="ระบุรายละเอียดภาระกิจ..." class="form-control-sm">
+                            <input type="text" id="otherMissionDetails" placeholder="ระบุรายละเอียดภารกิจ..." class="form-control-sm">
                         </div>
                     </div>
                 </div>
@@ -901,6 +934,30 @@
                         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
                             <span style="color: #666;">ผู้ทำรายการ:</span>
                             <strong id="uidOperator">-</strong>
+                        </div>
+                        <div id="uidUnitRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">หน่วย:</span>
+                            <strong id="uidUnit">-</strong>
+                        </div>
+                        <div id="uidAircraftRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">เครื่องบิน/ยานพาหนะ:</span>
+                            <strong id="uidAircraft">-</strong>
+                        </div>
+                        <div id="uidMissionsRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ภารกิจ:</span>
+                            <strong id="uidMissions">-</strong>
+                        </div>
+                        <div id="uidPriceRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">ราคาต่อลิตร:</span>
+                            <strong id="uidPrice">-</strong>
+                        </div>
+                        <div id="uidTotalCostRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">มูลค่ารวม:</span>
+                            <strong id="uidTotalCost">-</strong>
+                        </div>
+                        <div id="uidNotesRow" style="display: none; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dee2e6;">
+                            <span style="color: #666;">หมายเหตุ:</span>
+                            <strong id="uidNotes">-</strong>
                         </div>
                         <div style="display: flex; justify-content: space-between; padding: 8px 0;">
                             <span style="color: #666;">เวลา:</span>

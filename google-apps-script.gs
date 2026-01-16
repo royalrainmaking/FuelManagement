@@ -47,10 +47,22 @@ function getBudgetData(sheetsId, budgetGid) {
     
     // หา sheet Transaction Log
     let transactionSheet = null;
+    const TRANSACTION_LOG_GID = '1578547125';
     for (let i = 0; i < worksheets.length; i++) {
-      if (worksheets[i].getName() === 'Transaction_Log' || worksheets[i].getSheetId().toString() === '0') {
+      const gid = worksheets[i].getSheetId().toString();
+      if (gid === TRANSACTION_LOG_GID || worksheets[i].getName() === 'Transaction_Log') {
         transactionSheet = worksheets[i];
         break;
+      }
+    }
+    
+    // Fallback ถ้าไม่พบ GID 1578547125 ให้ลองหา GID 0
+    if (!transactionSheet) {
+      for (let i = 0; i < worksheets.length; i++) {
+        if (worksheets[i].getSheetId().toString() === '0') {
+          transactionSheet = worksheets[i];
+          break;
+        }
       }
     }
     
@@ -58,37 +70,101 @@ function getBudgetData(sheetsId, budgetGid) {
       throw new Error('ไม่พบ sheet Transaction_Log');
     }
     
-    // อ่านข้อมูลงบประมาณ - SUM ของคอลัมน์ B
+    // Mapping ภารกิจ -> แผนงาน
+    const missionToPlan = {
+      'บินบริการ': 'yuttaya',
+      'บินทดสอบ': 'yuttaya',
+      'อื่นๆ': 'yuttaya',
+      'ปฏิบัติการฝนหลวง': 'bru',
+      'บินสำรวจ': 'bru',
+      'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'dust',
+      'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'hail'
+    };
+    
+    // Mapping สำหรับหาชื่อแผนจากภารกิจหรือชื่อย่อ
+    const getPlanName = (input) => {
+      const name = (input || '').toString().trim();
+      if (name.includes('ลูกเห็บ'))  return 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)';
+      if (name.includes('ฝุ่น') || name.includes('ดัดแปลงสภาพอากาศ')) return 'ดัดแปลงสภาพอากาศ (ฝุ่น)';
+      if (name.includes('บรู') || name.includes('ฝนหลวง') || name.includes('บินสำรวจ')) return 'แผนบรู';
+      if (name.includes('ยุทธ') || name.includes('บินบริการ') || name.includes('บินทดสอบ') || name.includes('พื้นฐาน')) return 'แผนยุทธศาสตร์';
+      return 'แผนยุทธศาสตร์';
+    };
+    
+    // โครงสร้างข้อมูลงบประมาณแยกตามแผน (Initialize with the 4 core plans)
+    const corePlans = ['แผนยุทธศาสตร์', 'แผนบรู', 'ดัดแปลงสภาพอากาศ (ฝุ่น)', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)'];
+    const plans = {};
+    corePlans.forEach(p => plans[p] = { budget: 0, used: 0, remaining: 0 });
+    
+    // อ่านข้อมูลงบประมาณ - คอลัมน์ A (รายการ), คอลัมน์ B (แผน), คอลัมน์ C (ยอดเงิน)
     const budgetLastRow = budgetSheet.getLastRow();
     let totalBudget = 0;
     
     if (budgetLastRow > 1) {
-      const budgetRange = budgetSheet.getRange('B2:B' + budgetLastRow);
-      const budgetValues = budgetRange.getValues();
+      const budgetData = budgetSheet.getRange('A2:C' + budgetLastRow).getValues();
       
-      for (let i = 0; i < budgetValues.length; i++) {
-        const value = parseFloat(budgetValues[i][0]) || 0;
-        totalBudget += value;
-      }
+      budgetData.forEach(row => {
+        const itemDetail = (row[0] || '').toString().trim();
+        const planColumn = (row[1] || '').toString().trim();
+        
+        if (!itemDetail && !planColumn) return;
+        
+        // ใช้ชื่อแผนจากคอลัมน์ B เป็นหลัก
+        const planName = getPlanName(planColumn || itemDetail);
+        const amount = parseFloat(row[2]) || 0;
+        
+        plans[planName].budget += amount;
+        totalBudget += amount;
+      });
     }
     
-    // อ่านข้อมูลยอดเงินที่ซื้อจาก ปตท. - SUM ของคอลัมน์ I ของ Transaction Log
-    // โครงสร้าง: A=วันที่, B=เวลา, C=ชนิด, D=ชื่อ, E=ปลายทาง, F=จำนวน(ลิตร), G=ราคาต่อลิตร, H=ยอดรวม, I=ผู้ปฏิบัติงาน
+    // อ่านข้อมูลยอดเงินที่ซื้อจาก ปตท. (Transaction Log)
+    // คอลัมน์ I (ยอดรวม), คอลัมน์ R (ภารกิจ)
     const transLastRow = transactionSheet.getLastRow();
     let totalPurchaseAmount = 0;
     
     if (transLastRow > 1) {
-      // อ่านจากคอลัมน์ H (ยอดรวม) ไม่ใช่ I
-      const amountRange = transactionSheet.getRange('I2:I' + transLastRow);
-      const amountValues = amountRange.getValues();
+      const transData = transactionSheet.getRange('A2:R' + transLastRow).getValues();
       
-      for (let i = 0; i < amountValues.length; i++) {
-        const value = parseFloat(amountValues[i][0]) || 0;
-        totalPurchaseAmount += value;
-      }
+      transData.forEach((row, index) => {
+        // รวมทุกรายการที่มีการระบุยอดเงิน (คอลัมน์ I) และภารกิจ (คอลัมน์ R)
+        // ยกเลิกการกรองเฉพาะ refill/fuel-card เพื่อให้หักลบยอดตามจริงที่บันทึก
+        const amount = parseFloat(row[8]) || 0; // คอลัมน์ I (ยอดรวม)
+        const missions = (row[17] || '').toString().trim(); // คอลัมน์ R (ภารกิจ)
+        
+        if (amount > 0) {
+          totalPurchaseAmount += amount;
+          
+          let targetPlan = 'แผนยุทธศาสตร์'; // ค่าเริ่มต้น
+          
+          if (missions) {
+            const missionList = missions.split(',').map(m => m.trim());
+            // ค้นหาแผนที่ตรงกับภารกิจ
+            for (const m of missionList) {
+              const p = getPlanName(m);
+              if (p !== 'แผนยุทธศาสตร์') {
+                targetPlan = p;
+                break;
+              }
+            }
+          }
+          
+          if (plans[targetPlan]) {
+            plans[targetPlan].used += amount;
+          }
+          
+          // Log เพื่อตรวจสอบ (จะแสดงใน Apps Script Execution Logs)
+          console.log(`[Row ${index+2}] Mission: "${missions}" -> Plan: ${targetPlan}, Amount: ${amount}`);
+        }
+      });
     }
     
-    // คำนวณเงินคงเหลือ
+    // คำนวณเงินคงเหลือสำหรับทุกแผน
+    Object.keys(plans).forEach(key => {
+      plans[key].remaining = plans[key].budget - plans[key].used;
+      console.log(`[Summary] Plan: ${key}, Budget: ${plans[key].budget}, Used: ${plans[key].used}, Remaining: ${plans[key].remaining}`);
+    });
+    
     const remainingBudget = totalBudget - totalPurchaseAmount;
     
     return ContentService
@@ -97,7 +173,8 @@ function getBudgetData(sheetsId, budgetGid) {
         data: {
           totalBudget: totalBudget,
           totalPurchaseAmount: totalPurchaseAmount,
-          remainingBudget: remainingBudget
+          remainingBudget: remainingBudget,
+          plans: plans
         }
       }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -136,31 +213,26 @@ function createSampleBudgetData(sheetsId, budgetGid) {
     }
     
     // ลบข้อมูลเก่า (ถ้ามี)
-    const maxRows = budgetSheet.getMaxRows();
-    if (maxRows > 1) {
-      budgetSheet.deleteRows(2, maxRows - 1);
+    const lastRow = budgetSheet.getLastRow();
+    if (lastRow > 1) {
+      budgetSheet.getRange(2, 1, lastRow - 1, budgetSheet.getLastColumn()).clearContent();
     }
     
     // เพิ่ม header
-    budgetSheet.getRange('A1').setValue('ชื่อแผน');
-    budgetSheet.getRange('B1').setValue('งบประมาณ');
+    budgetSheet.getRange('A1:C1').setValues([['ชื่อแผน', 'งบประมาณ', 'ภารกิจ']]);
     
     // เพิ่มข้อมูล 4 แผน
     const budgetPlans = [
-      { name: 'แผนบรู', budget: 500000 },
-      { name: 'แผนยุทธ', budget: 750000 },
-      { name: 'แผนฝุ่น', budget: 600000 },
-      { name: 'แผนลูกเห็บ', budget: 400000 }
+      ['แผนบรู', 500000, 'ปฏิบัติการฝนหลวง'],
+      ['แผนยุทธ', 750000, 'บินบริการ'],
+      ['ดัดแปลงสภาพอากาศ (ฝุ่น)', 600000, 'ดัดแปลงสภาพอากาศ (ฝุ่น)'],
+      ['ดัดแปลงสภาพอากาศ (ลูกเห็บ)', 400000, 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)']
     ];
     
-    for (let i = 0; i < budgetPlans.length; i++) {
-      const row = i + 2;
-      budgetSheet.getRange('A' + row).setValue(budgetPlans[i].name);
-      budgetSheet.getRange('B' + row).setValue(budgetPlans[i].budget);
-    }
+    budgetSheet.getRange(2, 1, budgetPlans.length, 3).setValues(budgetPlans);
     
     // จัดรูปแบบ header
-    const headerRange = budgetSheet.getRange('A1:B1');
+    const headerRange = budgetSheet.getRange('A1:C1');
     headerRange.setBackground('#1f77d2');
     headerRange.setFontColor('#ffffff');
     headerRange.setFontWeight('bold');
@@ -171,6 +243,7 @@ function createSampleBudgetData(sheetsId, budgetGid) {
     // ปรับความกว้าง
     budgetSheet.setColumnWidth(1, 150);
     budgetSheet.setColumnWidth(2, 150);
+    budgetSheet.setColumnWidth(3, 150);
     
     return ContentService
       .createTextOutput(JSON.stringify({
@@ -178,7 +251,7 @@ function createSampleBudgetData(sheetsId, budgetGid) {
         message: 'สร้างข้อมูลตัวอย่างงบประมาณสำเร็จ',
         data: {
           plansCreated: budgetPlans.length,
-          totalBudget: budgetPlans.reduce((sum, plan) => sum + plan.budget, 0),
+          totalBudget: budgetPlans.reduce((sum, plan) => sum + plan[1], 0),
           plans: budgetPlans
         }
       }))
@@ -2373,7 +2446,7 @@ function createBudgetSheet(sheetsId) {
       ['แผนบรู', 0, 0, '=B2-C2', '', 'งบประมาณสำหรับแผนบรู'],
       ['แผนยุทธ', 0, 0, '=B3-C3', '', 'งบประมาณสำหรับแผนยุทธศาสตร์'],
       ['แผนฝุ่น', 0, 0, '=B4-C4', '', 'งบประมาณสำหรับแผนฝุ่น'],
-      ['แผนลูกเห็บ', 0, 0, '=B5-C5', '', 'งบประมาณสำหรับแผนลูกเห็บ']
+      ['งบกลาง/อื่นๆ', 0, 0, '=B5-C5', '', 'งบประมาณสำหรับงบกลางหรืออื่นๆ']
     ];
     
     for (let i = 0; i < initialBudgetPlans.length; i++) {
