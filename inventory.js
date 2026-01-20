@@ -392,47 +392,23 @@ function getSelectedMissions() {
 
 // ฟังก์ชันสร้าง UID แบบ FT0001, FT0002, ...
 function generateUID() {
-    const now = new Date();
-    // สร้างส่วนของวันที่และเวลา (YYMMDDHHMMSS)
-    const datePart = now.getFullYear().toString().substr(-2) + 
-                     (now.getMonth() + 1).toString().padStart(2, '0') + 
-                     now.getDate().toString().padStart(2, '0');
-    const timePart = now.getHours().toString().padStart(2, '0') + 
-                     now.getMinutes().toString().padStart(2, '0') +
-                     now.getSeconds().toString().padStart(2, '0');
-    
-    // รวมเป็นตัวเลข (12 หลัก)
-    const currentTS = parseInt(datePart + timePart);
-    
-    // โหลด UID ล่าสุดจาก localStorage เพื่อตรวจสอบความต่อเนื่อง
+    // โหลด UID ล่าสุดจาก localStorage
     let lastUID = localStorage.getItem('lastTransactionUID');
-    let lastNum = 0;
+    let uidNumber = 1;
     
     if (lastUID) {
-        // แยกเลขออกจาก UID (รองรับทั้งรูปแบบเก่า FT0001 และรูปแบบใหม่ FT260120...)
+        // แยกเลขออกจาก UID (เช่น FT0001 -> 1)
         const match = lastUID.match(/FT(\d+)/);
         if (match) {
-            lastNum = parseInt(match[1]);
+            uidNumber = parseInt(match[1]) + 1;
         }
     }
     
-    // ป้องกันการซ้ำซ้อน:
-    // 1. ถ้าเวลาปัจจุบันยังไม่เปลี่ยน (กดยืนยันรัวๆ) ให้ใช้เลขล่าสุด + 1
-    // 2. ถ้าเวลาปัจจุบันเปลี่ยนไปข้างหน้า ให้ใช้เวลาปัจจุบันเป็นฐาน
-    // 3. ป้องกันปัญหาเวลาเครื่องเพี้ยน (ถอยหลัง) โดยใช้ค่าที่มากที่สุดเสมอ
-    let newNum;
-    if (lastNum >= currentTS) {
-        newNum = lastNum + 1;
-    } else {
-        newNum = currentTS;
-    }
+    // สร้าง UID ใหม่ในรูปแบบ FT0001 (4 หลัก)
+    const newUID = `FT${String(uidNumber).padStart(4, '0')}`;
     
-    const newUID = `FT${newNum}`;
-    
-    // บันทึก UID ล่าสุดลง localStorage
+    // บันทึก UID ล่าสุด
     localStorage.setItem('lastTransactionUID', newUID);
-    
-    console.log(`🆔 Generated UID: ${newUID} (based on ${newNum >= currentTS ? 'sequence' : 'timestamp'})`);
     
     return newUID;
 }
