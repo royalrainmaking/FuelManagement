@@ -556,6 +556,8 @@ function doGet(e) {
         return getLatestDailyConfirmations(sheetsId, gid);
       case 'logDailyConfirmation':
         return logDailyConfirmation(e.parameter.data, sheetsId, gid);
+      case 'processTransaction':
+        return processTransaction(e.parameter.data, e.parameter.updateData, sheetsId, gid);
       case 'getPTTPricesByProvince':
         return getPTTPricesByProvince(e.parameter.province, sheetsId, gid);
       case 'getPTTPricesByLocationName':
@@ -604,6 +606,8 @@ function doPost(e) {
       return ContentService
         .createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'processTransaction') {
+      return processTransaction(data.data, data.updateData, data.sheetsId, data.gid);
     } else {
       return ContentService
         .createTextOutput(JSON.stringify({
@@ -1297,10 +1301,10 @@ function sendLineNotificationAsync(transactionData, config) {
     const now = Date.now();
     const lastNotificationTime = getLastNotificationTime();
     const timeSinceLastNotification = now - lastNotificationTime;
-    const delayMs = config.NOTIFICATION_DELAY || 1000;
+    const delayMs = config.NOTIFICATION_DELAY || 500; // ลดเหลือ 500ms
 
     if (timeSinceLastNotification < delayMs) {
-      const waitTime = delayMs - timeSinceLastNotification;
+      const waitTime = Math.min(delayMs - timeSinceLastNotification, 500); // ไม่รอเกิน 500ms
       console.log(`⏱️ Rate limiting: รอ ${waitTime}ms ก่อนส่ง notification`);
       Utilities.sleep(waitTime);
     }
@@ -3889,5 +3893,146 @@ function testImageUpload() {
   } catch (error) {
     Logger.log('❌ Test Error:');
     Logger.log(error.toString());
+  }
+}
+
+/**
+ * รวมการบันทึก Log และอัปเดต Inventory ในครั้งเดียวเพื่อความรวดเร็ว
+ */
+function processTransaction(transactionDataString, updateInventoryDataString, sheetsId, inventoryGid) {
+  const logs = ['=== 🔵 processTransaction STARTED ==='];
+  try {
+    const transactionData = JSON.parse(transactionDataString);
+    const updateData = JSON.parse(updateInventoryDataString);
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    
+    // 1. บันทึก Transaction Log
+    const logResult = internalLogTransaction(spreadsheet, transactionData, logs);
+    
+    // 2. อัปเดต Inventory
+    const inventoryResult = internalUpdateInventory(spreadsheet, inventoryGid, updateData, logs);
+    
+    logs.push('=== 🟢 processTransaction COMPLETED ===');
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'ประมวลผลรายการสำเร็จ',
+        logSuccess: logResult,
+        inventorySuccess: inventoryResult,
+        logs: logs
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    logs.push('❌ Error in processTransaction: ' + error.toString());
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString(),
+        logs: logs
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันภายในสำหรับบันทึก Log (ใช้ Spreadsheet object เดิม)
+ */
+function internalLogTransaction(spreadsheet, transactionData, logs) {
+  try {
+    let logSheet = spreadsheet.getSheetByName('Transaction_Log');
+    if (!logSheet || logSheet.getLastRow() === 0) {
+      logSheet = createTransactionLogSheet(spreadsheet.getId());
+    }
+    
+    const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
+    const dateStr = Utilities.formatDate(timestamp, 'Asia/Bangkok', 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(timestamp, 'Asia/Bangkok', 'HH:mm:ss');
+    
+    logSheet.appendRow([
+      transactionData.uid || '',           
+      dateStr,                             
+      timeStr,                             
+      transactionData.type || '',          
+      transactionData.source || '',        
+      transactionData.destination || '',   
+      transactionData.volume || 0,         
+      transactionData.pricePerLiter || 0,  
+      transactionData.totalCost || 0,      
+      transactionData.operatorName || '',  
+      transactionData.unit || '',          
+      transactionData.aircraftType || '',  
+      transactionData.aircraftNumber || '',
+      transactionData.notes || '',         
+      transactionData.bookNo || '',        
+      transactionData.receiptNo || '',     
+      transactionData.volumeLiters || 0,   
+      transactionData.missions || '',
+      transactionData.imageUrl || '',
+      transactionData.imageFilename || '',
+      timestamp.toISOString(),
+      transactionData.imageDriveId || ''
+    ]);
+    
+    logs.push('✅ Logged transaction successfully');
+    
+    try {
+      const lineConfig = getLineConfigFromSheet(spreadsheet);
+      if (lineConfig.ENABLED === true || lineConfig.ENABLED === 'true') {
+        sendLineNotificationAsync(transactionData, lineConfig);
+        logs.push('🟢 LINE notification sent');
+      }
+    } catch (e) {
+      logs.push('⚠️ LINE notification failed: ' + e.toString());
+    }
+    
+    return true;
+  } catch (e) {
+    logs.push('❌ Error in internalLogTransaction: ' + e.toString());
+    return false;
+  }
+}
+
+/**
+ * ฟังก์ชันภายในสำหรับอัปเดต Inventory (ใช้ Spreadsheet object เดิม)
+ */
+function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
+  try {
+    const sheets = spreadsheet.getSheets();
+    let targetSheet = null;
+    for (let sheet of sheets) {
+      if (sheet.getSheetId().toString() === gid.toString()) {
+        targetSheet = sheet;
+        break;
+      }
+    }
+    
+    if (!targetSheet) targetSheet = sheets[0];
+    
+    const range = targetSheet.getDataRange();
+    const values = range.getValues();
+    const headers = values[0];
+    
+    const nameCol = findColumnIndex(headers, ['name', 'source_name', 'ชื่อ']);
+    const stockCol = findColumnIndex(headers, ['current_stock', 'คงเหลือ', 'stock']);
+    
+    if (nameCol === -1 || stockCol === -1) {
+      logs.push('❌ Column not found in inventory');
+      return false;
+    }
+    
+    for (let i = 1; i < values.length; i++) {
+      const rowName = values[i][nameCol];
+      if (updateData[rowName] !== undefined) {
+        values[i][stockCol] = updateData[rowName];
+      }
+    }
+    
+    range.setValues(values);
+    logs.push('✅ Inventory updated successfully');
+    return true;
+  } catch (e) {
+    logs.push('❌ Error in internalUpdateInventory: ' + e.toString());
+    return false;
   }
 }

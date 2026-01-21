@@ -611,7 +611,55 @@ const ImageUpload = {
             reader.onerror = error => reject(error);
         });
     },
-    
+
+    /**
+     * บีบอัดรูปภาพก่อนอัพโหลดเพื่อความรวดเร็ว
+     * @param {File} file - ไฟล์รูปภาพต้นฉบับ
+     * @param {number} maxWidth - ความกว้างสูงสุด (default: 800 สำหรับความเร็ว)
+     * @param {number} quality - คุณภาพรูปภาพ 0.1 - 1.0 (default: 0.6 สำหรับความเร็ว)
+     * @returns {Promise<string>} - Base64 data ของรูปที่บีบอัดแล้ว
+     */
+    compressImage(file, maxWidth = 800, quality = 0.6) {
+        return new Promise((resolve, reject) => {
+            // ถ้าไม่ใช่รูปภาพ ให้ใช้วิธีเดิม
+            if (!file.type.startsWith('image/')) {
+                this.convertFileToBase64(file).then(resolve).catch(reject);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // คำนวณขนาดใหม่โดยรักษา Aspect Ratio
+                    if (width > maxWidth) {
+                        height = (maxWidth / width) * height;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // บีบอัดเป็น JPEG (ให้ไฟล์ขนาดเล็กกว่า PNG มาก)
+                    // แม้ต้นฉบับจะเป็น PNG แต่การบันทึกเป็น JPEG จะช่วยลดขนาดได้มหาศาล
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl);
+                };
+                img.onerror = (error) => reject(error);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    },
+
     getSelectedFile() {
         const fileInput = document.getElementById('transactionImage');
         return fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
@@ -1770,6 +1818,135 @@ async function logTransactionToSheets(logEntry) {
 function saveData() {
     localStorage.setItem('fuelSources', JSON.stringify(fuelSources));
     // ไม่บันทึก transactionLogs ลง localStorage - ใช้เฉพาะข้อมูลจาก Google Sheets
+}
+
+/**
+ * รวมการบันทึก Log และอัปเดต Inventory ในครั้งเดียวเพื่อความรวดเร็ว (ลด Round Trip Time)
+ */
+async function processTransactionToSheets(logEntry) {
+    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+        await saveInventoryToSheets();
+        await logTransactionToSheets(logEntry);
+        return;
+    }
+
+    try {
+        showLoading('กำลังประมวลผลรายการ...');
+
+        // 1. เตรียมข้อมูล Inventory สำหรับอัพเดต
+        const updateData = {};
+        fuelSources.forEach(source => {
+            updateData[source.name] = source.currentStock;
+        });
+
+        // 2. เตรียมข้อมูล Transaction Log
+        let transactionType = '';
+        let sourceName = '';
+        let destinationName = '';
+        
+        if (logEntry.transactionType === 'refill') {
+            transactionType = 'ซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท.');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else if (logEntry.transactionType === 'fuel-card') {
+            transactionType = 'Fuel-card จัดซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท. (Fuel-card)');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else if (logEntry.transactionType === 'drain') {
+            transactionType = 'เดรนน้ำมัน';
+            sourceName = String(logEntry.source || logEntry.sourceName || '');
+            destinationName = 'เดรนออก';
+        } else if (logEntry.transactionType === 'purchase_drum_200l') {
+            transactionType = 'ซื้อจาก ปตท.';
+            sourceName = String(logEntry.source || logEntry.sourceName || 'ปตท.');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        } else {
+            transactionType = 'จ่ายออก';
+            sourceName = String(logEntry.source || logEntry.sourceName || '');
+            destinationName = String(logEntry.destination || logEntry.destinationName || '');
+        }
+        
+        let aircraftDestination = logEntry.destination || logEntry.destinationName || '';
+        if (typeof aircraftDestination !== 'string') {
+            aircraftDestination = String(aircraftDestination || '');
+        }
+        const isAircraft = logEntry.destinationType === 'aircraft';
+        const isDrum = logEntry.drums !== null && logEntry.drums !== undefined;
+        
+        let volumeDisplay;
+        if (isDrum) {
+            volumeDisplay = `${logEntry.drums} ถัง (${logEntry.liters} ลิตร)`;
+        } else {
+            volumeDisplay = `${logEntry.liters} ลิตร`;
+        }
+        
+        if (logEntry.volume) {
+            volumeDisplay = logEntry.volume;
+        }
+
+        const transactionData = {
+            uid: logEntry.uid || '',
+            timestamp: logEntry.timestamp,
+            type: transactionType,
+            source: sourceName,
+            destination: destinationName,
+            volume: volumeDisplay,
+            volumeLiters: logEntry.liters,
+            drums: logEntry.drums || null,
+            pricePerLiter: logEntry.pricePerLiter || 0,
+            pricePerDrum: logEntry.pricePerDrum || null,
+            totalCost: logEntry.totalAmount || 0,
+            operatorName: logEntry.operatorName || '',
+            unit: logEntry.operatingUnit || '',
+            missions: logEntry.missions || '',
+            aircraftType: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[0] || '' : '',
+            aircraftNumber: isAircraft && aircraftDestination ? aircraftDestination.split(' : ')[1] || '' : '',
+            notes: logEntry.notes || '',
+            bookNo: logEntry.bookNo || '',
+            receiptNo: logEntry.receiptNo || '',
+            imageUrl: typeof convertGoogleDriveUrl === 'function' ? convertGoogleDriveUrl(logEntry.imageUrl || '') : (logEntry.imageUrl || ''),
+            imageFilename: logEntry.imageFilename || '',
+            imageDriveId: logEntry.imageDriveId || '',
+            imageUploadDate: logEntry.imageUploadDate || ''
+        };
+
+        // 3. ส่งคำขอแบบ Single Action ไปยัง GAS (ใช้ POST เพื่อความปลอดภัยและรองรับข้อมูลขนาดใหญ่)
+        const payload = {
+            action: 'processTransaction',
+            data: JSON.stringify(transactionData),
+            updateData: JSON.stringify(updateData),
+            sheetsId: GOOGLE_SHEETS_ID,
+            gid: INVENTORY_SHEET_GID
+        };
+        
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain' // ใช้ text/plain เพื่อหลีกเลี่ยง CORS preflight สำหรับ GAS
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ ประมวลผลรายการสำเร็จ (Combined Action)');
+            if (typeof loadTransactionLogsFromSheets === 'function') {
+                loadTransactionLogsFromSheets(true);
+            }
+            saveData();
+        } else {
+            throw new Error(result.error || 'GAS processTransaction failed');
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Combined action failed, falling back to sequential:', error);
+        // Fallback เป็นแบบเดิมถ้าแบบใหม่มีปัญหา
+        await Promise.all([
+            saveInventoryToSheets(),
+            logTransactionToSheets(logEntry)
+        ]);
+    }
 }
 
 // ฟังก์ชันเลือกไอคอนตาม type
@@ -3261,11 +3438,8 @@ async function handleReturnDrumSubmit() {
         
         transactionLogs.push(logEntry);
         
-        // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        // บันทึกข้อมูลแบบรวมศูนย์ (Combined Action) เพื่อความรวดเร็วสูงสุด
+        await processTransactionToSheets(logEntry);
         
         // อัพเดท UI
         showLoading('กำลังอัปเดตหน้าจอ...');
@@ -3451,10 +3625,7 @@ async function handlePTTPurchase200LSubmit() {
         
         transactionLogs.push(logEntry);
         
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        await processTransactionToSheets(logEntry);
         
         showLoading('กำลังอัปเดตหน้าจอ...');
         createFuelCards();
@@ -3561,10 +3732,7 @@ async function handleRemoveDrumNakhonsawanSubmit() {
         
         transactionLogs.push(logEntry);
         
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        await processTransactionToSheets(logEntry);
         
         showLoading('กำลังอัปเดตหน้าจอ...');
         createFuelCards();
@@ -3671,10 +3839,7 @@ async function handleRemoveDrumKhlongLuangSubmit() {
         
         transactionLogs.push(logEntry);
         
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        await processTransactionToSheets(logEntry);
         
         showLoading('กำลังอัปเดตหน้าจอ...');
         createFuelCards();
@@ -3822,10 +3987,7 @@ async function handleTransactionNakhonsawanSubmit() {
             
             transactionLogs.push(logEntry);
             
-            await Promise.all([
-                saveInventoryToSheets(),
-                logTransactionToSheets(logEntry)
-            ]);
+            await processTransactionToSheets(logEntry);
             
             showLoading('กำลังอัปเดตหน้าจอ...');
             createFuelCards();
@@ -3928,10 +4090,7 @@ async function handleTransactionNakhonsawanSubmit() {
         
         transactionLogs.push(logEntry);
         
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        await processTransactionToSheets(logEntry);
         
         showLoading('กำลังอัปเดตหน้าจอ...');
         createFuelCards();
@@ -4079,10 +4238,7 @@ async function handleTransactionKhlongLuangSubmit() {
             
             transactionLogs.push(logEntry);
             
-            await Promise.all([
-                saveInventoryToSheets(),
-                logTransactionToSheets(logEntry)
-            ]);
+            await processTransactionToSheets(logEntry);
             
             showLoading('กำลังอัปเดตหน้าจอ...');
             createFuelCards();
@@ -4185,10 +4341,7 @@ async function handleTransactionKhlongLuangSubmit() {
         
         transactionLogs.push(logEntry);
         
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        await processTransactionToSheets(logEntry);
         
         showLoading('กำลังอัปเดตหน้าจอ...');
         createFuelCards();
@@ -4945,10 +5098,7 @@ async function handleRefillSubmit() {
             transactionLogs.push(logEntry);
             
             // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-            await Promise.all([
-                saveInventoryToSheets(),
-                logTransactionToSheets(logEntry)
-            ]);
+            await processTransactionToSheets(logEntry);
             
             // อัพเดท UI
             showLoading('กำลังอัปเดตหน้าจอ...');
@@ -5086,8 +5236,8 @@ async function handleRefillSubmit() {
         const selectedImage = ImageUpload.getSelectedFile();
         if (selectedImage) {
             try {
-                showLoading('กำลังอัพโหลดรูปภาพ...');
-                const base64Data = await ImageUpload.convertFileToBase64(selectedImage);
+                showLoading('กำลังอัพโหลดและบีบอัดรูปภาพ...');
+                const base64Data = await ImageUpload.compressImage(selectedImage);
                 const uploadResult = await ImageUpload.uploadImageToServer(base64Data, selectedImage.name);
                 
                 if (uploadResult.success) {
@@ -5106,11 +5256,8 @@ async function handleRefillSubmit() {
             }
         }
         
-        // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        // บันทึกข้อมูลแบบรวมศูนย์ (Combined Action) เพื่อความรวดเร็วสูงสุด
+        await processTransactionToSheets(logEntry);
         
         // อัพเดท UI
         showLoading('กำลังอัปเดตหน้าจอ...');
@@ -5189,10 +5336,7 @@ async function handleDispenseSubmit() {
             transactionLogs.push(logEntry);
             
             // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-            await Promise.all([
-                saveInventoryToSheets(),
-                logTransactionToSheets(logEntry)
-            ]);
+            await processTransactionToSheets(logEntry);
             
             // อัพเดท UI
             showLoading('กำลังอัปเดตหน้าจอ...');
@@ -5393,8 +5537,8 @@ async function handleDispenseSubmit() {
         const selectedImage = ImageUpload.getSelectedFile();
         if (selectedImage) {
             try {
-                showLoading('กำลังอัพโหลดรูปภาพ...');
-                const base64Data = await ImageUpload.convertFileToBase64(selectedImage);
+                showLoading('กำลังอัพโหลดและบีบอัดรูปภาพ...');
+                const base64Data = await ImageUpload.compressImage(selectedImage);
                 const uploadResult = await ImageUpload.uploadImageToServer(base64Data, selectedImage.name);
                 
                 if (uploadResult.success) {
@@ -5413,11 +5557,8 @@ async function handleDispenseSubmit() {
             }
         }
         
-        // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        // บันทึกข้อมูลแบบรวมศูนย์ (Combined Action) เพื่อความรวดเร็วสูงสุด
+        await processTransactionToSheets(logEntry);
         
         // อัพเดท UI
         showLoading('กำลังอัปเดตหน้าจอ...');
@@ -5819,11 +5960,8 @@ async function handlePttPurchaseSubmit() {
         
         transactionLogs.push(logEntry);
         
-        // บันทึกข้อมูล แบบขนาน (Parallel) เพื่อให้เร็ว
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        // บันทึกข้อมูลแบบรวมศูนย์ (Combined Action) เพื่อความรวดเร็วสูงสุด
+        await processTransactionToSheets(logEntry);
         
         // อัพเดท UI
         showLoading('กำลังอัปเดตหน้าจอ...');
