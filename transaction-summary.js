@@ -102,6 +102,11 @@ function setupEventListeners() {
     searchInput.addEventListener('input', applyFilters);
     sortByFilter.addEventListener('change', applyFilters);
     
+    const paymentStatusFilter = document.getElementById('paymentStatusFilter');
+    if (paymentStatusFilter) {
+        paymentStatusFilter.addEventListener('change', applyFilters);
+    }
+    
     const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
     if (itemsPerPageFilter) {
         itemsPerPageFilter.addEventListener('change', (e) => {
@@ -281,8 +286,24 @@ function applyFilters() {
     const startDate = startDateFilter.value;
     const endDate = endDateFilter.value;
     const sortBy = sortByFilter.value;
+    const paymentStatus = document.getElementById('paymentStatusFilter').value;
 
     filteredTransactions = allTransactions.filter(transaction => {
+        // Payment status filter
+        let matchesPaymentStatus = true;
+        
+        // Auto-check logic: non-PTT purchase is considered paid
+        const type = transaction.transaction_type || '';
+        const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
+        const isActuallyPaid = transaction.is_paid === true || transaction.is_paid === 'true' || transaction.is_paid === 'YES';
+        const effectivePaidStatus = !isPTTPurchase || isActuallyPaid;
+
+        if (paymentStatus === 'paid') {
+            matchesPaymentStatus = effectivePaidStatus;
+        } else if (paymentStatus === 'unpaid') {
+            matchesPaymentStatus = !effectivePaidStatus;
+        }
+
         // Search filter
         const matchesSearch = !searchText || 
             transaction.source_name.toLowerCase().includes(searchText) ||
@@ -314,7 +335,7 @@ function applyFilters() {
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
 
-        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesDateRange;
+        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesDateRange && matchesPaymentStatus;
     });
 
     // Apply sorting
@@ -392,7 +413,7 @@ function renderTable(isAppend = false) {
     if (pageTransactions.length === 0 && currentPage === 1) {
         transactionsTableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center text-muted py-5">
+                <td colspan="10" class="text-center text-muted py-5">
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <i class="fas fa-inbox"></i>
@@ -409,8 +430,22 @@ function renderTable(isAppend = false) {
         const transactionId = `trans_${Date.now()}_${index}`;
         transactionStore[transactionId] = transaction;
         
+        // Auto-check logic: non-PTT purchase is considered paid
+        const type = transaction.transaction_type || '';
+        const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
+        const isActuallyPaid = transaction.is_paid === true || transaction.is_paid === 'true' || transaction.is_paid === 'YES';
+        const isPaid = !isPTTPurchase || isActuallyPaid;
+        const isDisabled = !isPTTPurchase;
+        
         return `
-            <tr>
+            <tr class="${isPaid ? 'row-paid' : ''}">
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input payment-status-checkbox" 
+                        data-uid="${transaction.uid}" 
+                        ${isPaid ? 'checked' : ''} 
+                        ${isDisabled ? 'disabled' : ''}
+                        onchange="togglePaymentStatus(this, '${transaction.uid}')">
+                </td>
                 <td><small style="font-family: 'Courier New', monospace; color: #dc3545; font-weight: 600;">${transaction.uid || '-'}</small></td>
                 <td><small class="text-muted">${formatDate(transaction.date)}</small></td>
                 <td>
@@ -654,6 +689,53 @@ function showDetailModal(transactionId) {
 }
 
 /**
+ * Toggle payment status (เบิกเงินแล้ว)
+ */
+async function togglePaymentStatus(checkbox, uid) {
+    const isChecked = checkbox.checked;
+    const statusValue = isChecked ? 'YES' : 'NO';
+    
+    // Show loading state on the checkbox if possible or use global loading
+    checkbox.disabled = true;
+    
+    try {
+        const url = `${GOOGLE_SCRIPT_URL}?action=updateTransactionPaymentStatus&uid=${uid}&status=${statusValue}&sheetsId=${GOOGLE_SHEETS_ID}`;
+        
+        console.log('Updating payment status:', url);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update local data
+            const transaction = allTransactions.find(t => t.uid === uid);
+            if (transaction) {
+                transaction.is_paid = statusValue;
+            }
+            
+            // Update row color
+            const row = checkbox.closest('tr');
+            if (isChecked) {
+                row.classList.add('row-paid');
+            } else {
+                row.classList.remove('row-paid');
+            }
+            
+            console.log('Payment status updated successfully');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error updating payment status:', error);
+        alert('ไม่สามารถบันทึกข้อมูลได้: ' + error.message);
+        // Revert checkbox state
+        checkbox.checked = !isChecked;
+    } finally {
+        checkbox.disabled = false;
+    }
+}
+
+/**
  * Update pagination
  */
 function updatePagination() {
@@ -746,6 +828,11 @@ function resetFilters() {
     sortByFilter.value = 'date_desc';
     startDateFilter.value = '';
     endDateFilter.value = '';
+    
+    const paymentStatusFilter = document.getElementById('paymentStatusFilter');
+    if (paymentStatusFilter) {
+        paymentStatusFilter.value = 'all';
+    }
     
     const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
     if (itemsPerPageFilter) {

@@ -564,6 +564,8 @@ function doGet(e) {
         return getPTTPricesByLocationName(e.parameter.locationName, sheetsId, gid);
       case 'cancelTransaction':
         return cancelTransaction(e.parameter.uid, sheetsId, e.parameter.cancellerName);
+      case 'updateTransactionPaymentStatus':
+        return updateTransactionPaymentStatus(e.parameter.uid, e.parameter.status, sheetsId);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -787,8 +789,8 @@ function getTransactionLogs(sheetsId, gid) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง V (22 คอลัมน์ - รวมข้อมูลรูปภาพ)
-    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 22);
+    // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย, คอลัมน์ A ถึง W (23 คอลัมน์ - รวมข้อมูลสถานะการเบิกเงิน)
+    const dataRange = targetSheet.getRange(2, 1, lastRow - 1, 23);
     const values = dataRange.getValues();
     
     // แปลงข้อมูลเป็น array of objects
@@ -851,7 +853,8 @@ function getTransactionLogs(sheetsId, gid) {
         image_url: row[18] || '',        // คอลัมน์ S: Image URL
         image_filename: row[19] || '',   // คอลัมน์ T: Image Filename
         image_upload_date: row[20] || '', // คอลัมน์ U: Image Upload Date
-        image_drive_id: row[21] || ''    // คอลัมน์ V: Image Drive ID
+        image_drive_id: row[21] || '',    // คอลัมน์ V: Image Drive ID
+        is_paid: row[22] || ''           // คอลัมน์ W: สถานะการเบิกเงิน
       };
       
       // กำหนดประเภทปลายทางตาม destination name (ถ้ามี)
@@ -1361,21 +1364,22 @@ function logTransaction(dataString, sheetsId) {
       // สร้าง sheet ใหม่
       logSheet = spreadsheet.insertSheet('Transaction_Log');
       
-      // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters, ภาระกิจ, Image URL, Image Filename, Image Upload Date, Image Drive ID)
-      logSheet.getRange(1, 1, 1, 22).setValues([[
+      // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters, ภาระกิจ, Image URL, Image Filename, Image Upload Date, Image Drive ID, สถานะการเบิกเงิน)
+      logSheet.getRange(1, 1, 1, 23).setValues([[
         'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
         'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
         'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters', 'ภาระกิจ',
-        'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID'
+        'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID',
+        'สถานะการเบิกเงิน'
       ]]);
       
       // จัดรูปแบบ header
-      const headerRange = logSheet.getRange(1, 1, 1, 22);
+      const headerRange = logSheet.getRange(1, 1, 1, 23);
       headerRange.setFontWeight('bold');
       headerRange.setBackground('#2196F3');
       headerRange.setFontColor('#FFFFFF');
       
-      logSheet.autoResizeColumns(1, 22);
+      logSheet.autoResizeColumns(1, 23);
       logSheet.setFrozenRows(1);
     }
     
@@ -1588,6 +1592,58 @@ function cancelTransaction(uid, sheetsId, cancellerName) {
 }
 
 /**
+ * อัพเดทสถานะการเบิกเงินของรายการ
+ */
+function updateTransactionPaymentStatus(uid, status, sheetsId) {
+  try {
+    if (!uid) throw new Error('ต้องระบุ UID');
+    if (!sheetsId) throw new Error('ต้องระบุ Sheets ID');
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let transactionSheet = spreadsheet.getSheetByName('Transaction_Log');
+    
+    if (!transactionSheet) {
+      // ลองหา GID 0
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getSheetId().toString() === '0') {
+          transactionSheet = sheet;
+          break;
+        }
+      }
+    }
+    
+    if (!transactionSheet) throw new Error('ไม่พบ Transaction_Log sheet');
+    
+    const result = findTransactionByUID(transactionSheet, uid);
+    if (!result) throw new Error('ไม่พบรายการที่ต้องการอัพเดท');
+    
+    // อัพเดทคอลัมน์ W (คอลัมน์ที่ 23)
+    transactionSheet.getRange(result.rowIndex, 23).setValue(status);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'อัพเดทสถานะการเบิกเงินสำเร็จ',
+        data: {
+          uid: uid,
+          status: status
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in updateTransactionPaymentStatus:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
  * ค้นหารายการ Transaction จาก UID
  * คืนค่า object { rowIndex: number, rowData: array }
  */
@@ -1603,7 +1659,7 @@ function findTransactionByUID(transactionSheet, uid) {
     const trimmedSearchUid = uid.toString().trim();
     
     // อ่านข้อมูลจากแถว 2 ถึงแถวสุดท้าย (ข้าม header)
-    const dataRange = transactionSheet.getRange(2, 1, lastRow - 1, 22);
+    const dataRange = transactionSheet.getRange(2, 1, lastRow - 1, 23);
     const values = dataRange.getValues();
     
     for (let i = 0; i < values.length; i++) {

@@ -404,6 +404,21 @@ function generateUID() {
         }
     }
     
+    // ตรวจสอบกับ transactionLogs ที่โหลดมาจาก Sheets อีกครั้งเพื่อความชัวร์
+    if (window.transactionLogs && window.transactionLogs.length > 0) {
+        window.transactionLogs.forEach(log => {
+            if (log.uid) {
+                const match = log.uid.match(/FT(\d+)/);
+                if (match) {
+                    const currentNum = parseInt(match[1]);
+                    if (currentNum >= uidNumber) {
+                        uidNumber = currentNum + 1;
+                    }
+                }
+            }
+        });
+    }
+    
     // สร้าง UID ใหม่ในรูปแบบ FT0001 (4 หลัก)
     const newUID = `FT${String(uidNumber).padStart(4, '0')}`;
     
@@ -1502,7 +1517,7 @@ async function loadTransactionLogsFromSheets(isBackground = true) {
                 }
                 
                 // สร้าง unique ID ที่เสถียร (ไม่ใช้ Date.now())
-                const uniqueId = row.id || `${row.date || 'no_date'}_${row.time || 'no_time'}_${row.transaction_type || 'no_type'}_${row.source_name || ''}_${row.volume || '0'}_${index}`;
+                const uniqueId = row.uid || row.id || `${row.date || 'no_date'}_${row.time || 'no_time'}_${row.transaction_type || 'no_type'}_${row.source_name || ''}_${row.volume || '0'}_${index}`;
                 
                 // ✅ ดึงลิตรจากคอลัมน์ volume_liters เป็นหลัก ถ้าไม่มี ให้ดึงจาก volume
                 let litersValue = 0;
@@ -1549,13 +1564,15 @@ async function loadTransactionLogsFromSheets(isBackground = true) {
             
             logsFromSheets.forEach(log => {
                 // สร้าง signature เพื่อระบุข้อมูลที่เหมือนกัน
-                const signature = `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
+                // ใช้ UID เป็นหลักในการตรวจสอบความซ้ำซ้อน ถ้ามี UID
+                const signature = log.uid ? `UID_${log.uid}` : `${log.date}_${log.time}_${log.transactionType}_${log.sourceName}_${log.liters}_${log.pricePerLiter}`;
                 
                 if (!seenLogSignatures.has(signature)) {
                     seenLogSignatures.set(signature, true);
                     uniqueLogsFromSheets.push(log);
                 } else {
                     duplicateCount++;
+                    console.warn(`⚠️ พบรายการซ้ำ (Signature: ${signature})`);
                 }
             });
             
