@@ -13,6 +13,9 @@ let isLoadingMore = false;
 
 // DOM Elements
 const loadingOverlay = document.getElementById('loadingOverlay');
+const loadingText = document.getElementById('loadingText');
+const progressContainer = document.getElementById('progressContainer');
+const progressBar = document.getElementById('progressBar');
 const transactionsTableBody = document.getElementById('transactionsTableBody');
 const totalTransactionsEl = document.getElementById('totalTransactions');
 const totalVolumeEl = document.getElementById('totalVolume');
@@ -37,8 +40,10 @@ const startDateFilter = document.getElementById('startDateFilter');
 const endDateFilter = document.getElementById('endDateFilter');
 
 let detailModal = null;
+let editModal = null;
 let cancelConfirmationModal = null;
 let currentTransactionForCancel = null;
+let currentTransactionForEdit = null;
 
 /**
  * Initialization
@@ -64,6 +69,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Initialize Edit Modal
+    const editModalElement = document.getElementById('editModal');
+    if (editModalElement && typeof bootstrap !== 'undefined') {
+        editModal = new bootstrap.Modal(editModalElement, {
+            backdrop: 'static',
+            keyboard: false,
+            focus: true
+        });
+    }
+
     loadTransactionData();
     setupEventListeners();
     setupLazyLoading();
@@ -166,6 +181,26 @@ function setupEventListeners() {
     const confirmCancelBtn = document.getElementById('confirmCancelBtn');
     if (confirmCancelBtn) {
         confirmCancelBtn.addEventListener('click', handleCancelConfirm);
+    }
+
+    // Save Edit Button
+    const saveEditBtn = document.getElementById('saveEditBtn');
+    if (saveEditBtn) {
+        saveEditBtn.addEventListener('click', handleSaveEdit);
+    }
+
+    // Edit Other Mission Checkbox
+    const editMissionOther = document.getElementById('editMissionOther');
+    if (editMissionOther) {
+        editMissionOther.addEventListener('change', function() {
+            const otherContainer = document.getElementById('editOtherMissionContainer');
+            if (otherContainer) {
+                otherContainer.style.display = this.checked ? 'block' : 'none';
+                if (this.checked) {
+                    document.getElementById('editOtherMissionDetails').focus();
+                }
+            }
+        });
     }
     
 }
@@ -465,6 +500,9 @@ function renderTable(isAppend = false) {
                         <button class="btn btn-sm btn-info btn-detail" onclick="showDetailModal('${transactionId}')" title="ดูรายละเอียด" style="width: 36px; padding: 0.25rem;">
                             <i class="fas fa-eye"></i>
                         </button>
+                        <button class="btn btn-sm btn-warning btn-detail" onclick="openEditModal('${transactionId}')" title="แก้ไขรายการ" style="width: 36px; padding: 0.25rem;">
+                            <i class="fas fa-edit"></i>
+                        </button>
                         ${transaction.image_url ? `
                         <button class="btn btn-sm btn-success btn-detail" onclick="viewImageModal('${transaction.image_url}', '${(transaction.image_filename || '').replace(/'/g, "\\'")}', '${transactionId}')" title="ดูรูปภาพ" style="width: 36px; padding: 0.25rem;">
                             <i class="fas fa-image"></i>
@@ -501,6 +539,135 @@ function getTransactionTypeBadge(type) {
     return `<span class="transaction-type-badge ${badge.class}">
         <i class="fas ${badge.icon} me-1"></i>${type}
     </span>`;
+}
+
+/**
+ * Open edit modal and populate data
+ */
+function openEditModal(transactionId) {
+    const transaction = transactionStore[transactionId];
+    if (!transaction) return;
+
+    currentTransactionForEdit = transaction;
+    
+    // Set UID and Cost
+    document.getElementById('editUid').value = transaction.uid;
+    document.getElementById('editUidDisplay').textContent = transaction.uid;
+    document.getElementById('editVolume').value = parseFloat(transaction.volume_liters) || parseFloat(transaction.volume) || 0;
+    document.getElementById('editTotalCost').value = transaction.total_cost || 0;
+    
+    // Set Missions
+    const missions = (transaction.missions || '').split(',').map(m => m.trim());
+    const checkboxes = document.querySelectorAll('.mission-checkbox');
+    const otherMissionDetails = document.getElementById('editOtherMissionDetails');
+    const otherMissionContainer = document.getElementById('editOtherMissionContainer');
+    
+    let otherMissions = [];
+    
+    // Reset all checkboxes first
+    checkboxes.forEach(cb => cb.checked = false);
+    if (otherMissionContainer) otherMissionContainer.style.display = 'none';
+    if (otherMissionDetails) otherMissionDetails.value = '';
+
+    // Standard missions defined in checkboxes
+    const standardMissions = ['บินบริการ', 'ปฏิบัติการฝนหลวง', 'ดัดแปลงสภาพอากาศ (ฝุ่น)', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)', 'บินสำรวจ', 'บินทดสอบ'];
+
+    missions.forEach(mission => {
+        if (!mission) return;
+        
+        let matched = false;
+        checkboxes.forEach(cb => {
+            if (cb.value === mission) {
+                cb.checked = true;
+                matched = true;
+            }
+        });
+        
+        if (!matched && mission) {
+            otherMissions.push(mission);
+        }
+    });
+
+    if (otherMissions.length > 0) {
+        document.getElementById('editMissionOther').checked = true;
+        if (otherMissionContainer) otherMissionContainer.style.display = 'block';
+        if (otherMissionDetails) otherMissionDetails.value = otherMissions.join(', ');
+    }
+
+    if (editModal) {
+        editModal.show();
+    }
+}
+
+/**
+ * Handle saving edited transaction
+ */
+function handleSaveEdit() {
+    const uid = document.getElementById('editUid').value;
+    const volume = parseFloat(document.getElementById('editVolume').value) || 0;
+    const totalCost = parseFloat(document.getElementById('editTotalCost').value) || 0;
+    
+    // Collect missions
+    const selectedMissions = [];
+    document.querySelectorAll('.mission-checkbox:checked').forEach(cb => {
+        if (cb.value !== 'อื่นๆ') {
+            selectedMissions.push(cb.value);
+        }
+    });
+    
+    const otherMissionChecked = document.getElementById('editMissionOther').checked;
+    const otherDetails = document.getElementById('editOtherMissionDetails').value.trim();
+    if (otherMissionChecked && otherDetails) {
+        selectedMissions.push(otherDetails);
+    }
+    
+    const missionsString = selectedMissions.join(', ');
+
+    // Hide edit modal immediately
+    if (editModal) editModal.hide();
+
+    // Show loading with progress
+    showLoading(true, 'กำลังบันทึกข้อมูล...', 30);
+
+    // Call API to update
+    const url = `${GOOGLE_SCRIPT_URL}?action=updateTransactionDetail&sheetsId=${GOOGLE_SHEETS_ID}&uid=${uid}&volume=${volume}&totalCost=${totalCost}&missions=${encodeURIComponent(missionsString)}`;
+
+    console.log('Updating transaction detail:', url);
+
+    // Simulated progress jump
+    setTimeout(() => showLoading(true, 'กำลังส่งข้อมูลไปที่ Google Sheets...', 60), 500);
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            showLoading(true, 'ประมวลผลสำเร็จ...', 100);
+            setTimeout(() => {
+                if (data.success) {
+                // Update local data
+                const index = allTransactions.findIndex(t => t.uid === uid);
+                if (index !== -1) {
+                    allTransactions[index].volume = volume;
+                    allTransactions[index].volume_liters = volume;
+                    allTransactions[index].total_cost = totalCost;
+                    allTransactions[index].missions = missionsString;
+                }
+                
+                // Refresh table
+                applyFilters();
+                
+                // Hide loading overlay
+                showLoading(false);
+            } else {
+                showLoading(false);
+                alert('เกิดข้อผิดพลาด: ' + (data.error || 'ไม่สามารถบันทึกข้อมูลได้'));
+            }
+        }, 500);
+        })
+        .catch(error => {
+            console.error('Error updating transaction:', error);
+            showLoading(false);
+            alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message);
+        });
 }
 
 /**
@@ -855,14 +1022,19 @@ function resetFilters() {
 /**
  * Show loading overlay
  */
-function showLoading(show) {
-    console.log('showLoading called with:', show);
+function showLoading(show, message = 'กำลังโหลด...', progress = null) {
     if (show) {
         loadingOverlay.classList.add('active');
-        console.log('Loading overlay shown');
+        if (loadingText) loadingText.textContent = message;
+        
+        if (progress !== null && progressContainer && progressBar) {
+            progressContainer.style.display = 'flex';
+            progressBar.style.width = progress + '%';
+        } else if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
     } else {
         loadingOverlay.classList.remove('active');
-        console.log('Loading overlay hidden');
     }
 }
 

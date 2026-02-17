@@ -566,6 +566,8 @@ function doGet(e) {
         return cancelTransaction(e.parameter.uid, sheetsId, e.parameter.cancellerName);
       case 'updateTransactionPaymentStatus':
         return updateTransactionPaymentStatus(e.parameter.uid, e.parameter.status, sheetsId);
+      case 'updateTransactionDetail':
+        return updateTransactionDetail(e.parameter.uid, e.parameter.totalCost, e.parameter.missions, sheetsId, e.parameter.volume);
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1634,6 +1636,69 @@ function updateTransactionPaymentStatus(uid, status, sheetsId) {
       
   } catch (error) {
     console.error('Error in updateTransactionPaymentStatus:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับแก้ไขรายละเอียดรายการ (ปริมาณ, มูลค่า และ ภารกิจ)
+ */
+function updateTransactionDetail(uid, totalCost, missions, sheetsId, volume) {
+  try {
+    if (!uid) throw new Error('ต้องระบุ UID');
+    if (!sheetsId) throw new Error('ต้องระบุ Sheets ID');
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetsId);
+    let transactionSheet = spreadsheet.getSheetByName('Transaction_Log');
+    
+    if (!transactionSheet) {
+      const sheets = spreadsheet.getSheets();
+      for (let sheet of sheets) {
+        if (sheet.getSheetId().toString() === '0' || sheet.getName() === 'Transaction_Log') {
+          transactionSheet = sheet;
+          break;
+        }
+      }
+    }
+    
+    if (!transactionSheet) throw new Error('ไม่พบ Transaction_Log sheet');
+    
+    const result = findTransactionByUID(transactionSheet, uid);
+    if (!result) throw new Error('ไม่พบรายการที่ต้องการแก้ไข');
+    
+    // อัพเดทคอลัมน์ G (คอลัมน์ที่ 7) - ปริมาณ (string/mixed)
+    if (volume !== undefined) {
+      transactionSheet.getRange(result.rowIndex, 7).setValue(volume);
+      // อัพเดทคอลัมน์ Q (คอลัมน์ที่ 17) - ปริมาณ (number)
+      transactionSheet.getRange(result.rowIndex, 17).setValue(parseFloat(volume) || 0);
+    }
+    
+    // อัพเดทคอลัมน์ I (คอลัมน์ที่ 9) - มูลค่ารวม
+    transactionSheet.getRange(result.rowIndex, 9).setValue(parseFloat(totalCost) || 0);
+    
+    // อัพเดทคอลัมน์ R (คอลัมน์ที่ 18) - ภารกิจ
+    transactionSheet.getRange(result.rowIndex, 18).setValue(missions || '');
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'แก้ไขข้อมูลสำเร็จ',
+        data: {
+          uid: uid,
+          volume: volume,
+          totalCost: totalCost,
+          missions: missions
+        }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in updateTransactionDetail:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,

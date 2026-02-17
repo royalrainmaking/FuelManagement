@@ -329,6 +329,12 @@
             animation: spin 1s linear infinite;
         }
 
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -476,7 +482,13 @@
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
+        <div class="loading-container text-center">
+            <div class="loading-spinner"></div>
+            <div class="loading-text mt-3" id="loadingText" style="color: white; font-weight: 500;">กำลังประมวลผล...</div>
+            <div class="progress mt-3" style="width: 250px; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; overflow: hidden; display: none;" id="progressContainer">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -666,6 +678,113 @@
                         <!-- Pagination buttons will be generated here -->
                     </ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0" style="border-radius: 20px;">
+                <div class="modal-header bg-warning text-dark border-0 p-4">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fas fa-edit me-2"></i>แก้ไขรายการ
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <form id="editTransactionForm">
+                        <input type="hidden" id="editUid">
+                        
+                        <!-- UID Display (Read-only) -->
+                        <div class="mb-4">
+                            <label class="form-label text-muted small fw-bold text-uppercase">UID รายการ</label>
+                            <div id="editUidDisplay" class="form-control bg-white border-0 fw-bold py-2" style="font-family: 'Courier New', monospace; letter-spacing: 1px; color: #0d6efd;"></div>
+                        </div>
+
+                        <!-- Volume Input -->
+                        <div class="mb-4">
+                            <label for="editVolume" class="form-label fw-bold">ปริมาณ (ลิตร)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-gas-pump text-primary"></i></span>
+                                <input type="number" class="form-control border-start-0 ps-0" id="editVolume" step="0.01" required placeholder="0.00">
+                                <span class="input-group-text bg-white border-start-0">ลิตร</span>
+                            </div>
+                        </div>
+
+                        <!-- Total Cost Input -->
+                        <div class="mb-4">
+                            <label for="editTotalCost" class="form-label fw-bold">มูลค่ารวม (บาท)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-money-bill-wave text-warning"></i></span>
+                                <input type="number" class="form-control border-start-0 ps-0" id="editTotalCost" step="0.01" required placeholder="0.00">
+                                <span class="input-group-text bg-white border-start-0">บาท</span>
+                            </div>
+                        </div>
+
+                        <!-- Missions Selection -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ภารกิจ</label>
+                            <div class="p-4 bg-white rounded border">
+                                <div id="editMissionsGroup" class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินบริการ" id="editMission1">
+                                            <label class="form-check-label" for="editMission1">บินบริการ</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ปฏิบัติการฝนหลวง" id="editMission2">
+                                            <label class="form-check-label" for="editMission2">ปฏิบัติการฝนหลวง</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="editMission3">
+                                            <label class="form-check-label" for="editMission3">ดัดแปลงสภาพอากาศ (ฝุ่น)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="editMission4">
+                                            <label class="form-check-label" for="editMission4">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินสำรวจ" id="editMission5">
+                                            <label class="form-check-label" for="editMission5">บินสำรวจ</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินทดสอบ" id="editMission6">
+                                            <label class="form-check-label" for="editMission6">บินทดสอบ</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input mission-checkbox" type="checkbox" value="อื่นๆ" id="editMissionOther">
+                                            <label class="form-check-label" for="editMissionOther">อื่นๆ (ระบุ)</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="editOtherMissionContainer" class="mt-2" style="display: none;">
+                                    <input type="text" id="editOtherMissionDetails" class="form-control form-control-sm" placeholder="ระบุรายละเอียดภารกิจ...">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 p-4 bg-light">
+                    <button type="button" class="btn btn-outline-secondary px-4 py-2 rounded-3" data-bs-dismiss="modal">
+                        ยกเลิก
+                    </button>
+                    <button type="button" class="btn btn-primary px-4 py-2 rounded-3" id="saveEditBtn">
+                        <i class="fas fa-save me-2"></i>บันทึกการแก้ไข
+                    </button>
+                </div>
             </div>
         </div>
     </div>
