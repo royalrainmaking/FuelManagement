@@ -346,7 +346,9 @@ function applyFilters() {
             transaction.operator_name.toLowerCase().includes(searchText) ||
             transaction.transaction_type.toLowerCase().includes(searchText) ||
             (transaction.missions && transaction.missions.toLowerCase().includes(searchText)) ||
-            (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText));
+            (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText)) ||
+            (transaction.book_no && transaction.book_no.toString().toLowerCase().includes(searchText)) ||
+            (transaction.receipt_no && transaction.receipt_no.toString().toLowerCase().includes(searchText));
 
         // Source filter (multiple selection)
         const matchesSource = selectedSources.length === 0 || 
