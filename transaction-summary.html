@@ -504,7 +504,7 @@
 
         <!-- Summary Statistics -->
         <div class="row mb-4">
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-2 col-sm-4">
                 <div class="summary-stat">
                     <div class="summary-stat-icon text-primary">
                         <i class="fas fa-list"></i>
@@ -513,7 +513,7 @@
                     <div class="summary-stat-value" id="totalTransactions">0</div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-2 col-sm-4">
                 <div class="summary-stat">
                     <div class="summary-stat-icon text-success">
                         <i class="fas fa-gas-pump"></i>
@@ -522,7 +522,7 @@
                     <div class="summary-stat-value" id="totalVolume">0</div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-2 col-sm-4">
                 <div class="summary-stat">
                     <div class="summary-stat-icon text-warning">
                         <i class="fas fa-money-bill"></i>
@@ -534,10 +534,19 @@
             <div class="col-md-3 col-sm-6">
                 <div class="summary-stat">
                     <div class="summary-stat-icon text-info">
-                        <i class="fas fa-calculator"></i>
+                        <i class="fas fa-check-circle"></i>
                     </div>
-                    <div class="summary-stat-label">ราคาเฉลี่ย/ลิตร</div>
-                    <div class="summary-stat-value" id="averagePrice">0</div>
+                    <div class="summary-stat-label">เบิกจ่ายแล้ว</div>
+                    <div class="summary-stat-value" id="totalPaid">0 / 0</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-stat">
+                    <div class="summary-stat-icon text-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="summary-stat-label">ยังไม่เบิกจ่าย</div>
+                    <div class="summary-stat-value" id="totalUnpaid">0 / 0</div>
                 </div>
             </div>
         </div>
@@ -576,8 +585,8 @@
                     <label class="form-label fw-bold">สถานะเบิกจ่าย</label>
                     <select class="form-select" id="paymentStatusFilter">
                         <option value="all" selected>ทั้งหมด</option>
-                        <option value="paid">เบิกแล้ว</option>
-                        <option value="unpaid">ยังไม่เบิก</option>
+                        <option value="paid">เบิกจ่ายแล้ว</option>
+                        <option value="unpaid">ยังไม่เบิกจ่าย</option>
                     </select>
                 </div>
                 <div class="col-md-3 d-flex align-items-end gap-2">

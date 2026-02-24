@@ -20,7 +20,6 @@ const transactionsTableBody = document.getElementById('transactionsTableBody');
 const totalTransactionsEl = document.getElementById('totalTransactions');
 const totalVolumeEl = document.getElementById('totalVolume');
 const totalCostEl = document.getElementById('totalCost');
-const averagePriceEl = document.getElementById('averagePrice');
 const searchInput = document.getElementById('searchInput');
 const sortByFilter = document.getElementById('sortByFilter');
 const resetFiltersBtn = document.getElementById('resetFiltersBtn');
@@ -340,11 +339,13 @@ function applyFilters() {
         }
 
         // Search filter
+        const paidStatusText = effectivePaidStatus ? 'เบิกจ่ายแล้ว' : 'ยังไม่เบิกจ่าย';
         const matchesSearch = !searchText || 
             transaction.source_name.toLowerCase().includes(searchText) ||
             transaction.destination_name.toLowerCase().includes(searchText) ||
             transaction.operator_name.toLowerCase().includes(searchText) ||
             transaction.transaction_type.toLowerCase().includes(searchText) ||
+            paidStatusText.includes(searchText) ||
             (transaction.missions && transaction.missions.toLowerCase().includes(searchText)) ||
             (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText)) ||
             (transaction.book_no && transaction.book_no.toString().toLowerCase().includes(searchText)) ||
@@ -428,12 +429,43 @@ function updateSummaryStatistics() {
     const totalCount = filteredTransactions.length;
     const totalVolume = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.volume_liters) || 0), 0);
     const totalCost = filteredTransactions.reduce((sum, t) => sum + t.total_cost, 0);
-    const averagePrice = totalVolume > 0 ? (totalCost / totalVolume).toFixed(2) : 0;
+    
+    // Calculate paid/unpaid status
+    let paidCount = 0;
+    let unpaidCount = 0;
+    let paidCost = 0;
+    let unpaidCost = 0;
+
+    filteredTransactions.forEach(t => {
+        const type = t.transaction_type || '';
+        const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
+        const isActuallyPaid = t.is_paid === true || t.is_paid === 'true' || t.is_paid === 'YES';
+        const isPaid = !isPTTPurchase || isActuallyPaid;
+
+        if (isPaid) {
+            paidCount++;
+            paidCost += t.total_cost || 0;
+        } else {
+            unpaidCount++;
+            unpaidCost += t.total_cost || 0;
+        }
+    });
 
     totalTransactionsEl.textContent = formatNumber(totalCount);
     totalVolumeEl.textContent = formatNumber(totalVolume);
     totalCostEl.textContent = formatNumber(totalCost);
-    averagePriceEl.textContent = formatNumber(averagePrice);
+    
+    // Update paid/unpaid elements if they exist
+    const totalPaidEl = document.getElementById('totalPaid');
+    const totalUnpaidEl = document.getElementById('totalUnpaid');
+    
+    if (totalPaidEl) {
+        totalPaidEl.innerHTML = `<span class="text-primary">${formatNumber(paidCount)}</span> <small class="text-muted" style="font-size: 0.6em;">รายการ</small><br><span class="text-success" style="font-size: 0.8em;">${formatNumber(paidCost)}</span> <small class="text-muted" style="font-size: 0.5em;">บาท</small>`;
+    }
+    
+    if (totalUnpaidEl) {
+        totalUnpaidEl.innerHTML = `<span class="text-primary">${formatNumber(unpaidCount)}</span> <small class="text-muted" style="font-size: 0.6em;">รายการ</small><br><span class="text-danger" style="font-size: 0.8em;">${formatNumber(unpaidCost)}</span> <small class="text-muted" style="font-size: 0.5em;">บาท</small>`;
+    }
 }
 
 // Store transactions for detail view
@@ -1109,6 +1141,7 @@ function exportToExcel(exportAll) {
             'มูลค่ารวม (บาท)',
             'ผู้บันทึก',
             'หน่วย',
+            'สถานะเบิกจ่าย',
             'ประเภทอากาศยาน',
             'เลขทะเบียน',
             'Book No.',
@@ -1118,29 +1151,57 @@ function exportToExcel(exportAll) {
         ];
         
         // Map transaction data to rows (include all detail fields)
-        const rows = dataToExport.map(transaction => [
-            formatDate(transaction.date),
-            transaction.time || '-',
-            transaction.transaction_type,
-            transaction.source_name,
-            transaction.destination_name,
-            transaction.volume,
-            transaction.price_per_liter || '-',
-            transaction.total_cost,
-            transaction.operator_name || '-',
-            transaction.unit || '-',
-            transaction.aircraft_type || '-',
-            transaction.aircraft_number || '-',
-            transaction.book_no || '-',
-            transaction.receipt_no || '-',
-            transaction.missions || '-',
-            transaction.notes || '-'
-        ]);
+        const rows = dataToExport.map(transaction => {
+            const type = transaction.transaction_type || '';
+            const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
+            const isActuallyPaid = transaction.is_paid === true || transaction.is_paid === 'true' || transaction.is_paid === 'YES';
+            const isPaid = !isPTTPurchase || isActuallyPaid;
+            
+            return [
+                formatDate(transaction.date),
+                transaction.time || '-',
+                transaction.transaction_type,
+                transaction.source_name,
+                transaction.destination_name,
+                transaction.volume,
+                transaction.price_per_liter || '-',
+                transaction.total_cost,
+                transaction.operator_name || '-',
+                transaction.unit || '-',
+                isPaid ? 'เบิกจ่ายแล้ว' : 'ยังไม่เบิกจ่าย',
+                transaction.aircraft_type || '-',
+                transaction.aircraft_number || '-',
+                transaction.book_no || '-',
+                transaction.receipt_no || '-',
+                transaction.missions || '-',
+                transaction.notes || '-'
+            ];
+        });
         
         // Add summary row
         const totalVolume = dataToExport.reduce((sum, t) => sum + (parseFloat(t.volume_liters) || 0), 0);
         const totalCost = dataToExport.reduce((sum, t) => sum + t.total_cost, 0);
         const averagePrice = totalVolume > 0 ? (totalCost / totalVolume).toFixed(2) : 0;
+        
+        let paidCount = 0;
+        let unpaidCount = 0;
+        let paidCost = 0;
+        let unpaidCost = 0;
+        
+        dataToExport.forEach(t => {
+            const type = t.transaction_type || '';
+            const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
+            const isActuallyPaid = t.is_paid === true || t.is_paid === 'true' || t.is_paid === 'YES';
+            const isPaid = !isPTTPurchase || isActuallyPaid;
+            
+            if (isPaid) {
+                paidCount++;
+                paidCost += t.total_cost || 0;
+            } else {
+                unpaidCount++;
+                unpaidCost += t.total_cost || 0;
+            }
+        });
         
         // Create workbook
         const workbook = XLSX.utils.book_new();
@@ -1153,9 +1214,13 @@ function exportToExcel(exportAll) {
         const summaryData = [
             emptyRow,
             ['สรุป'],
-            ['จำนวนรายการ', dataToExport.length],
+            ['จำนวนรายการทั้งหมด', dataToExport.length],
             ['ปริมาณรวม (ลิตร)', totalVolume],
             ['มูลค่ารวม (บาท)', totalCost],
+            ['เบิกจ่ายแล้ว (รายการ)', paidCount],
+            ['เบิกจ่ายแล้ว (บาท)', paidCost],
+            ['ยังไม่เบิกจ่าย (รายการ)', unpaidCount],
+            ['ยังไม่เบิกจ่าย (บาท)', unpaidCost],
             ['ราคาเฉลี่ย/ลิตร (บาท)', averagePrice]
         ];
         
@@ -1175,6 +1240,7 @@ function exportToExcel(exportAll) {
             { wch: 15 },  // มูลค่ารวม
             { wch: 15 },  // ผู้บันทึก
             { wch: 12 },  // หน่วย
+            { wch: 15 },  // สถานะเบิกจ่าย
             { wch: 18 },  // ประเภทอากาศยาน
             { wch: 15 },  // เลขทะเบียน
             { wch: 15 },  // Book No.
