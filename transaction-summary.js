@@ -41,8 +41,11 @@ const endDateFilter = document.getElementById('endDateFilter');
 let detailModal = null;
 let editModal = null;
 let cancelConfirmationModal = null;
+let paymentNoteModal = null;
 let currentTransactionForCancel = null;
 let currentTransactionForEdit = null;
+let currentPaymentCheckbox = null;
+let currentPaymentUid = null;
 
 /**
  * Initialization
@@ -72,6 +75,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const editModalElement = document.getElementById('editModal');
     if (editModalElement && typeof bootstrap !== 'undefined') {
         editModal = new bootstrap.Modal(editModalElement, {
+            backdrop: 'static',
+            keyboard: false,
+            focus: true
+        });
+    }
+
+    // Initialize Payment Note Modal
+    const paymentNoteElement = document.getElementById('paymentNoteModal');
+    if (paymentNoteElement && typeof bootstrap !== 'undefined') {
+        paymentNoteModal = new bootstrap.Modal(paymentNoteElement, {
             backdrop: 'static',
             keyboard: false,
             focus: true
@@ -116,9 +129,9 @@ function setupEventListeners() {
     searchInput.addEventListener('input', applyFilters);
     sortByFilter.addEventListener('change', applyFilters);
     
-    const paymentStatusFilter = document.getElementById('paymentStatusFilter');
-    if (paymentStatusFilter) {
-        paymentStatusFilter.addEventListener('change', applyFilters);
+    const paymentStatusCheckboxContainer = document.getElementById('paymentStatusCheckboxContainer');
+    if (paymentStatusCheckboxContainer) {
+        paymentStatusCheckboxContainer.addEventListener('change', applyFilters);
     }
     
     const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
@@ -145,6 +158,10 @@ function setupEventListeners() {
     unitFilterContainer.addEventListener('change', applyFilters);
     if (missionFilterContainer) {
         missionFilterContainer.addEventListener('change', applyFilters);
+    }
+    const noteFilterContainer = document.getElementById('noteFilterContainer');
+    if (noteFilterContainer) {
+        noteFilterContainer.addEventListener('change', applyFilters);
     }
     
     // Date Range Filters
@@ -188,6 +205,26 @@ function setupEventListeners() {
         saveEditBtn.addEventListener('click', handleSaveEdit);
     }
 
+    // Confirm Payment Note Button
+    const confirmPaymentNoteBtn = document.getElementById('confirmPaymentNoteBtn');
+    if (confirmPaymentNoteBtn) {
+        confirmPaymentNoteBtn.addEventListener('click', handleConfirmPaymentNote);
+    }
+
+    // Handle Payment Note Modal Hidden (Revert checkbox if cancelled)
+    const paymentNoteModalEl = document.getElementById('paymentNoteModal');
+    if (paymentNoteModalEl) {
+        paymentNoteModalEl.addEventListener('hidden.bs.modal', function () {
+            // If the modal was closed without confirming and we have a pending checkbox
+            if (currentPaymentCheckbox && currentPaymentCheckbox.disabled) {
+                currentPaymentCheckbox.checked = false;
+                currentPaymentCheckbox.disabled = false;
+                currentPaymentCheckbox = null;
+                currentPaymentUid = null;
+            }
+        });
+    }
+
     // Edit Other Mission Checkbox
     const editMissionOther = document.getElementById('editMissionOther');
     if (editMissionOther) {
@@ -212,11 +249,13 @@ function populateFilterOptions() {
     const destinations = new Set();
     const units = new Set();
     const missions = new Set();
+    const notes = new Set();
     
     allTransactions.forEach(transaction => {
         if (transaction.source_name) sources.add(transaction.source_name);
         if (transaction.destination_name) destinations.add(transaction.destination_name);
         if (transaction.unit) units.add(transaction.unit);
+        if (transaction.paid_note && transaction.paid_note.trim()) notes.add(transaction.paid_note.trim());
         if (transaction.missions) {
             // Missions can be a comma-separated string
             transaction.missions.split(',').forEach(m => {
@@ -230,10 +269,20 @@ function populateFilterOptions() {
     const createCheckboxGroup = (values, containerId) => {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
+        
+        // Check if this is a horizontal container
+        const isHorizontal = containerId === 'noteFilterContainer';
+        
         Array.from(values).sort().forEach((value, index) => {
             const checkboxDiv = document.createElement('div');
             checkboxDiv.className = 'form-check';
-            checkboxDiv.style.marginBottom = '8px';
+            if (isHorizontal) {
+                checkboxDiv.style.marginBottom = '0';
+                checkboxDiv.style.display = 'inline-block';
+                checkboxDiv.style.marginRight = '10px';
+            } else {
+                checkboxDiv.style.marginBottom = '8px';
+            }
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -246,6 +295,7 @@ function populateFilterOptions() {
             label.htmlFor = `${containerId}_${index}`;
             label.textContent = value;
             label.style.marginBottom = '0';
+            label.style.whiteSpace = 'nowrap';
             
             checkboxDiv.appendChild(checkbox);
             checkboxDiv.appendChild(label);
@@ -258,6 +308,10 @@ function populateFilterOptions() {
     createCheckboxGroup(units, 'unitFilterContainer');
     if (missionFilterContainer) {
         createCheckboxGroup(missions, 'missionFilterContainer');
+    }
+    const noteFilterContainer = document.getElementById('noteFilterContainer');
+    if (noteFilterContainer) {
+        createCheckboxGroup(notes, 'noteFilterContainer');
     }
 }
 
@@ -317,25 +371,31 @@ function applyFilters() {
     const selectedDestinations = Array.from(destinationFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     const selectedUnits = Array.from(unitFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     const selectedMissions = missionFilterContainer ? Array.from(missionFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
+    
+    const noteFilterContainer = document.getElementById('noteFilterContainer');
+    const selectedNotes = noteFilterContainer ? Array.from(noteFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
+    
     const startDate = startDateFilter.value;
     const endDate = endDateFilter.value;
     const sortBy = sortByFilter.value;
-    const paymentStatus = document.getElementById('paymentStatusFilter').value;
+    
+    const statusCheckboxes = document.querySelectorAll('.status-filter-checkbox:checked');
+    const selectedPaymentStatuses = Array.from(statusCheckboxes).map(cb => cb.value);
 
     filteredTransactions = allTransactions.filter(transaction => {
-        // Payment status filter
-        let matchesPaymentStatus = true;
-        
         // Auto-check logic: non-PTT purchase is considered paid
         const type = transaction.transaction_type || '';
         const isPTTPurchase = type.includes('ซื้อจาก ปตท.') || type.includes('จัดซื้อจาก ปตท.');
         const isActuallyPaid = transaction.is_paid === true || transaction.is_paid === 'true' || transaction.is_paid === 'YES';
         const effectivePaidStatus = !isPTTPurchase || isActuallyPaid;
 
-        if (paymentStatus === 'paid') {
-            matchesPaymentStatus = effectivePaidStatus;
-        } else if (paymentStatus === 'unpaid') {
-            matchesPaymentStatus = !effectivePaidStatus;
+        // Payment status filter
+        let matchesPaymentStatus = false;
+        if (selectedPaymentStatuses.length === 0) {
+            matchesPaymentStatus = true; // Show all if nothing checked, or could be false to show none
+        } else {
+            if (selectedPaymentStatuses.includes('paid') && effectivePaidStatus) matchesPaymentStatus = true;
+            if (selectedPaymentStatuses.includes('unpaid') && !effectivePaidStatus) matchesPaymentStatus = true;
         }
 
         // Search filter
@@ -346,6 +406,7 @@ function applyFilters() {
             transaction.operator_name.toLowerCase().includes(searchText) ||
             transaction.transaction_type.toLowerCase().includes(searchText) ||
             paidStatusText.includes(searchText) ||
+            (transaction.paid_note && transaction.paid_note.toLowerCase().includes(searchText)) ||
             (transaction.missions && transaction.missions.toLowerCase().includes(searchText)) ||
             (transaction.uid && transaction.uid.toString().toLowerCase().includes(searchText)) ||
             (transaction.book_no && transaction.book_no.toString().toLowerCase().includes(searchText)) ||
@@ -370,10 +431,14 @@ function applyFilters() {
             matchesMission = selectedMissions.some(m => rowMissions.includes(m));
         }
 
+        // Note filter (multiple selection)
+        const matchesNote = selectedNotes.length === 0 || 
+            (transaction.paid_note && selectedNotes.includes(transaction.paid_note.trim()));
+
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
 
-        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesDateRange && matchesPaymentStatus;
+        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesNote && matchesDateRange && matchesPaymentStatus;
     });
 
     // Apply sorting
@@ -505,9 +570,10 @@ function renderTable(isAppend = false) {
         const isActuallyPaid = transaction.is_paid === true || transaction.is_paid === 'true' || transaction.is_paid === 'YES';
         const isPaid = !isPTTPurchase || isActuallyPaid;
         const isDisabled = !isPTTPurchase;
+        const paidNote = transaction.paid_note || '';
         
         return `
-            <tr class="${isPaid ? 'row-paid' : ''}">
+            <tr class="${isPaid ? 'row-paid' : ''}" ${paidNote ? `title="หมายเหตุการเบิกเงิน: ${paidNote}"` : ''}>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input payment-status-checkbox" 
                         data-uid="${transaction.uid}" 
@@ -515,7 +581,11 @@ function renderTable(isAppend = false) {
                         ${isDisabled ? 'disabled' : ''}
                         onchange="togglePaymentStatus(this, '${transaction.uid}')">
                 </td>
-                <td><small style="font-family: 'Courier New', monospace; color: #dc3545; font-weight: 600;">${transaction.uid || '-'}</small></td>
+                <td>
+                    <small style="font-family: 'Courier New', monospace; color: #dc3545; font-weight: 600;">${transaction.uid || '-'}</small>
+                    ${paidNote ? `<br><small class="text-success" style="font-size: 0.75rem; cursor: pointer;" title="คลิกเพื่อแก้ไขหมายเหตุ" onclick="editPaymentNote('${transaction.uid}', '${paidNote.replace(/'/g, "\\'")}')"><i class="fas fa-tag me-1"></i>${paidNote}</small>` : 
+                        (isPaid && !isDisabled ? `<br><small class="text-muted" style="font-size: 0.75rem; cursor: pointer;" title="คลิกเพื่อเพิ่มหมายเหตุ" onclick="editPaymentNote('${transaction.uid}', '')"><i class="fas fa-plus-circle me-1"></i>เพิ่มหมายเหตุ</small>` : '')}
+                </td>
                 <td><small class="text-muted">${formatDate(transaction.date)}</small></td>
                 <td>
                     ${getTransactionTypeBadge(transaction.transaction_type)}
@@ -894,13 +964,112 @@ function showDetailModal(transactionId) {
  */
 async function togglePaymentStatus(checkbox, uid) {
     const isChecked = checkbox.checked;
-    const statusValue = isChecked ? 'YES' : 'NO';
     
-    // Show loading state on the checkbox if possible or use global loading
+    // If checking (YES), show modal to ask for note
+    if (isChecked) {
+        currentPaymentCheckbox = checkbox;
+        currentPaymentUid = uid;
+        checkbox.disabled = true; // Temporary disable while modal is open
+        
+        // Populate datalist with existing notes
+        populatePaymentNoteDatalist();
+        
+        // Reset and show modal
+        document.getElementById('paymentNoteInput').value = '';
+        if (paymentNoteModal) {
+            paymentNoteModal.show();
+        } else {
+            // Fallback if modal initialization failed
+            const note = prompt('ระบุหมายเหตุการเบิกเงิน (ถ้ามี):');
+            if (note !== null) {
+                performPaymentStatusUpdate(checkbox, uid, 'YES', note);
+            } else {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+            }
+        }
+        return;
+    }
+    
+    // If unchecking (NO), proceed directly
+    const statusValue = 'NO';
     checkbox.disabled = true;
     
+    performPaymentStatusUpdate(checkbox, uid, statusValue, '');
+}
+
+/**
+ * Edit payment note for an already paid transaction
+ */
+function editPaymentNote(uid, existingNote) {
+    currentPaymentUid = uid;
+    currentPaymentCheckbox = null; // Important: null means we are editing, not toggling
+    
+    // Populate datalist
+    populatePaymentNoteDatalist();
+    
+    // Set existing note and show modal
+    document.getElementById('paymentNoteInput').value = existingNote;
+    if (paymentNoteModal) {
+        paymentNoteModal.show();
+    } else {
+        const note = prompt('แก้ไขหมายเหตุการเบิกเงิน:', existingNote);
+        if (note !== null) {
+            performPaymentStatusUpdate(null, uid, 'YES', note);
+        }
+    }
+}
+
+/**
+ * Handle confirmation from Payment Note Modal
+ */
+function handleConfirmPaymentNote() {
+    const note = document.getElementById('paymentNoteInput').value.trim();
+    const checkbox = currentPaymentCheckbox;
+    const uid = currentPaymentUid;
+    
+    // Don't clear currentPaymentCheckbox/Uid here, they'll be cleared in performPaymentStatusUpdate or modal hidden event
+    
+    if (paymentNoteModal) {
+        // Important: set a flag so 'hidden.bs.modal' doesn't revert the checkbox
+        const tempCheckbox = currentPaymentCheckbox;
+        currentPaymentCheckbox = null; 
+        paymentNoteModal.hide();
+        currentPaymentCheckbox = tempCheckbox;
+    }
+    
+    performPaymentStatusUpdate(checkbox, uid, 'YES', note);
+}
+
+/**
+ * Populates the datalist with unique existing payment notes
+ */
+function populatePaymentNoteDatalist() {
+    const datalist = document.getElementById('existingPaymentNotes');
+    if (!datalist) return;
+    
+    const uniqueNotes = new Set();
+    allTransactions.forEach(t => {
+        if (t.paid_note && t.paid_note.trim()) {
+            uniqueNotes.add(t.paid_note.trim());
+        }
+    });
+    
+    let html = '';
+    Array.from(uniqueNotes).sort().forEach(note => {
+        html += `<option value="${note}">`;
+    });
+    datalist.innerHTML = html;
+}
+
+/**
+ * Actually perform the API call to update payment status
+ */
+async function performPaymentStatusUpdate(checkbox, uid, statusValue, paidNote) {
+    const isChecked = (statusValue === 'YES');
+    
     try {
-        const url = `${GOOGLE_SCRIPT_URL}?action=updateTransactionPaymentStatus&uid=${uid}&status=${statusValue}&sheetsId=${GOOGLE_SHEETS_ID}`;
+        const url = `${GOOGLE_SCRIPT_URL}?action=updateTransactionPaymentStatus&uid=${uid}&status=${statusValue}&sheetsId=${GOOGLE_SHEETS_ID}&paidNote=${encodeURIComponent(paidNote)}`;
         
         console.log('Updating payment status:', url);
         
@@ -911,16 +1080,13 @@ async function togglePaymentStatus(checkbox, uid) {
             // Update local data
             const transaction = allTransactions.find(t => t.uid === uid);
             if (transaction) {
-                transaction.is_paid = statusValue;
+                transaction.is_paid = (statusValue === 'YES');
+                transaction.paid_note = paidNote;
             }
             
-            // Update row color
-            const row = checkbox.closest('tr');
-            if (isChecked) {
-                row.classList.add('row-paid');
-            } else {
-                row.classList.remove('row-paid');
-            }
+            // Refresh table to show updated status/notes
+            renderTable(false);
+            updateSummaryStatistics();
             
             console.log('Payment status updated successfully');
         } else {
@@ -929,10 +1095,18 @@ async function togglePaymentStatus(checkbox, uid) {
     } catch (error) {
         console.error('Error updating payment status:', error);
         alert('ไม่สามารถบันทึกข้อมูลได้: ' + error.message);
-        // Revert checkbox state
-        checkbox.checked = !isChecked;
+        // Revert checkbox state if exists
+        if (checkbox) {
+            checkbox.checked = !isChecked;
+        }
     } finally {
-        checkbox.disabled = false;
+        if (checkbox) {
+            checkbox.disabled = false;
+        }
+        if (currentPaymentCheckbox === checkbox) {
+            currentPaymentCheckbox = null;
+            currentPaymentUid = null;
+        }
     }
 }
 
@@ -1030,24 +1204,28 @@ function resetFilters() {
     startDateFilter.value = '';
     endDateFilter.value = '';
     
-    const paymentStatusFilter = document.getElementById('paymentStatusFilter');
-    if (paymentStatusFilter) {
-        paymentStatusFilter.value = 'all';
-    }
-    
     const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
     if (itemsPerPageFilter) {
         itemsPerPageFilter.value = '10';
         itemsPerPage = 10;
     }
     
-    // Uncheck all checkboxes
+    // Uncheck all dynamic checkboxes
     sourceFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     destinationFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     unitFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     if (missionFilterContainer) {
         missionFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     }
+    
+    const noteFilterContainer = document.getElementById('noteFilterContainer');
+    if (noteFilterContainer) {
+        noteFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    }
+
+    // Reset status checkboxes to checked (default show all)
+    const statusCheckboxes = document.querySelectorAll('.status-filter-checkbox');
+    statusCheckboxes.forEach(cb => cb.checked = true);
     
     currentPage = 1;
     applyFilters();

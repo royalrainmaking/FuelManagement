@@ -432,21 +432,36 @@ function generateUID() {
 // ราคาถูกจัดการโดยดึงจาก Google Sheet gid=1828300695 (PTT_PRICES) ตามจังหวัด
 // ผ่านฟังก์ชัน fetchPTTPricesByProvince()
 
+// ===== PTT Price Management =====
+// ตัวแปรสำหรับ Cache ราคาเพื่อความรวดเร็วและลดการเรียก API ซ้ำ
+const pttPriceCache = {
+    provinces: {},
+    locations: {}
+};
+
 /**
  * Fetch PTT prices from Sheet gid=1828300695 by matching province
  * @param {string} province - Province name (จังหวัด) to search for
  * @returns {Promise<{pricePerLiter: number, pricePerDrum: number}>}
  */
-async function fetchPTTPricesByProvince(province) {
+async function fetchPTTPricesByProvince(province, retryCount = 0) {
     if (!province || province.trim() === '') {
         console.warn('⚠️ Province name is empty');
         return { pricePerLiter: 0, pricePerDrum: 0 };
     }
+
+    const provinceName = province.trim();
+    const cacheKey = provinceName.toLowerCase();
     
-    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByProvince&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&province=${encodeURIComponent(province)}`;
+    // ใช้ข้อมูลจาก cache ถ้ามี (เฉพาะกรณีที่ไม่ใช่การ retry)
+    if (pttPriceCache.provinces[cacheKey] && retryCount === 0) {
+        console.log('⚡ Using cached PTT prices for province:', provinceName);
+        return pttPriceCache.provinces[cacheKey];
+    }
     
-    console.log('🔍 Fetching PTT prices for province:', province);
-    console.log('📡 Request URL:', url);
+    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByProvince&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&province=${encodeURIComponent(provinceName)}`;
+    
+    console.log(`🔍 Fetching PTT prices for province: ${provinceName} ${retryCount > 0 ? `(Attempt ${retryCount + 1})` : ''}`);
     
     try {
         const response = await fetch(url);
@@ -456,24 +471,46 @@ async function fetchPTTPricesByProvince(province) {
         }
         
         const result = await response.json();
-        console.log('📦 Response from Google Sheets:', result);
         
         if (!result.success) {
+            // ถ้าไม่สำเร็จ และยังไม่ครบจำนวน retry
+            if (retryCount < 2) {
+                console.warn(`⚠️ Attempt ${retryCount + 1} failed for ${provinceName}: ${result.error}. Retrying in 800ms...`);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                return fetchPTTPricesByProvince(provinceName, retryCount + 1);
+            }
             console.warn('⚠️ Failed to fetch prices:', result.error);
             return { pricePerLiter: 0, pricePerDrum: 0 };
         }
         
-        if (!result.data) {
-            console.warn('⚠️ No price data returned for province:', province);
+        if (!result.data || (parseFloat(result.data.pricePerLiter) === 0 && parseFloat(result.data.pricePerDrum) === 0)) {
+            // ถ้าได้ข้อมูลว่าง และยังไม่ครบจำนวน retry
+            if (retryCount < 2) {
+                console.warn(`⚠️ Attempt ${retryCount + 1} returned empty data for ${provinceName}. Retrying in 800ms...`);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                return fetchPTTPricesByProvince(provinceName, retryCount + 1);
+            }
+            console.warn('⚠️ No price data returned for province:', provinceName);
             return { pricePerLiter: 0, pricePerDrum: 0 };
         }
         
-        console.log('✅ Successfully fetched PTT prices:', result.data);
-        return {
+        const priceData = {
             pricePerLiter: parseFloat(result.data.pricePerLiter) || 0,
             pricePerDrum: parseFloat(result.data.pricePerDrum) || 0
         };
+
+        // เก็บลง cache
+        pttPriceCache.provinces[cacheKey] = priceData;
+        
+        console.log('✅ Successfully fetched PTT prices:', result.data);
+        return priceData;
     } catch (error) {
+        // ถ้าเกิด Error และยังไม่ครบจำนวน retry
+        if (retryCount < 2) {
+            console.warn(`❌ Attempt ${retryCount + 1} threw error for ${provinceName}: ${error.message}. Retrying in 800ms...`);
+            await new Promise(resolve => setTimeout(resolve, 800));
+            return fetchPTTPricesByProvince(provinceName, retryCount + 1);
+        }
         console.error('❌ Error in fetchPTTPricesByProvince:', error);
         return { pricePerLiter: 0, pricePerDrum: 0 };
     }
@@ -484,16 +521,24 @@ async function fetchPTTPricesByProvince(province) {
  * @param {string} locationName - Location name (e.g., 'สนามบินนครสวรรค์ - ถัง 200L')
  * @returns {Promise<{pricePerDrum: number}>}
  */
-async function fetchPTTPricesByLocationName(locationName) {
+async function fetchPTTPricesByLocationName(locationName, retryCount = 0) {
     if (!locationName || locationName.trim() === '') {
         console.warn('⚠️ Location name is empty');
         return { pricePerDrum: 0 };
     }
     
-    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByLocationName&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&locationName=${encodeURIComponent(locationName)}`;
+    const name = locationName.trim();
+    const cacheKey = name.toLowerCase();
+
+    // ใช้ข้อมูลจาก cache ถ้ามี
+    if (pttPriceCache.locations[cacheKey] && retryCount === 0) {
+        console.log('⚡ Using cached PTT prices for location:', name);
+        return pttPriceCache.locations[cacheKey];
+    }
+
+    const url = `${GOOGLE_SCRIPT_URL}?action=getPTTPricesByLocationName&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.PTT_PRICES}&locationName=${encodeURIComponent(name)}`;
     
-    console.log('🔍 Fetching PTT prices for location:', locationName);
-    console.log('📡 Request URL:', url);
+    console.log(`🔍 Fetching PTT prices for location: ${name} ${retryCount > 0 ? `(Attempt ${retryCount + 1})` : ''}`);
     
     try {
         const response = await fetch(url);
@@ -503,23 +548,42 @@ async function fetchPTTPricesByLocationName(locationName) {
         }
         
         const result = await response.json();
-        console.log('📦 Response from Google Sheets:', result);
         
         if (!result.success) {
+            if (retryCount < 2) {
+                console.warn(`⚠️ Attempt ${retryCount + 1} failed for ${name}: ${result.error}. Retrying in 800ms...`);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                return fetchPTTPricesByLocationName(name, retryCount + 1);
+            }
             console.warn('⚠️ Failed to fetch prices:', result.error);
             return { pricePerDrum: 0 };
         }
         
-        if (!result.data) {
-            console.warn('⚠️ No price data returned for location:', locationName);
+        if (!result.data || parseFloat(result.data.pricePerDrum) === 0) {
+            if (retryCount < 2) {
+                console.warn(`⚠️ Attempt ${retryCount + 1} returned empty data for ${name}. Retrying in 800ms...`);
+                await new Promise(resolve => setTimeout(resolve, 800));
+                return fetchPTTPricesByLocationName(name, retryCount + 1);
+            }
+            console.warn('⚠️ No price data returned for location:', name);
             return { pricePerDrum: 0 };
         }
         
-        console.log('✅ Successfully fetched PTT prices:', result.data);
-        return {
+        const priceData = {
             pricePerDrum: parseFloat(result.data.pricePerDrum) || 0
         };
+
+        // เก็บลง cache
+        pttPriceCache.locations[cacheKey] = priceData;
+        
+        console.log('✅ Successfully fetched PTT prices:', result.data);
+        return priceData;
     } catch (error) {
+        if (retryCount < 2) {
+            console.warn(`❌ Attempt ${retryCount + 1} threw error for ${name}: ${error.message}. Retrying in 800ms...`);
+            await new Promise(resolve => setTimeout(resolve, 800));
+            return fetchPTTPricesByLocationName(name, retryCount + 1);
+        }
         console.error('❌ Error in fetchPTTPricesByLocationName:', error);
         return { pricePerDrum: 0 };
     }
@@ -4419,6 +4483,19 @@ function initializeEventListeners() {
     
     // Window click handler จะถูกจัดการใน initializeBudgetSystem
     
+    // ✅ Pre-fetch PTT prices when operating unit (province) is selected
+    const operatingUnitInput = document.getElementById('operatingUnit');
+    if (operatingUnitInput) {
+        operatingUnitInput.addEventListener('change', async function() {
+            const province = this.value.trim();
+            if (province && province !== '') {
+                console.log('🔄 Pre-fetching prices for province (warm-up):', province);
+                // เรียกใช้เพื่ออุ่นเครื่อง API และเก็บลง cache เพื่อลดความหน่วงตอน submit
+                await fetchPTTPricesByProvince(province);
+            }
+        });
+    }
+
     // Destination type change
     document.getElementById('destinationType').onchange = function() {
         const aircraftDestination = document.getElementById('aircraftDestination');

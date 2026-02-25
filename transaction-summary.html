@@ -581,25 +581,35 @@
                         <option value="cost_desc">มูลค่ามากสุด</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">สถานะเบิกจ่าย</label>
-                    <select class="form-select" id="paymentStatusFilter">
-                        <option value="all" selected>ทั้งหมด</option>
-                        <option value="paid">เบิกจ่ายแล้ว</option>
-                        <option value="unpaid">ยังไม่เบิกจ่าย</option>
-                    </select>
+                    <div id="paymentStatusCheckboxContainer" class="filter-checkbox-group d-flex align-items-center gap-3" style="height: 42px; border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 15px; background: white;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="paid" id="statusPaid" checked>
+                            <label class="form-check-label" for="statusPaid">เบิกจ่ายแล้ว</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="unpaid" id="statusUnpaid" checked>
+                            <label class="form-check-label" for="statusUnpaid">ยังไม่เบิกจ่าย</label>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end gap-2">
-                    <button class="btn btn-primary flex-grow-1" id="resetFiltersBtn">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">กลุ่มการเบิกเงิน (หมายเหตุ)</label>
+                    <div id="noteFilterContainer" class="filter-checkbox-group" style="max-height: 42px; overflow-x: auto; overflow-y: hidden; border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 10px; background: white; white-space: nowrap; display: flex; align-items: center; gap: 15px;">
+                    </div>
+                </div>
+                <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
+                    <button class="btn btn-primary px-4" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>
-                    <button type="button" class="btn btn-success flex-grow-1" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
+                    <button type="button" class="btn btn-success px-4" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
                         <i class="fas fa-file-excel me-1"></i> Export ที่กรอง
                     </button>
-                    <button type="button" class="btn btn-outline-success flex-grow-1" id="exportAllBtn" title="Export ทั้งหมด">
+                    <button type="button" class="btn btn-outline-success px-4" id="exportAllBtn" title="Export ทั้งหมด">
                         <i class="fas fa-download me-1"></i> Export ทั้งหมด
                     </button>
-                    <button type="button" class="btn btn-outline-info flex-grow-1" id="exportInventoryBtn" title="Export แหล่งน้ำมัน">
+                    <button type="button" class="btn btn-outline-info px-4" id="exportInventoryBtn" title="Export แหล่งน้ำมัน">
                         <i class="fas fa-gas-pump me-1"></i> Export แหล่งน้ำมัน
                     </button>
                 </div>
@@ -687,6 +697,42 @@
                         <!-- Pagination buttons will be generated here -->
                     </ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Note Modal -->
+    <div class="modal fade" id="paymentNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                <div class="modal-header" style="background: linear-gradient(135deg, #198754 0%, #157347 100%); color: white; border: none;">
+                    <h5 class="modal-title">
+                        <i class="fas fa-comment-dollar me-2"></i>
+                        ระบุหมายเหตุการเบิกเงิน
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="paymentNoteModalCloseBtn"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="paymentNoteInput" class="form-label fw-bold text-success">หมายเหตุ / กลุ่มการเบิกเงิน</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="fas fa-tag text-success"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="paymentNoteInput" list="existingPaymentNotes" placeholder="เช่น ชุดที่ 1, รอบเดือน ม.ค. 67, บัญชี ก.">
+                            <datalist id="existingPaymentNotes">
+                                <!-- Existing notes will be populated here -->
+                            </datalist>
+                        </div>
+                        <div class="form-text mt-2">
+                            <i class="fas fa-info-circle me-1"></i>คุณสามารถเลือกจากรายการที่เคยใช้ หรือพิมพ์ใหม่เพื่อสร้างกลุ่มใหม่
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-success px-4" id="confirmPaymentNoteBtn">
+                        <i class="fas fa-check me-2"></i>ยืนยัน
+                    </button>
+                </div>
             </div>
         </div>
     </div>
