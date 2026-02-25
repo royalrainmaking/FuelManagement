@@ -30,29 +30,126 @@
         .summary-stat {
             text-align: center;
             padding: 1.5rem;
+            border-radius: 16px;
+            background: white;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-stat:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-stat::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: currentColor;
+            opacity: 0.5;
+        }
+
+        .summary-stat-budget {
+            text-align: left;
+            padding: 1.5rem;
+            border-radius: 16px;
+            background: white;
+            min-height: 100%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .budget-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .budget-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
             border-radius: 10px;
-            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .budget-item:hover {
+            transform: scale(1.02);
+        }
+
+        .budget-label {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #2c3e50;
+        }
+
+        .budget-value {
+            font-weight: 800;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 1.1rem;
         }
 
         .summary-stat-value {
-            font-size: 2rem;
-            font-weight: 700;
+            font-size: 2.2rem;
+            font-weight: 800;
             color: #2c3e50;
             margin: 0.5rem 0;
+            line-height: 1;
         }
 
         .summary-stat-label {
             font-size: 0.9rem;
             color: #6c757d;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
         }
 
         .summary-stat-icon {
             font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            opacity: 0.8;
+            margin-bottom: 0.75rem;
+        }
+
+        .payment-card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            flex-grow: 1;
+        }
+
+        .payment-sub-card {
+            padding: 1.25rem 0.5rem;
+            border-radius: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .payment-card-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .transaction-filters {
@@ -503,50 +600,94 @@
         </div>
 
         <!-- Summary Statistics -->
-        <div class="row mb-4">
-            <div class="col-md-2 col-sm-4">
-                <div class="summary-stat">
-                    <div class="summary-stat-icon text-primary">
-                        <i class="fas fa-list"></i>
+        <div class="row g-4 mb-4">
+            <!-- Row 1: Core Stats -->
+            <div class="col-md-4">
+                <div class="summary-stat text-primary" style="color: #0d6efd;">
+                    <div class="summary-stat-icon">
+                        <i class="fas fa-list-check"></i>
                     </div>
-                    <div class="summary-stat-label">จำนวนรายการ</div>
+                    <div class="summary-stat-label">จำนวนรายการทั้งหมด</div>
                     <div class="summary-stat-value" id="totalTransactions">0</div>
                 </div>
             </div>
-            <div class="col-md-2 col-sm-4">
-                <div class="summary-stat">
-                    <div class="summary-stat-icon text-success">
+            <div class="col-md-4">
+                <div class="summary-stat text-success" style="color: #198754;">
+                    <div class="summary-stat-icon">
                         <i class="fas fa-gas-pump"></i>
                     </div>
-                    <div class="summary-stat-label">ปริมาณรวม (ลิตร)</div>
+                    <div class="summary-stat-label">ปริมาณรวมทั้งหมด (ลิตร)</div>
                     <div class="summary-stat-value" id="totalVolume">0</div>
                 </div>
             </div>
-            <div class="col-md-2 col-sm-4">
-                <div class="summary-stat">
-                    <div class="summary-stat-icon text-warning">
-                        <i class="fas fa-money-bill"></i>
+            <div class="col-md-4">
+                <div class="summary-stat text-warning" style="color: #f59e0b;">
+                    <div class="summary-stat-icon">
+                        <i class="fas fa-coins"></i>
                     </div>
-                    <div class="summary-stat-label">มูลค่ารวม (บาท)</div>
+                    <div class="summary-stat-label">มูลค่ารวมทั้งหมด (บาท)</div>
                     <div class="summary-stat-value" id="totalCost">0</div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="summary-stat">
-                    <div class="summary-stat-icon text-info">
-                        <i class="fas fa-check-circle"></i>
+
+            <!-- Row 2: Breakdowns -->
+            <div class="col-md-6">
+                <div class="summary-stat-budget">
+                    <h5 class="fw-bold mb-4 d-flex align-items-center">
+                        <i class="fas fa-check-double text-info me-2"></i>
+                        สถานะการเบิกจ่าย
+                    </h5>
+                    <div class="payment-card-grid">
+                        <div class="payment-sub-card bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
+                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">เบิกจ่ายแล้ว</div>
+                            <div id="totalPaid">
+                                <div style="font-size: 1.8rem; font-weight: 800;">0 บาท</div>
+                                <div style="font-size: 1.1rem; font-weight: 700;">0 รายการ</div>
+                            </div>
+                        </div>
+                        <div class="payment-sub-card bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">ยังไม่เบิกจ่าย</div>
+                            <div id="totalUnpaid">
+                                <div style="font-size: 1.8rem; font-weight: 800;">0 บาท</div>
+                                <div style="font-size: 1.1rem; font-weight: 700;">0 รายการ</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="summary-stat-label">เบิกจ่ายแล้ว</div>
-                    <div class="summary-stat-value" id="totalPaid">0 / 0</div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="summary-stat">
-                    <div class="summary-stat-icon text-danger">
-                        <i class="fas fa-exclamation-circle"></i>
+            
+            <div class="col-md-6">
+                <div class="summary-stat-budget">
+                    <h5 class="fw-bold mb-4 d-flex align-items-center">
+                        <i class="fas fa-wallet text-warning me-2"></i>
+                        งบคงเหลือคงเหลือตามแผน
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="budget-item bg-warning bg-opacity-10 border-start border-4 border-warning">
+                                <span class="budget-label"><i class="fas fa-cloud-rain text-warning" style="width: 20px;"></i> บรู</span>
+                                <span class="budget-value text-warning" id="quickRemainingBru">0</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="budget-item bg-primary bg-opacity-10 border-start border-4 border-primary">
+                                <span class="budget-label"><i class="fas fa-shield-alt text-primary" style="width: 20px;"></i> ยุทธ</span>
+                                <span class="budget-value text-primary" id="quickRemainingYuttaya">0</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="budget-item bg-info bg-opacity-10 border-start border-4 border-info">
+                                <span class="budget-label"><i class="fas fa-smog text-info" style="width: 20px;"></i> ฝุ่น</span>
+                                <span class="budget-value text-info" id="quickRemainingDust">0</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="budget-item bg-danger bg-opacity-10 border-start border-4 border-danger">
+                                <span class="budget-label"><i class="fas fa-gem text-danger" style="width: 20px;"></i> ลูกเห็บ</span>
+                                <span class="budget-value text-danger" id="quickRemainingCentral">0</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="summary-stat-label">ยังไม่เบิกจ่าย</div>
-                    <div class="summary-stat-value" id="totalUnpaid">0 / 0</div>
                 </div>
             </div>
         </div>
@@ -596,7 +737,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">กลุ่มการเบิกเงิน (หมายเหตุ)</label>
-                    <div id="noteFilterContainer" class="filter-checkbox-group" style="max-height: 42px; overflow-x: auto; overflow-y: hidden; border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 10px; background: white; white-space: nowrap; display: flex; align-items: center; gap: 15px;">
+                    <div id="noteFilterContainer" class="filter-checkbox-group" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white;">
                     </div>
                 </div>
                 <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">

@@ -270,19 +270,10 @@ function populateFilterOptions() {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
         
-        // Check if this is a horizontal container
-        const isHorizontal = containerId === 'noteFilterContainer';
-        
         Array.from(values).sort().forEach((value, index) => {
             const checkboxDiv = document.createElement('div');
             checkboxDiv.className = 'form-check';
-            if (isHorizontal) {
-                checkboxDiv.style.marginBottom = '0';
-                checkboxDiv.style.display = 'inline-block';
-                checkboxDiv.style.marginRight = '10px';
-            } else {
-                checkboxDiv.style.marginBottom = '8px';
-            }
+            checkboxDiv.style.marginBottom = '8px';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -295,7 +286,6 @@ function populateFilterOptions() {
             label.htmlFor = `${containerId}_${index}`;
             label.textContent = value;
             label.style.marginBottom = '0';
-            label.style.whiteSpace = 'nowrap';
             
             checkboxDiv.appendChild(checkbox);
             checkboxDiv.appendChild(label);
@@ -316,10 +306,62 @@ function populateFilterOptions() {
 }
 
 /**
+ * Load budget data and update the remaining budget display
+ */
+function loadBudgetData() {
+    const url = `${GOOGLE_SCRIPT_URL}?action=getBudgetData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.BUDGET}`;
+    
+    console.log('Loading budget data from API:', url);
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Budget data received:', data);
+            if (data.success && data.data) {
+                // 1. Update individual plans
+                if (data.data.plans) {
+                    const plans = data.data.plans;
+                    
+                    const bruEl = document.getElementById('quickRemainingBru');
+                    const yuttayaEl = document.getElementById('quickRemainingYuttaya');
+                    const dustEl = document.getElementById('quickRemainingDust');
+                    const centralEl = document.getElementById('quickRemainingCentral');
+                    
+                    if (bruEl && plans['แผนบรู']) bruEl.textContent = formatNumber(plans['แผนบรู'].remaining);
+                    if (yuttayaEl && plans['แผนยุทธศาสตร์']) yuttayaEl.textContent = formatNumber(plans['แผนยุทธศาสตร์'].remaining);
+                    if (dustEl && plans['ดัดแปลงสภาพอากาศ (ฝุ่น)']) dustEl.textContent = formatNumber(plans['ดัดแปลงสภาพอากาศ (ฝุ่น)'].remaining);
+                    if (centralEl && plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)']) centralEl.textContent = formatNumber(plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)'].remaining);
+                }
+                
+                // 2. Legacy/Global element if it still exists
+                const remainingBudgetEl = document.getElementById('remainingBudget');
+                if (remainingBudgetEl) {
+                    const remaining = data.data.remainingBudget || 0;
+                    remainingBudgetEl.textContent = formatNumber(remaining);
+                    
+                    // Add color based on remaining amount
+                    remainingBudgetEl.classList.remove('text-success', 'text-warning', 'text-danger');
+                    if (remaining < 50000) {
+                        remainingBudgetEl.classList.add('text-danger');
+                    } else if (remaining < 200000) {
+                        remainingBudgetEl.classList.add('text-warning');
+                    } else {
+                        remainingBudgetEl.classList.add('text-success');
+                    }
+                }
+            }
+        })
+        .catch(error => console.error('Error loading budget data:', error));
+}
+
+/**
  * Load transaction data from sessionStorage cache or Google Apps Script
  */
 function loadTransactionData() {
     showLoading(true);
+    
+    // โหลดข้อมูลวงเงินสัญญา/งบประมาณด้วย
+    loadBudgetData();
     
     // 💡 ล้าง cache ก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุด (Real-time)
     // หรือตรวจสอบ timestamp ถ้าต้องการประหยัด bandwidth
@@ -525,11 +567,17 @@ function updateSummaryStatistics() {
     const totalUnpaidEl = document.getElementById('totalUnpaid');
     
     if (totalPaidEl) {
-        totalPaidEl.innerHTML = `<span class="text-primary">${formatNumber(paidCount)}</span> <small class="text-muted" style="font-size: 0.6em;">รายการ</small><br><span class="text-success" style="font-size: 0.8em;">${formatNumber(paidCost)}</span> <small class="text-muted" style="font-size: 0.5em;">บาท</small>`;
+        totalPaidEl.innerHTML = `
+            <div style="font-size: 1.8rem; font-weight: 800; line-height: 1.2; word-break: break-all;">${formatNumber(paidCost)} <small style="font-size: 0.8rem; font-weight: 700; opacity: 0.8;">บาท</small></div>
+            <div style="font-size: 1rem; font-weight: 700; margin-top: 0.5rem; opacity: 0.9;">${formatNumber(paidCount)} <small style="font-size: 0.7rem; font-weight: 600;">รายการ</small></div>
+        `;
     }
     
     if (totalUnpaidEl) {
-        totalUnpaidEl.innerHTML = `<span class="text-primary">${formatNumber(unpaidCount)}</span> <small class="text-muted" style="font-size: 0.6em;">รายการ</small><br><span class="text-danger" style="font-size: 0.8em;">${formatNumber(unpaidCost)}</span> <small class="text-muted" style="font-size: 0.5em;">บาท</small>`;
+        totalUnpaidEl.innerHTML = `
+            <div style="font-size: 1.8rem; font-weight: 800; line-height: 1.2; word-break: break-all;">${formatNumber(unpaidCost)} <small style="font-size: 0.8rem; font-weight: 700; opacity: 0.8;">บาท</small></div>
+            <div style="font-size: 1rem; font-weight: 700; margin-top: 0.5rem; opacity: 0.9;">${formatNumber(unpaidCount)} <small style="font-size: 0.7rem; font-weight: 600;">รายการ</small></div>
+        `;
     }
 }
 
