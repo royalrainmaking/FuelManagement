@@ -86,7 +86,7 @@ fetch(url, {
 **Location:** `config.js`
 
 ```javascript
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyNH6R4RwoEJ9sn2tFPBpF_RKBpHlAjdzNQ29Ty4lHb3lI3MgyrOhhmui6LuJuSg3zF/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziVsTrRhgbY-p1btN_t8EPgymIlUl65TO4Tn7ASQ96URmw8lXq9jIcDHtntRuBPqsj/exec';
 const GOOGLE_SHEETS_ID = '18EaX2GwcZaPFXzcL0B9T4gFRAOhBXdHqZHm1bMJ8-sE';
 ```
 

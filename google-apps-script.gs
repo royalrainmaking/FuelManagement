@@ -1412,6 +1412,23 @@ function logTransaction(dataString, sheetsId) {
       throw new Error('ไม่สามารถสร้างหรือเข้าถึง Transaction_Log sheet ได้');
     }
     
+    // Check if UID already exists to prevent duplicates (e.g. from network retries)
+    const searchUid = transactionData.uid || '';
+    if (searchUid) {
+      const existing = findTransactionByUID(logSheet, searchUid);
+      if (existing) {
+        logs.push('⚠️ UID ' + searchUid + ' already exists. Skipping append to prevent duplicate.');
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            success: true,
+            message: 'รายการนี้ได้รับการบันทึกแล้ว (ป้องกันข้อมูลซ้ำ)',
+            uid: searchUid,
+            isDuplicate: true
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
     // เพิ่ม transaction ใหม่
     const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
     // ใช้ Timezone Asia/Bangkok
@@ -4131,6 +4148,16 @@ function internalLogTransaction(spreadsheet, transactionData, logs) {
     let logSheet = spreadsheet.getSheetByName('Transaction_Log');
     if (!logSheet || logSheet.getLastRow() === 0) {
       logSheet = createTransactionLogSheet(spreadsheet.getId());
+    }
+    
+    // Check if UID already exists to prevent duplicates (e.g. from network retries)
+    const searchUid = transactionData.uid || '';
+    if (searchUid) {
+      const existing = findTransactionByUID(logSheet, searchUid);
+      if (existing) {
+        logs.push('⚠️ UID ' + searchUid + ' already exists. Skipping append to prevent duplicate.');
+        return true; // Already exists, consider it a success
+      }
     }
     
     const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
