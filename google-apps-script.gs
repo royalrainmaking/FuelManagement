@@ -567,7 +567,28 @@ function doGet(e) {
       case 'updateTransactionPaymentStatus':
         return updateTransactionPaymentStatus(e.parameter.uid, e.parameter.status, sheetsId, e.parameter.paidNote);
       case 'updateTransactionDetail':
-        return updateTransactionDetail(e.parameter.uid, e.parameter.totalCost, e.parameter.missions, sheetsId, e.parameter.volume);
+        return updateTransactionDetail(
+          e.parameter.uid, 
+          sheetsId, 
+          {
+            date: e.parameter.date,
+            time: e.parameter.time,
+            type: e.parameter.type,
+            source: e.parameter.source,
+            destination: e.parameter.destination,
+            unit: e.parameter.unit,
+            operator: e.parameter.operator,
+            aircraftType: e.parameter.aircraftType,
+            aircraftNumber: e.parameter.aircraftNumber,
+            volume: e.parameter.volume,
+            pricePerLiter: e.parameter.pricePerLiter,
+            totalCost: e.parameter.totalCost,
+            bookNo: e.parameter.bookNo,
+            receiptNo: e.parameter.receiptNo,
+            missions: e.parameter.missions,
+            notes: e.parameter.notes
+          }
+        );
       default:
         return ContentService
           .createTextOutput(JSON.stringify({
@@ -1655,7 +1676,7 @@ function updateTransactionPaymentStatus(uid, status, sheetsId, paidNote) {
 /**
  * ฟังก์ชันสำหรับแก้ไขรายละเอียดรายการ (ปริมาณ, มูลค่า และ ภารกิจ)
  */
-function updateTransactionDetail(uid, totalCost, missions, sheetsId, volume) {
+function updateTransactionDetail(uid, sheetsId, data) {
   try {
     if (!uid) throw new Error('ต้องระบุ UID');
     if (!sheetsId) throw new Error('ต้องระบุ Sheets ID');
@@ -1678,18 +1699,31 @@ function updateTransactionDetail(uid, totalCost, missions, sheetsId, volume) {
     const result = findTransactionByUID(transactionSheet, uid);
     if (!result) throw new Error('ไม่พบรายการที่ต้องการแก้ไข');
     
-    // อัพเดทคอลัมน์ G (คอลัมน์ที่ 7) - ปริมาณ (string/mixed)
-    if (volume !== undefined) {
-      transactionSheet.getRange(result.rowIndex, 7).setValue(volume);
-      // อัพเดทคอลัมน์ Q (คอลัมน์ที่ 17) - ปริมาณ (number)
-      transactionSheet.getRange(result.rowIndex, 17).setValue(parseFloat(volume) || 0);
+    const rowIndex = result.rowIndex;
+
+    // อัปเดตฟิลด์ต่างๆ ตามคอลัมน์ใน Transaction_Log
+    // UID (A=1) - ไม่แก้
+    if (data.date) transactionSheet.getRange(rowIndex, 2).setValue(data.date);           // วันที่ (B=2)
+    if (data.time) transactionSheet.getRange(rowIndex, 3).setValue(data.time);           // เวลา (C=3)
+    if (data.type) transactionSheet.getRange(rowIndex, 4).setValue(data.type);           // ประเภท (D=4)
+    if (data.source) transactionSheet.getRange(rowIndex, 5).setValue(data.source);       // แหล่งที่มา (E=5)
+    if (data.destination) transactionSheet.getRange(rowIndex, 6).setValue(data.destination); // ปลายทาง (F=6)
+    
+    if (data.volume !== undefined) {
+      transactionSheet.getRange(rowIndex, 7).setValue(data.volume);                     // จำนวน(ลิตร) (G=7) - string
+      transactionSheet.getRange(rowIndex, 17).setValue(parseFloat(data.volume) || 0);    // volumeLiters (Q=17) - number
     }
     
-    // อัพเดทคอลัมน์ I (คอลัมน์ที่ 9) - มูลค่ารวม
-    transactionSheet.getRange(result.rowIndex, 9).setValue(parseFloat(totalCost) || 0);
-    
-    // อัพเดทคอลัมน์ R (คอลัมน์ที่ 18) - ภารกิจ
-    transactionSheet.getRange(result.rowIndex, 18).setValue(missions || '');
+    if (data.pricePerLiter !== undefined) transactionSheet.getRange(rowIndex, 8).setValue(parseFloat(data.pricePerLiter) || 0); // ราคาต่อลิตร (H=8)
+    if (data.totalCost !== undefined) transactionSheet.getRange(rowIndex, 9).setValue(parseFloat(data.totalCost) || 0);     // ยอดรวม (I=9)
+    if (data.operator) transactionSheet.getRange(rowIndex, 10).setValue(data.operator);   // ผู้ปฏิบัติงาน (J=10)
+    if (data.unit) transactionSheet.getRange(rowIndex, 11).setValue(data.unit);           // หน่วย (K=11)
+    if (data.aircraftType) transactionSheet.getRange(rowIndex, 12).setValue(data.aircraftType); // ประเภทอากาศยาน (L=12)
+    if (data.aircraftNumber) transactionSheet.getRange(rowIndex, 13).setValue(data.aircraftNumber); // เลขทะเบียน (M=13)
+    if (data.notes !== undefined) transactionSheet.getRange(rowIndex, 14).setValue(data.notes); // หมายเหตุ (N=14)
+    if (data.bookNo !== undefined) transactionSheet.getRange(rowIndex, 15).setValue(data.bookNo); // Book No. (O=15)
+    if (data.receiptNo !== undefined) transactionSheet.getRange(rowIndex, 16).setValue(data.receiptNo); // Receipt No. (P=16)
+    if (data.missions !== undefined) transactionSheet.getRange(rowIndex, 18).setValue(data.missions); // ภาระกิจ (R=18)
     
     return ContentService
       .createTextOutput(JSON.stringify({
@@ -1697,9 +1731,7 @@ function updateTransactionDetail(uid, totalCost, missions, sheetsId, volume) {
         message: 'แก้ไขข้อมูลสำเร็จ',
         data: {
           uid: uid,
-          volume: volume,
-          totalCost: totalCost,
-          missions: missions
+          updatedFields: Object.keys(data)
         }
       }))
       .setMimeType(ContentService.MimeType.JSON);

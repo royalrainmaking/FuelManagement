@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTransactionData();
     setupEventListeners();
     setupLazyLoading();
+    populateEditUnitDropdown();
 });
 
 /**
@@ -132,6 +133,11 @@ function setupEventListeners() {
     const paymentStatusCheckboxContainer = document.getElementById('paymentStatusCheckboxContainer');
     if (paymentStatusCheckboxContainer) {
         paymentStatusCheckboxContainer.addEventListener('change', applyFilters);
+    }
+
+    const planFilterContainer = document.getElementById('planFilterContainer');
+    if (planFilterContainer) {
+        planFilterContainer.addEventListener('change', applyFilters);
     }
     
     const itemsPerPageFilter = document.getElementById('itemsPerPageFilter');
@@ -404,6 +410,18 @@ function loadTransactionData() {
 }
 
 /**
+ * Helper to get plan name from missions string
+ */
+function getPlanNameFromMissions(missions) {
+    const name = (missions || '').toString().trim();
+    if (name.includes('ลูกเห็บ')) return 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)';
+    if (name.includes('ฝุ่น') || name.includes('ดัดแปลงสภาพอากาศ')) return 'ดัดแปลงสภาพอากาศ (ฝุ่น)';
+    if (name.includes('บรู') || name.includes('ฝนหลวง') || name.includes('บินสำรวจ')) return 'แผนบรู';
+    if (name.includes('ยุทธ') || name.includes('บินบริการ') || name.includes('บินทดสอบ') || name.includes('พื้นฐาน')) return 'แผนยุทธศาสตร์';
+    return 'แผนยุทธศาสตร์';
+}
+
+/**
  * Apply filters and sorting
  */
 function applyFilters() {
@@ -414,6 +432,9 @@ function applyFilters() {
     const selectedUnits = Array.from(unitFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     const selectedMissions = missionFilterContainer ? Array.from(missionFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
     
+    const planFilterContainer = document.getElementById('planFilterContainer');
+    const selectedPlans = planFilterContainer ? Array.from(planFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
+
     const noteFilterContainer = document.getElementById('noteFilterContainer');
     const selectedNotes = noteFilterContainer ? Array.from(noteFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
     
@@ -473,6 +494,10 @@ function applyFilters() {
             matchesMission = selectedMissions.some(m => rowMissions.includes(m));
         }
 
+        // Plan filter (multiple selection)
+        const transactionPlan = getPlanNameFromMissions(transaction.missions);
+        const matchesPlan = selectedPlans.length === 0 || selectedPlans.includes(transactionPlan);
+
         // Note filter (multiple selection)
         const matchesNote = selectedNotes.length === 0 || 
             (transaction.paid_note && selectedNotes.includes(transaction.paid_note.trim()));
@@ -480,7 +505,7 @@ function applyFilters() {
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
 
-        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesNote && matchesDateRange && matchesPaymentStatus;
+        return matchesSearch && matchesSource && matchesDestination && matchesUnit && matchesMission && matchesPlan && matchesNote && matchesDateRange && matchesPaymentStatus;
     });
 
     // Apply sorting
@@ -702,11 +727,30 @@ function openEditModal(transactionId) {
 
     currentTransactionForEdit = transaction;
     
-    // Set UID and Cost
-    document.getElementById('editUid').value = transaction.uid;
-    document.getElementById('editUidDisplay').textContent = transaction.uid;
+    // Populate all fields
+    document.getElementById('editUid').value = transaction.uid || '';
+    document.getElementById('editUidDisplay').textContent = transaction.uid || '';
+    document.getElementById('editType').value = transaction.transaction_type || '';
+    document.getElementById('editTypeDisplay').textContent = transaction.transaction_type || '-';
+    document.getElementById('editSource').value = transaction.source_name || '';
+    document.getElementById('editSourceDisplay').textContent = transaction.source_name || '-';
+    document.getElementById('editDestination').value = transaction.destination_name || '';
+    document.getElementById('editDestinationDisplay').textContent = transaction.destination_name || '-';
+    document.getElementById('editAircraftType').value = transaction.aircraft_type || '';
+    document.getElementById('editAircraftNumber').value = transaction.aircraft_number || '';
+    document.getElementById('editAircraftDisplay').textContent = `${transaction.aircraft_type || ''} ${transaction.aircraft_number || ''}`.trim() || '-';
+    
+    document.getElementById('editDate').value = transaction.date || '';
+    document.getElementById('editTime').value = transaction.time || '';
+    document.getElementById('editUnit').value = transaction.unit || '';
+    if (document.getElementById('editUnitValue')) document.getElementById('editUnitValue').value = transaction.unit || '';
+    document.getElementById('editOperator').value = transaction.operator_name || '';
     document.getElementById('editVolume').value = parseFloat(transaction.volume_liters) || parseFloat(transaction.volume) || 0;
+    document.getElementById('editPricePerLiter').value = transaction.price_per_liter || 0;
     document.getElementById('editTotalCost').value = transaction.total_cost || 0;
+    document.getElementById('editBookNo').value = transaction.book_no || '';
+    document.getElementById('editReceiptNo').value = transaction.receipt_no || '';
+    document.getElementById('editNotes').value = transaction.notes || '';
     
     // Set Missions
     const missions = (transaction.missions || '').split(',').map(m => m.trim());
@@ -720,9 +764,6 @@ function openEditModal(transactionId) {
     checkboxes.forEach(cb => cb.checked = false);
     if (otherMissionContainer) otherMissionContainer.style.display = 'none';
     if (otherMissionDetails) otherMissionDetails.value = '';
-
-    // Standard missions defined in checkboxes
-    const standardMissions = ['บินบริการ', 'ปฏิบัติการฝนหลวง', 'ดัดแปลงสภาพอากาศ (ฝุ่น)', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)', 'บินสำรวจ', 'บินทดสอบ'];
 
     missions.forEach(mission => {
         if (!mission) return;
@@ -756,8 +797,21 @@ function openEditModal(transactionId) {
  */
 function handleSaveEdit() {
     const uid = document.getElementById('editUid').value;
+    const date = document.getElementById('editDate').value;
+    const time = document.getElementById('editTime').value;
+    const type = document.getElementById('editType').value;
+    const source = document.getElementById('editSource').value;
+    const destination = document.getElementById('editDestination').value;
+    const unit = document.getElementById('editUnit').value;
+    const operator = document.getElementById('editOperator').value;
+    const aircraftType = document.getElementById('editAircraftType').value;
+    const aircraftNumber = document.getElementById('editAircraftNumber').value;
     const volume = parseFloat(document.getElementById('editVolume').value) || 0;
+    const pricePerLiter = parseFloat(document.getElementById('editPricePerLiter').value) || 0;
     const totalCost = parseFloat(document.getElementById('editTotalCost').value) || 0;
+    const bookNo = document.getElementById('editBookNo').value;
+    const receiptNo = document.getElementById('editReceiptNo').value;
+    const notes = document.getElementById('editNotes').value;
     
     // Collect missions
     const selectedMissions = [];
@@ -782,7 +836,29 @@ function handleSaveEdit() {
     showLoading(true, 'กำลังบันทึกข้อมูล...', 30);
 
     // Call API to update
-    const url = `${GOOGLE_SCRIPT_URL}?action=updateTransactionDetail&sheetsId=${GOOGLE_SHEETS_ID}&uid=${uid}&volume=${volume}&totalCost=${totalCost}&missions=${encodeURIComponent(missionsString)}`;
+    const params = new URLSearchParams({
+        action: 'updateTransactionDetail',
+        sheetsId: GOOGLE_SHEETS_ID,
+        uid: uid,
+        date: date,
+        time: time,
+        type: type,
+        source: source,
+        destination: destination,
+        unit: unit,
+        operator: operator,
+        aircraftType: aircraftType,
+        aircraftNumber: aircraftNumber,
+        volume: volume,
+        pricePerLiter: pricePerLiter,
+        totalCost: totalCost,
+        bookNo: bookNo,
+        receiptNo: receiptNo,
+        missions: missionsString,
+        notes: notes
+    });
+
+    const url = `${GOOGLE_SCRIPT_URL}?${params.toString()}`;
 
     console.log('Updating transaction detail:', url);
 
@@ -798,10 +874,23 @@ function handleSaveEdit() {
                 // Update local data
                 const index = allTransactions.findIndex(t => t.uid === uid);
                 if (index !== -1) {
+                    allTransactions[index].date = date;
+                    allTransactions[index].time = time;
+                    allTransactions[index].transaction_type = type;
+                    allTransactions[index].source_name = source;
+                    allTransactions[index].destination_name = destination;
+                    allTransactions[index].unit = unit;
+                    allTransactions[index].operator_name = operator;
+                    allTransactions[index].aircraft_type = aircraftType;
+                    allTransactions[index].aircraft_number = aircraftNumber;
                     allTransactions[index].volume = volume;
                     allTransactions[index].volume_liters = volume;
+                    allTransactions[index].price_per_liter = pricePerLiter;
                     allTransactions[index].total_cost = totalCost;
+                    allTransactions[index].book_no = bookNo;
+                    allTransactions[index].receipt_no = receiptNo;
                     allTransactions[index].missions = missionsString;
+                    allTransactions[index].notes = notes;
                 }
                 
                 // Refresh table
@@ -840,7 +929,7 @@ function showDetailModal(transactionId) {
         currentTransactionForCancel = transaction;
 
         const detailsHTML = `
-            <div style="position: relative; text-align: center; padding: 10px 20px 20px 20px; background: #fafbfc; overflow-y: auto; max-height: 90vh;">
+            <div style="position: relative; text-align: center; padding: 20px; background: #fafbfc; overflow-y: auto;">
                 <!-- Close Button -->
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="position: absolute; right: 20px; top: 20px; z-index: 10;"></button>
 
@@ -1270,6 +1359,10 @@ function resetFilters() {
     if (noteFilterContainer) {
         noteFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     }
+
+    // Reset plan filter
+    const planFilterCheckboxes = document.querySelectorAll('.plan-filter-checkbox');
+    planFilterCheckboxes.forEach(cb => cb.checked = true);
 
     // Reset status checkboxes to checked (default show all)
     const statusCheckboxes = document.querySelectorAll('.status-filter-checkbox');
@@ -2369,4 +2462,78 @@ function printTransactionReceipt(transactionId) {
     printWindow.document.open();
     printWindow.document.write(printContent);
     printWindow.document.close();
+}
+
+/**
+ * Functions for searchable unit dropdown in Edit Modal
+ */
+function populateEditUnitDropdown() {
+    if (typeof THAI_PROVINCES === 'undefined') {
+        console.error('THAI_PROVINCES not loaded');
+        return;
+    }
+    
+    const dropdownContainer = document.querySelector('.searchable-dropdown[data-dropdown-id="editUnit"]');
+    const optionsContainer = dropdownContainer?.querySelector('.dropdown-options');
+    
+    if (!optionsContainer) return;
+    
+    optionsContainer.innerHTML = '';
+    
+    THAI_PROVINCES.forEach(province => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'dropdown-option';
+        optionDiv.textContent = province.nameThai;
+        optionDiv.dataset.value = province.nameThai;
+        optionsContainer.appendChild(optionDiv);
+    });
+    
+    initializeEditSearchableDropdown(dropdownContainer);
+}
+
+function initializeEditSearchableDropdown(dropdownContainer) {
+    const searchInput = dropdownContainer.querySelector('.dropdown-search');
+    const optionsContainer = dropdownContainer.querySelector('.dropdown-options');
+    const hiddenValue = dropdownContainer.querySelector('.dropdown-value');
+    const allOptions = optionsContainer.querySelectorAll('.dropdown-option');
+    
+    searchInput.addEventListener('focus', () => {
+        optionsContainer.classList.add('show');
+        filterOptions('');
+    });
+    
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        filterOptions(query);
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!dropdownContainer.contains(e.target)) {
+            optionsContainer.classList.remove('show');
+        }
+    });
+    
+    function filterOptions(query) {
+        allOptions.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            option.style.display = text.includes(query) ? 'block' : 'none';
+        });
+    }
+    
+    allOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            searchInput.value = value;
+            hiddenValue.value = value;
+            optionsContainer.classList.remove('show');
+        });
+    });
+}
+
+function calculateEditTotal() {
+    const volume = parseFloat(document.getElementById('editVolume').value) || 0;
+    const price = parseFloat(document.getElementById('editPricePerLiter').value) || 0;
+    const total = volume * price;
+    document.getElementById('editTotalCost').value = total.toFixed(2);
 }

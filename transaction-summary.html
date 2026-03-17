@@ -519,6 +519,22 @@
             max-height: 40px;
         }
 
+        /* Override inventory-style.css to allow Bootstrap 5 modals to look better */
+        .modal-xl .modal-content {
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: 95vh !important;
+            margin: 0 !important;
+            border-radius: 20px !important;
+            padding: 0 !important;
+            border-top: none !important;
+        }
+
+        .modal-body {
+            overflow-y: auto;
+        }
+
         @media (max-width: 768px) {
             .detail-row {
                 grid-template-columns: 1fr;
@@ -736,6 +752,27 @@
                     </div>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label fw-bold">แผนของเงิน</label>
+                    <div id="planFilterContainer" class="filter-checkbox-group d-flex flex-wrap gap-2" style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white; min-height: 42px;">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนยุทธศาสตร์" id="planYuttaya" checked>
+                            <label class="form-check-label" for="planYuttaya">แผนยุทธฯ</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนบรู" id="planBru" checked>
+                            <label class="form-check-label" for="planBru">แผนบรูฯ</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="planDust" checked>
+                            <label class="form-check-label" for="planDust">ฝุ่น</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="planHail" checked>
+                            <label class="form-check-label" for="planHail">ลูกเห็บ</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label fw-bold">กลุ่มการเบิกเงิน (หมายเหตุ)</label>
                     <div id="noteFilterContainer" class="filter-checkbox-group" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white;">
                     </div>
@@ -844,8 +881,8 @@
 
     <!-- Payment Note Modal -->
     <div class="modal fade" id="paymentNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="background: linear-gradient(135deg, #198754 0%, #157347 100%); color: white; border: none;">
                     <h5 class="modal-title">
                         <i class="fas fa-comment-dollar me-2"></i>
@@ -881,7 +918,7 @@
     <!-- Edit Modal -->
     <div class="modal fade" id="editModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0" style="border-radius: 20px;">
+            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <div class="modal-header bg-warning text-dark border-0 p-4">
                     <h5 class="modal-title fw-bold">
                         <i class="fas fa-edit me-2"></i>แก้ไขรายการ
@@ -892,74 +929,160 @@
                     <form id="editTransactionForm">
                         <input type="hidden" id="editUid">
                         
-                        <!-- UID Display (Read-only) -->
-                        <div class="mb-4">
-                            <label class="form-label text-muted small fw-bold text-uppercase">UID รายการ</label>
-                            <div id="editUidDisplay" class="form-control bg-white border-0 fw-bold py-2" style="font-family: 'Courier New', monospace; letter-spacing: 1px; color: #0d6efd;"></div>
-                        </div>
-
-                        <!-- Volume Input -->
-                        <div class="mb-4">
-                            <label for="editVolume" class="form-label fw-bold">ปริมาณ (ลิตร)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-gas-pump text-primary"></i></span>
-                                <input type="number" class="form-control border-start-0 ps-0" id="editVolume" step="0.01" required placeholder="0.00">
-                                <span class="input-group-text bg-white border-start-0">ลิตร</span>
+                        <!-- UID & Core Info (Read-only) -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="p-3 bg-white rounded border border-primary border-opacity-25 h-100">
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-fingerprint me-1"></i>UID รายการ</label>
+                                    <div id="editUidDisplay" class="fw-bold" style="font-family: 'Courier New', monospace; letter-spacing: 1px; color: #0d6efd; font-size: 1.1rem;">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-white rounded border h-100">
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-tag me-1"></i>ประเภทรายการ</label>
+                                    <div id="editTypeDisplay" class="fw-bold text-dark">-</div>
+                                    <input type="hidden" id="editType">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 bg-white rounded border h-100">
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-plane me-1"></i>อากาศยาน/เลขทะเบียน</label>
+                                    <div id="editAircraftDisplay" class="fw-bold text-dark">-</div>
+                                    <input type="hidden" id="editAircraftType">
+                                    <input type="hidden" id="editAircraftNumber">
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Total Cost Input -->
-                        <div class="mb-4">
-                            <label for="editTotalCost" class="form-label fw-bold">มูลค่ารวม (บาท)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-money-bill-wave text-warning"></i></span>
-                                <input type="number" class="form-control border-start-0 ps-0" id="editTotalCost" step="0.01" required placeholder="0.00">
-                                <span class="input-group-text bg-white border-start-0">บาท</span>
+                        <!-- Source & Destination (Read-only) -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-white rounded border h-100">
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-sign-out-alt me-1"></i>แหล่งที่มา (ต้นทาง)</label>
+                                    <div id="editSourceDisplay" class="fw-bold text-dark">-</div>
+                                    <input type="hidden" id="editSource">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-white rounded border h-100">
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-sign-in-alt me-1"></i>ปลายทาง</label>
+                                    <div id="editDestinationDisplay" class="fw-bold text-dark">-</div>
+                                    <input type="hidden" id="editDestination">
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4 opacity-10">
+
+                        <div class="row g-3 mb-4">
+                            <!-- Date & Time -->
+                            <div class="col-md-6">
+                                <label for="editDate" class="form-label fw-bold">วันที่</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-primary"></i></span>
+                                    <input type="date" class="form-control" id="editDate" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editTime" class="form-label fw-bold">เวลา</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="fas fa-clock text-primary"></i></span>
+                                    <input type="time" class="form-control" id="editTime" step="1" required>
+                                </div>
+                            </div>
+
+                            <!-- Unit (Searchable Dropdown) -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">หน่วย</label>
+                                <div class="searchable-dropdown" data-dropdown-id="editUnit">
+                                    <input type="text" class="form-control dropdown-search" id="editUnit" placeholder="ค้นหาหน่วย..." required autocomplete="off">
+                                    <div class="dropdown-options"></div>
+                                    <input type="hidden" class="dropdown-value" id="editUnitValue">
+                                </div>
+                            </div>
+
+                            <!-- Operator -->
+                            <div class="col-md-12">
+                                <label for="editOperator" class="form-label fw-bold">ผู้ปฏิบัติงาน</label>
+                                <input type="text" class="form-control" id="editOperator">
+                            </div>
+
+                            <!-- Volume & Cost -->
+                            <div class="col-md-4">
+                                <label for="editVolume" class="form-label fw-bold">ปริมาณ (ลิตร)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-gas-pump text-primary"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editVolume" step="0.01" required placeholder="0.00" oninput="calculateEditTotal()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editPricePerLiter" class="form-label fw-bold">ราคาต่อลิตร</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-tag text-success"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editPricePerLiter" step="0.01" placeholder="0.00" oninput="calculateEditTotal()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editTotalCost" class="form-label fw-bold">มูลค่ารวม (บาท)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-money-bill-wave text-warning"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editTotalCost" step="0.01" required placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <!-- Book & Receipt -->
+                            <div class="col-md-6">
+                                <label for="editBookNo" class="form-label fw-bold">Book No.</label>
+                                <input type="text" class="form-control" id="editBookNo">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editReceiptNo" class="form-label fw-bold">Receipt No.</label>
+                                <input type="text" class="form-control" id="editReceiptNo">
                             </div>
                         </div>
 
                         <!-- Missions Selection -->
-                        <div class="mb-3">
+                        <div class="mb-4">
                             <label class="form-label fw-bold">ภารกิจ</label>
-                            <div class="p-4 bg-white rounded border">
-                                <div id="editMissionsGroup" class="row g-3">
-                                    <div class="col-md-6">
+                            <div class="p-3 bg-white rounded border">
+                                <div id="editMissionsGroup" class="row g-2">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="บินบริการ" id="editMission1">
                                             <label class="form-check-label" for="editMission1">บินบริการ</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="ปฏิบัติการฝนหลวง" id="editMission2">
                                             <label class="form-check-label" for="editMission2">ปฏิบัติการฝนหลวง</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="editMission3">
                                             <label class="form-check-label" for="editMission3">ดัดแปลงสภาพอากาศ (ฝุ่น)</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="editMission4">
                                             <label class="form-check-label" for="editMission4">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="บินสำรวจ" id="editMission5">
                                             <label class="form-check-label" for="editMission5">บินสำรวจ</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="บินทดสอบ" id="editMission6">
                                             <label class="form-check-label" for="editMission6">บินทดสอบ</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="form-check">
                                             <input class="form-check-input mission-checkbox" type="checkbox" value="อื่นๆ" id="editMissionOther">
                                             <label class="form-check-label" for="editMissionOther">อื่นๆ (ระบุ)</label>
@@ -970,6 +1093,12 @@
                                     <input type="text" id="editOtherMissionDetails" class="form-control form-control-sm" placeholder="ระบุรายละเอียดภารกิจ...">
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-0">
+                            <label for="editNotes" class="form-label fw-bold">หมายเหตุ</label>
+                            <textarea class="form-control" id="editNotes" rows="2"></textarea>
                         </div>
                     </form>
                 </div>
@@ -987,8 +1116,8 @@
 
     <!-- Detail Modal -->
     <div class="modal fade" id="detailModal" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0" id="detailModalContent" style="border-radius: 20px; overflow: hidden; max-height: 90vh;">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0" id="detailModalContent" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <!-- Content will be populated here by JavaScript -->
             </div>
         </div>
@@ -997,7 +1126,7 @@
     <!-- Image Viewer Modal -->
     <div class="modal fade" id="imageModal" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-0">
+            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
                     <h5 class="modal-title">
                         <i class="fas fa-image me-2"></i>
@@ -1031,8 +1160,8 @@
 
     <!-- Cancel Confirmation Modal -->
     <div class="modal fade" id="cancelConfirmationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content border-0">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%); color: white;">
                     <h5 class="modal-title">
                         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -1096,6 +1225,7 @@
     <!-- SheetJS for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="config.js"></script>
+    <script src="provinces.js"></script>
     <script src="transaction-summary.js"></script>
 </body>
 </html>
