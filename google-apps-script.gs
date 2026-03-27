@@ -566,6 +566,10 @@ function doGet(e) {
         return cancelTransaction(e.parameter.uid, sheetsId, e.parameter.cancellerName);
       case 'updateTransactionPaymentStatus':
         return updateTransactionPaymentStatus(e.parameter.uid, e.parameter.status, sheetsId, e.parameter.paidNote);
+      case 'getDashboardSummary':
+        return getDashboardSummary(sheetsId, e.parameter.inventoryGid || gid, e.parameter.budgetGid);
+      case 'getPlanRemainingBudget':
+        return getPlanRemainingBudget(sheetsId, gid);
       case 'updateTransactionDetail':
         return updateTransactionDetail(
           e.parameter.uid, 
@@ -599,6 +603,119 @@ function doGet(e) {
     }
   } catch (error) {
     console.error('Error in doGet:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับรวมข้อมูลหน้า Dashboard: วงเงินสัญญาคงเหลือตามแผน และ แหล่งน้ำมัน (แท๊งฟาม, รถน้ำมัน, ถัง)
+ */
+function getDashboardSummary(sheetsId, inventoryGid, budgetGid) {
+  try {
+    // 1. ดึงข้อมูลงบประมาณ (วงเงินสัญญาคงเหลือตามแผน)
+    // ถ้าระบุ budgetGid มา ก็จะสามารถดึงรายละเอียดคงเหลือได้
+    let budgetData = null;
+    if (budgetGid) {
+      const budgetResponse = getBudgetData(sheetsId, budgetGid);
+      const budgetDataStr = budgetResponse.getContent();
+      budgetData = JSON.parse(budgetDataStr);
+    }
+    
+    // 2. ดึงข้อมูลแหล่งน้ำมัน
+    const inventoryResponse = getMasterData(sheetsId, inventoryGid);
+    const inventoryDataStr = inventoryResponse.getContent();
+    const inventoryParsed = JSON.parse(inventoryDataStr);
+    
+    // จัดกลุ่มแหล่งน้ำมัน
+    const fuelSources = {
+      tanks: [],       // แท๊งฟาม (Tank)
+      trucks: [],      // รถน้ำมัน (Truck)
+      drums: [],       // ถัง (Drum)
+      other: []
+    };
+    
+    if (inventoryParsed.success && inventoryParsed.data) {
+      inventoryParsed.data.forEach(item => {
+        const type = (item.type || '').toString().toLowerCase();
+        const fuelItem = {
+          name: item.name || item.source_name || 'ไม่ระบุชื่อ',
+          currentStock: parseFloat(item.current_stock) || 0,
+          capacity: item.capacity ? parseFloat(item.capacity) : null,
+          type: type
+        };
+        
+        if (type === 'tank') {
+          fuelSources.tanks.push(fuelItem);
+        } else if (type === 'truck') {
+          fuelSources.trucks.push(fuelItem);
+        } else if (type === 'drum') {
+          fuelSources.drums.push(fuelItem);
+        } else {
+          fuelSources.other.push(fuelItem);
+        }
+      });
+    }
+    
+    // 3. รวมผลลัพธ์
+    const result = {
+      success: true,
+      data: {
+        budget: (budgetData && budgetData.success) ? budgetData.data : null,
+        fuelSources: fuelSources
+      }
+    };
+    
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getDashboardSummary:', error);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับดึงข้อมูลเฉพาะวงเงินสัญญาคงเหลือตามแผนที่ถูกหักลบยอดใช้ไปแล้ว
+ */
+function getPlanRemainingBudget(sheetsId, budgetGid) {
+  try {
+    const budgetResponse = getBudgetData(sheetsId, budgetGid);
+    const budgetData = JSON.parse(budgetResponse.getContent());
+    
+    if (!budgetData.success) {
+      throw new Error(budgetData.error);
+    }
+    
+    const plans = budgetData.data.plans;
+    
+    // จัดรูปแบบให้สั้นและตรงเป้าหมาย
+    const result = {
+      "บรู": plans['แผนบรู'] ? plans['แผนบรู'].remaining : 0,
+      "ยุทธ": plans['แผนยุทธศาสตร์'] ? plans['แผนยุทธศาสตร์'].remaining : 0,
+      "ดัดแปลงสภาพอากาศ (ฝุ่น)": plans['ดัดแปลงสภาพอากาศ (ฝุ่น)'] ? plans['ดัดแปลงสภาพอากาศ (ฝุ่น)'].remaining : 0,
+      "ดัดแปลงสภาพอากาศ (ลูกเห็บ)": plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)'] ? plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)'].remaining : 0
+    };
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        data: result
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('Error in getPlanRemainingBudget:', error);
     return ContentService
       .createTextOutput(JSON.stringify({
         success: false,

@@ -15,7 +15,7 @@
  * URL ของ Google Apps Script Web App
  * ได้จากการ Deploy Google Apps Script
  */
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziVsTrRhgbY-p1btN_t8EPgymIlUl65TO4Tn7ASQ96URmw8lXq9jIcDHtntRuBPqsj/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOPfRs8L-LZxn47sCSGyjC0jhwyFZ9fIdsXKpYzC8h8kqPf3i_7YySma6P-sJybciU/exec';
 
 /**
  * Google Sheets ID (ได้จาก URL ของ Google Sheets)
@@ -36,13 +36,13 @@ const GOOGLE_DRIVE_FOLDER_ID = '14TH9RLs8F1VTewGcc5DWsmWdafmKOjLN';
 const SHEET_GIDS = {
     // Sheet สำหรับเก็บข้อมูล Inventory (แหล่งน้ำมัน)
     INVENTORY: '1942506251',
-    
+
     // Sheet สำหรับเก็บข้อมูลราคา PTT (จังหวัด-ราคา)
     PTT_PRICES: '1828300695',
-    
+
     // Sheet สำหรับเก็บ Transaction History
     TRANSACTION_HISTORY: '0', // GID 0 คือ Sheet แรก
-    
+
     // Sheet สำหรับเก็บข้อมูลงบประมาณที่ได้รับ
     BUDGET: '1669222330' // Sheet "แผนบรู" และแผนอื่นๆ
 };
@@ -83,16 +83,16 @@ const ADMIN_CODE_FUEL_EDIT = 'admin123';
 const APP_CONFIG = {
     // ชื่อแอปพลิเคชัน
     APP_NAME: 'ระบบจัดการน้ำมัน',
-    
+
     // เวอร์ชัน
     VERSION: '1.0.0',
-    
+
     // จำนวนลิตรต่อถัง 200L
     LITERS_PER_DRUM: 200,
-    
+
     // Timeout สำหรับการเรียก API (milliseconds)
     API_TIMEOUT: 30000,
-    
+
     // จำนวนรายการต่อหน้าในตาราง
     ITEMS_PER_PAGE: 10
 };
@@ -105,17 +105,17 @@ const LINE_CONFIG = {
     // LINE Channel Access Token
     // ได้จาก https://developers.line.biz/console/
     CHANNEL_ACCESS_TOKEN: 'Ts3qJEyllswxdeuw+EJP8JToU0YygwxcfKkvkwIA6J1PxGYo1DzkQoem2TwBvhfKuk3dvthfEM7ItJDJjZJI1GINn6TyjRpPD6428bZrFRJDiGgq6Cwz4PIgs/8NsDCbdle9fvMf0ispJucL45SVowdB04t89/1O/w1cDnyilFU=',
-    
+
     // LINE Group ID - กลุ่มที่จะส่งแจ้งเตือน
     GROUP_ID: 'C724f2ac2b1c9c41f24a9127726ef947a',
-    
+
     // Delay ระหว่าง notification (milliseconds)
     // เพื่อป้องกัน spam
     NOTIFICATION_DELAY: 1000,  // 1 วินาที
-    
+
     // LINE Messaging API Endpoint
     LINE_API_URL: 'https://api.line.me/v2/bot/message/push',
-    
+
     // เปิด/ปิดการส่ง notification
     ENABLED: false
 };
@@ -127,12 +127,12 @@ const LINE_CONFIG = {
  */
 function convertGoogleDriveUrl(googleDriveUrl) {
     if (!googleDriveUrl) return '';
-    
+
     // หากเป็น URL ที่ถูกต้องอยู่แล้วไม่ต้องแปลง
     if (googleDriveUrl.includes('lh3.googleusercontent.com')) return googleDriveUrl;
-    
+
     let fileId = '';
-    
+
     if (googleDriveUrl.includes('/d/')) {
         const match = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
         fileId = match ? match[1] : '';
@@ -140,11 +140,11 @@ function convertGoogleDriveUrl(googleDriveUrl) {
         const match = googleDriveUrl.match(/id=([a-zA-Z0-9-_]+)/);
         fileId = match ? match[1] : '';
     }
-    
+
     if (!fileId) {
         return googleDriveUrl;
     }
-    
+
     // Use lh3.googleusercontent.com for better image embedding support
     return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
