@@ -1,4 +1,4 @@
-﻿﻿﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -209,37 +209,10 @@ let latestSummaryData = null;
 const DRUM_CAPACITY_LITERS = 200; // 1 ถัง = 200 ลิตร
 
 // ===== UID Management =====
-// ✅ ฟังก์ชันอัพเดท UID ล่าสุดจาก Google Sheets
+// UID ใช้ timestamp + random hex ไม่ต้องซิงค์จาก Sheets อีกต่อไป
 function updateLastTransactionUIDFromSheets(transactionLogs) {
-    if (!transactionLogs || transactionLogs.length === 0) {
-        console.log('⚠️ ไม่มี Transaction Logs จาก Google Sheets, ข้ามการอัพเดท UID');
-        return;
-    }
-    
-    // หา UID ที่มีหมายเลขมากที่สุด
-    let maxUIDNumber = 0;
-    let maxUID = null;
-    
-    transactionLogs.forEach(log => {
-        if (log.uid) {
-            const match = log.uid.match(/FT(\d+)/);
-            if (match) {
-                const uidNumber = parseInt(match[1]);
-                if (uidNumber > maxUIDNumber) {
-                    maxUIDNumber = uidNumber;
-                    maxUID = log.uid;
-                }
-            }
-        }
-    });
-    
-    // ถ้าหา UID ได้ ให้อัพเดท localStorage
-    if (maxUID) {
-        localStorage.setItem('lastTransactionUID', maxUID);
-        console.log(`✅ อัพเดท UID ล่าสุดจาก Google Sheets: ${maxUID} (หมายเลข: ${maxUIDNumber})`);
-    } else {
-        console.log('⚠️ ไม่พบ UID ที่ถูกต้องในข้อมูลจาก Google Sheets');
-    }
+    // No-op: UID ใหม่ใช้ timestamp+random ไม่จำเป็นต้องอัพเดท counter
+    console.log('ℹ️ updateLastTransactionUIDFromSheets: UID ใช้ timestamp-based แล้ว ไม่ต้อง sync');
 }
 
 function populateProvinceSelects() {
@@ -390,41 +363,23 @@ function getSelectedMissions() {
     return missions.length > 0 ? missions.join(',') : '';
 }
 
-// ฟังก์ชันสร้าง UID แบบ FT0001, FT0002, ...
+// ฟังก์ชันสร้าง UID เช่น "FT1804K54X"
+//   FT  = prefix
+//   18  = วันที่ (DD)
+//   04  = เดือน (MM)
+//   K   = ตัวอักษร random
+//   54  = นาที (mm)
+//   X   = ตัวอักษร random ปิดท้าย
 function generateUID() {
-    // โหลด UID ล่าสุดจาก localStorage
-    let lastUID = localStorage.getItem('lastTransactionUID');
-    let uidNumber = 1;
-    
-    if (lastUID) {
-        // แยกเลขออกจาก UID (เช่น FT0001 -> 1)
-        const match = lastUID.match(/FT(\d+)/);
-        if (match) {
-            uidNumber = parseInt(match[1]) + 1;
-        }
-    }
-    
-    // ตรวจสอบกับ transactionLogs ที่โหลดมาจาก Sheets อีกครั้งเพื่อความชัวร์
-    if (window.transactionLogs && window.transactionLogs.length > 0) {
-        window.transactionLogs.forEach(log => {
-            if (log.uid) {
-                const match = log.uid.match(/FT(\d+)/);
-                if (match) {
-                    const currentNum = parseInt(match[1]);
-                    if (currentNum >= uidNumber) {
-                        uidNumber = currentNum + 1;
-                    }
-                }
-            }
-        });
-    }
-    
-    // สร้าง UID ใหม่ในรูปแบบ FT0001 (4 หลัก)
-    const newUID = `FT${String(uidNumber).padStart(4, '0')}`;
-    
-    // บันทึก UID ล่าสุด
-    localStorage.setItem('lastTransactionUID', newUID);
-    
+    const now = new Date();
+    const dd  = String(now.getDate()).padStart(2, '0');
+    const mo  = String(now.getMonth() + 1).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // ตัด I, O ป้องกันอ่านสับสน
+    const r1 = alpha[Math.floor(Math.random() * alpha.length)];
+    const r2 = alpha[Math.floor(Math.random() * alpha.length)];
+    const newUID = `FT${dd}${mo}${r1}${min}${r2}`;  // เช่น "FT1804K54X"
+    console.log(`🔑 Generated UID: ${newUID}`);
     return newUID;
 }
 
@@ -1914,11 +1869,46 @@ async function processTransactionToSheets(logEntry) {
     try {
         showLoading('กำลังประมวลผลรายการ...');
 
-        // 1. เตรียมข้อมูล Inventory สำหรับอัพเดต
-        const updateData = {};
-        fuelSources.forEach(source => {
-            updateData[source.name] = source.currentStock;
-        });
+        // 1. เตรียมข้อมูล Inventory สำหรับอัพเดตแบบ DELTA
+        // ส่งเฉพาะแหล่งที่มีการเปลี่ยนแปลง เพื่อป้องกัน race condition
+        // จาก client หลายตัวที่ทำรายการพร้อมกัน
+        const deltaData = { __isDelta: true };
+        
+        // คำนวณ delta จาก logEntry โดยตรง
+        const liters = parseFloat(logEntry.liters) || 0;
+        const srcName = logEntry.sourceName || logEntry.source || '';
+        const dstName = logEntry.destinationName || logEntry.destination || '';
+        const txType = logEntry.transactionType || '';
+        
+        if (liters > 0) {
+            const isPTTRefill = txType === 'refill' || txType === 'fuel-card' || txType === 'purchase_drum_200l';
+            
+            if (isPTTRefill) {
+                // ซื้อจาก ปตท.: เพิ่มที่ destination
+                if (dstName) deltaData[dstName] = liters;
+                // src (ปตท.) ก็เพิ่ม (tracking เท่านั้น)
+                if (srcName) deltaData[srcName] = liters;
+            } else if (txType === 'drain') {
+                // เดรน: ลดที่ source
+                if (srcName) deltaData[srcName] = -liters;
+            } else if (txType === 'return_drum') {
+                // คืนถัง: เพิ่มที่ source (คืนเข้าคลัง)
+                if (srcName) deltaData[srcName] = liters;
+            } else if (txType === 'remove_drum_nakhonsawan' || txType === 'remove_drum_khlong_luang') {
+                // ลบถังออก: ลดที่ source
+                if (srcName) deltaData[srcName] = -liters;
+            } else {
+                // จ่ายออกปกติ (aircraft, transfer): ลดที่ source
+                if (srcName) deltaData[srcName] = -liters;
+                // ถ้า destination เป็น tank/truck/drum ก็เพิ่มด้วย
+                if (dstName && logEntry.destinationType && 
+                    ['tank','truck','drum'].includes(logEntry.destinationType)) {
+                    deltaData[dstName] = liters;
+                }
+            }
+        }
+        
+        const updateData = deltaData;
 
         // 2. เตรียมข้อมูล Transaction Log
         let transactionType = '';

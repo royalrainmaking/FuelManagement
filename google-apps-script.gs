@@ -1707,22 +1707,55 @@ function cancelTransaction(uid, sheetsId, cancellerName) {
     transactionSheet.deleteRow(rowIndex);
     
     // หา Inventory sheet และคืนลิตรกลับ
+    // ค้นหาแบบ robust: ตามชื่อที่เป็นไปได้หลายแบบและตาม GID
     let inventorySheet = null;
     try {
       const sheets = spreadsheet.getSheets();
+      const INVENTORY_NAMES = ['Inventory', 'inventory', 'INVENTORY', 'สินค้าคงคลัง', 'คลัง'];
+      // ลองหาตามชื่อก่อน
       for (let sheet of sheets) {
-        if (sheet.getName() === 'Inventory') {
+        if (INVENTORY_NAMES.includes(sheet.getName())) {
           inventorySheet = sheet;
           break;
         }
       }
+      // ถ้าไม่เจอตามชื่อ ลองหา sheet ที่มี column 'current_stock' หรือ 'คงเหลือ'
+      if (!inventorySheet) {
+        for (let sheet of sheets) {
+          const sheetName = sheet.getName();
+          // ข้าม Transaction sheets
+          if (sheetName.includes('Transaction') || sheetName.includes('Archive') || 
+              sheetName.includes('Log') || sheetName.includes('Price') ||
+              sheetName.includes('Budget') || sheetName.includes('Confirmation')) continue;
+          const firstRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          const hasStockCol = firstRow.some(h => {
+            const header = (h || '').toString().toLowerCase();
+            return header === 'current_stock' || header === 'คงเหลือ' || header === 'stock';
+          });
+          if (hasStockCol) {
+            inventorySheet = sheet;
+            console.log('🔍 [Cancel] Found Inventory sheet by column header: ' + sheetName);
+            break;
+          }
+        }
+      }
     } catch (e) {
-      console.log('ไม่พบ Inventory sheet');
+      console.error('❌ [Cancel] Exception while searching for Inventory sheet:', e);
     }
     
-    if (inventorySheet) {
-      restoreInventoryFromTransaction(inventorySheet, source, destination, liters);
+    if (!inventorySheet) {
+      // ยังคืนความสำเร็จ (transaction ถูกลบแล้ว) แต่ log คำเตือนชัดเจน
+      console.error('❌ [Cancel] ไม่พบ Inventory sheet - ไม่สามารถคืนยอดน้ำมันได้! UID: ' + uid);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: 'ลบรายการสำเร็จแต่ ไม่พบ Inventory sheet จึงไม่สามารถคืนยอดน้ำมันได้ กรุณาติดต่อ Admin'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
+    
+    restoreInventoryFromTransaction(inventorySheet, source, destination, liters);
+    console.log('✅ [Cancel] คืนยอดน้ำมันสำเร็จ source=' + source + ' dest=' + destination + ' liters=' + liters);
     
     return ContentService
       .createTextOutput(JSON.stringify({
@@ -4327,9 +4360,15 @@ function internalLogTransaction(spreadsheet, transactionData, logs) {
 
 /**
  * ฟังก์ชันภายในสำหรับอัปเดต Inventory (ใช้ Spreadsheet object เดิม)
+ * ใช้ Lock Service เพื่อป้องกัน Race Condition จาก concurrent clients
+ * รับ deltaData = { 'ชื่อแหล่ง': delta_number } (บวก = เพิ่มเข้า, ลบ = ตัดออก)
  */
 function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
+  const lock = LockService.getScriptLock();
   try {
+    // รอ lock สูงสุด 15 วินาที ป้องกัน concurrent write
+    lock.waitLock(15000);
+    
     const sheets = spreadsheet.getSheets();
     let targetSheet = null;
     for (let sheet of sheets) {
@@ -4341,6 +4380,7 @@ function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
     
     if (!targetSheet) targetSheet = sheets[0];
     
+    // อ่านค่าล่าสุดจาก Sheet ณ เวลานี้ (หลังได้ lock แล้ว)
     const range = targetSheet.getDataRange();
     const values = range.getValues();
     const headers = values[0];
@@ -4353,18 +4393,40 @@ function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
       return false;
     }
     
+    // updateData อาจมี 2 รูปแบบ:
+    // 1. { name: deltaValue } เมื่อ key มี prefix "__delta__"
+    // 2. { name: absoluteValue } แบบเดิม (กรณี fallback)
+    const isDelta = updateData.__isDelta === true;
+    
     for (let i = 1; i < values.length; i++) {
-      const rowName = values[i][nameCol];
-      if (updateData[rowName] !== undefined) {
-        values[i][stockCol] = updateData[rowName];
+      const rowName = (values[i][nameCol] || '').toString().trim();
+      if (!rowName) continue;
+      
+      if (isDelta) {
+        // Delta mode: อ่านค่าปัจจุบันแล้วบวก/ลบ
+        if (updateData[rowName] !== undefined) {
+          const currentStock = parseFloat(values[i][stockCol]) || 0;
+          const delta = parseFloat(updateData[rowName]) || 0;
+          const newStock = currentStock + delta;
+          values[i][stockCol] = newStock;
+          logs.push(`✅ Delta update [${rowName}]: ${currentStock} + (${delta}) = ${newStock}`);
+        }
+      } else {
+        // Absolute mode (legacy fallback): เขียนค่าตรงๆ
+        if (updateData[rowName] !== undefined) {
+          values[i][stockCol] = updateData[rowName];
+          logs.push(`⚠️ Absolute update [${rowName}] = ${updateData[rowName]} (อาจเกิด race condition)`);
+        }
       }
     }
     
     range.setValues(values);
-    logs.push('✅ Inventory updated successfully');
+    logs.push('✅ Inventory updated successfully (delta mode: ' + isDelta + ')');
     return true;
   } catch (e) {
     logs.push('❌ Error in internalUpdateInventory: ' + e.toString());
     return false;
+  } finally {
+    try { lock.releaseLock(); } catch(e) {}
   }
 }
