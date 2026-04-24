@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ระบบจัดการน้ำมัน</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;700;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="config.js"></script>
+    <style>
+        :root {
+            --primary: #1e40af;
+            --pl: #3b82f6;
+            --green: #059669;
+            --warn: #d97706;
+            --danger: #dc2626;
+            --bg: #f0f4f8;
+            --card: #fff;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --sh: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 16px rgba(0, 0, 0, .04);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+            background: var(--bg);
+            color: #1e293b;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        /* NAV */
+        .navbar {
+            background: linear-gradient(135deg, #1e40af, #4f46e5) !important;
+            box-shadow: 0 2px 12px rgba(30, 64, 175, .4);
+            padding: .5rem 1rem;
+        }
+
+        .navbar-logo {
+            max-height: 34px;
+        }
+
+        /* LOADING */
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .75);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #loadingOverlay.active {
+            display: flex;
+        }
+
+        .load-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #1d4ed8;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* HERO HEADER */
+        .hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 60%, #7c3aed 100%);
+            color: #fff;
+            padding: 1.25rem 1.5rem 3.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -40px;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .05);
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 32px;
+            background: var(--bg);
+            border-radius: 32px 32px 0 0;
+        }
+
+        .hero h1 {
+            font-weight: 800;
+            font-size: 1.4rem;
+            margin: 0;
+        }
+
+        .hero p {
+            opacity: .8;
+            margin: .2rem 0 0;
+            font-size: .85rem;
+        }
+
+        .dot-live {
+            width: 7px;
+            height: 7px;
+            background: #22c55e;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: .5;
+                transform: scale(1.4);
+            }
+        }
+
+        /* MAIN */
+        .main {
+            padding: 1rem 1.25rem 3rem;
+            margin-top: -1rem;
+        }
+
+        /* ===== FORECAST HERO ===== */
+        .forecast-hero {
+            background: var(--card);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            box-shadow: var(--sh);
+            border: 1px solid var(--border);
+        }
+
+        .forecast-hero h2 {
+            font-size: .9rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding-bottom: .75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .fcast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: .75rem;
+        }
+
+        .fcast-card {
+            background: #f8fafc;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 1.1rem;
+            position: relative;
+            overflow: hidden;
+            transition: .25s;
+        }
+
+        .fcast-card:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+        }
+
+        .fcast-plan {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .5px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: .35rem;
+        }
+
+        .fcast-remaining {
+            font-size: 1.5rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: .2rem;
+        }
+
+        .fcast-sub {
+            font-size: .72rem;
+            color: var(--muted);
+            margin-bottom: .75rem;
+        }
+
+        .fcast-pbar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 99px;
+            overflow: hidden;
+            margin-bottom: .75rem;
+        }
+
+        .fcast-pbar-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width 1s ease;
+        }
+
+        .fcast-days {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .82rem;
+            font-weight: 700;
+            padding: .4rem .7rem;
+            border-radius: 10px;
+            width: fit-content;
+        }
+
+        .fcast-days.safe {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .fcast-days.warn {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .fcast-days.crit {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .fcast-days.empty {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .fcast-burn {
+            font-size: .7rem;
+            color: var(--muted);
+            margin-top: .4rem;
+        }
+
+        .fcast-date-badge {
+            position: absolute;
+            top: .75rem;
+            right: .75rem;
+            font-size: .65rem;
+            background: rgba(0, 0, 0, .06);
+            border-radius: 6px;
+            padding: .15rem .45rem;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        /* ===== KPI ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: .65rem;
+            margin-bottom: 1rem;
+        }
+
+        .kpi-card {
+            background: var(--card);
+            border-radius: 13px;
+            padding: 1rem 1.1rem;
+            box-shadow: var(--sh);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            transition: .25s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .1);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--ac, #1d4ed8);
+            border-radius: 3px 0 0 3px;
+        }
+
+        .kpi-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            margin-bottom: .65rem;
+        }
+
+        .kpi-lbl {
+            font-size: .7rem;
+            color: var(--muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            margin-bottom: .2rem;
+        }
+
+        .kpi-val {
+            font-size: 1.45rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #1e293b;
+        }
+
+        .kpi-sub {
+            font-size: .7rem;
+            color: var(--muted);
+            margin-top: .2rem;
+        }
+
+        /* ===== CARDS ===== */
+        .dash-card {
+            background: var(--card);
+            border-radius: 14px;
+            box-shadow: var(--sh);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: .85rem;
+        }
+
+        .dc-head {
+            padding: .9rem 1.1rem .7rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dc-title {
+            font-size: .875rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+        }
+
+        .dc-body {
+            padding: .9rem 1.1rem;
+        }
+
+        /* TABS */
+        .tab-pills {
+            display: flex;
+            gap: .3rem;
+            background: #f1f5f9;
+            border-radius: 9px;
+            padding: .25rem;
+        }
+
+        .tab-pill {
+            padding: .25rem .75rem;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            font-size: .75rem;
+            font-weight: 700;
+            color: var(--muted);
+            cursor: pointer;
+            font-family: inherit;
+            transition: .2s;
+        }
+
+        .tab-pill.active {
+            background: #fff;
+            color: var(--primary);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+        }
+
+        /* CHART */
+        .ch {
+            position: relative;
+            height: 250px;
+        }
+
+        .ch.tall {
+            height: 310px;
+        }
+
+        .ch.sm {
+            height: 200px;
+        }
+
+        /* FILTER BAR */
+        .filter-bar {
+            background: #fff;
+            border-radius: 12px;
+            padding: .7rem 1rem;
+            box-shadow: var(--sh);
+            border: 1px solid var(--border);
+            margin-bottom: .85rem;
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar label {
+            font-size: .75rem;
+            font-weight: 700;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: .3rem .6rem;
+            font-size: .8rem;
+            color: #1e293b;
+            font-family: inherit;
+            background: #f8fafc;
+        }
+
+        .fbtn {
+            padding: .3rem .9rem;
+            border-radius: 7px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: .2s;
+        }
+
+        .fbtn:hover {
+            background: #1d4ed8;
+        }
+
+        .fbtn.gray {
+            background: #64748b;
+        }
+
+        /* ALERT BANNER */
+        .abanner {
+            border-radius: 10px;
+            padding: .65rem 1rem;
+            font-size: .8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .5rem;
+        }
+
+        .abanner.r {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .abanner.y {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        /* TABLE */
+        .dtbl {
+            font-size: .78rem;
+        }
+
+        .dtbl th {
+            background: #f8fafc;
+            font-weight: 700;
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            padding: .55rem .7rem;
+            color: var(--muted);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .dtbl td {
+            padding: .45rem .7rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .dtbl tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dtbl tr:hover td {
+            background: #f8fafc;
+        }
+
+        /* VEHICLE ROWS */
+        .vrow {
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            padding: .5rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .vrow:last-child {
+            border-bottom: none;
+        }
+
+        .vrank {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .65rem;
+            font-weight: 900;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        .vname {
+            flex: 1;
+            font-size: .78rem;
+            font-weight: 600;
+        }
+
+        .vbar-w {
+            width: 70px;
+        }
+
+        .vbar {
+            height: 4px;
+            border-radius: 99px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .vbar-f {
+            height: 100%;
+            border-radius: 99px;
+            background: var(--pl);
+        }
+
+        .vltr {
+            font-size: .75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* TANK SECTION */
+        .tank-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: .75rem;
+        }
+
+        .tank-card {
+            background: var(--card);
+            border-radius: 13px;
+            box-shadow: var(--sh);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .tank-header {
+            padding: .7rem 1rem .5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tank-name {
+            font-size: .82rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .tank-meta {
+            font-size: .7rem;
+            color: var(--muted);
+        }
+
+        .tank-body {
+            padding: .75rem 1rem;
+        }
+
+        .stock-bar {
+            height: 12px;
+            background: #f1f5f9;
+            border-radius: 99px;
+            overflow: hidden;
+            margin: .4rem 0;
+        }
+
+        .stock-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width 1s;
+            background: var(--pl);
+        }
+
+        .stock-fill.low {
+            background: #f59e0b;
+        }
+
+        .stock-fill.crit {
+            background: #ef4444;
+        }
+
+        /* badge */
+        .bp {
+            display: inline-block;
+            padding: .15rem .45rem;
+            border-radius: 5px;
+            font-size: .68rem;
+            font-weight: 700;
+        }
+
+        @media(max-width:768px) {
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .fcast-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .ch {
+                height: 200px;
+            }
+
+            .ch.tall {
+                height: 240px;
+            }
+        }
+
+        @media(max-width:480px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .fcast-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="index.html">
+                <img src="img/logo.png" alt="" class="navbar-logo">
+                <div>
+                    <div class="fw-bold" style="font-size:.88rem;">ระบบจัดการน้ำมัน</div>
+                    <div style="font-size:.68rem;opacity:.75;">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</div>
+                </div>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-light btn-sm" id="refreshBtn"><i class="fas fa-sync-alt me-1"></i>รีเฟรช</button>
+                <a href="transaction-summary.html" class="btn btn-light btn-sm"><i
+                        class="fas fa-list me-1"></i>รายการ</a>
+                <a href="index.html" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i>กลับ</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- LOADING -->
+    <div id="loadingOverlay">
+        <div class="load-box">
+            <div class="spinner"></div>
+            <div style="font-weight:700;">กำลังโหลดข้อมูล...</div>
+            <div id="loadingText" style="font-size:.78rem;color:#64748b;margin-top:.25rem;">กำลังเชื่อมต่อ Google Sheets
+            </div>
+        </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="hero">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1><i class="fas fa-chart-line me-2"></i>Dashboard การใช้น้ำมัน</h1>
+                    <p>ประมาณการงบประมาณ · วิเคราะห์รายวัน · ติดตามแท๊งน้ำมัน</p>
+                </div>
+                <div
+                    style="font-size:.72rem;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:.4rem;margin-top:.2rem;">
+                    <span class="dot-live"></span>
+                    <span id="lastUpdatedText">กำลังโหลด...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main container-fluid">
+
+        <!-- ALERT BANNERS -->
+        <div id="alertBanners"></div>
+
+        <!-- ███ FORECAST HERO - MOST IMPORTANT ███ -->
+        <div class="forecast-hero">
+            <h2><i class="fas fa-crystal-ball"></i>ประมาณการงบประมาณ (คาดการณ์วันหมด) — อิงอัตราใช้จ่าย 14 วันล่าสุด
+            </h2>
+            <div class="fcast-grid" id="forecastCards">
+                <div style="color:rgba(255,255,255,.6);padding:1rem;text-align:center;"><i
+                        class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
+            </div>
+        </div>
+
+        <!-- KPI -->
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--ac:#1d4ed8">
+                <div class="kpi-icon" style="background:#eff6ff;color:#1d4ed8;"><i class="fas fa-gas-pump"></i></div>
+                <div class="kpi-lbl">ปริมาณรวมทั้งหมด</div>
+                <div class="kpi-val" id="kpiTotalL">-</div>
+                <div class="kpi-sub">ลิตร (ช่วงที่เลือก)</div>
+            </div>
+            <div class="kpi-card" style="--ac:#059669">
+                <div class="kpi-icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-calendar-day"></i>
+                </div>
+                <div class="kpi-lbl">เฉลี่ยต่อวัน (30 วัน)</div>
+                <div class="kpi-val" id="kpiAvg">-</div>
+                <div class="kpi-sub">ลิตร/วัน</div>
+            </div>
+            <div class="kpi-card" style="--ac:#d97706">
+                <div class="kpi-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-coins"></i></div>
+                <div class="kpi-lbl">มูลค่ารวม (PTT)</div>
+                <div class="kpi-val" id="kpiCost">-</div>
+                <div class="kpi-sub">บาท</div>
+            </div>
+            <div class="kpi-card" style="--ac:#7c3aed">
+                <div class="kpi-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fas fa-list-check"></i></div>
+                <div class="kpi-lbl">จำนวนรายการ</div>
+                <div class="kpi-val" id="kpiTx">-</div>
+                <div class="kpi-sub">รายการ</div>
+            </div>
+            <div class="kpi-card" style="--ac:#0891b2">
+                <div class="kpi-icon" style="background:#ecfeff;color:#0891b2;"><i class="fas fa-plane"></i></div>
+                <div class="kpi-lbl">จ่ายให้เครื่องบิน</div>
+                <div class="kpi-val" id="kpiAircraft">-</div>
+                <div class="kpi-sub">ลิตร</div>
+            </div>
+        </div>
+
+        <!-- FILTER BAR -->
+        <div class="filter-bar">
+            <label><i class="fas fa-filter me-1"></i>ช่วงวันที่</label>
+            <input type="date" id="filterStart">
+            <span style="color:var(--muted);font-size:.8rem;">ถึง</span>
+            <input type="date" id="filterEnd">
+            <button class="fbtn" onclick="applyDateFilter()"><i class="fas fa-search me-1"></i>กรอง</button>
+            <button class="fbtn gray" onclick="resetFilter()"><i class="fas fa-undo me-1"></i>รีเซ็ต</button>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 .25rem;"></div>
+            <label><i class="fas fa-layer-group me-1"></i>เลือกแผน</label>
+            <div class="tab-pills" id="planFilterPills">
+                <button class="tab-pill active" onclick="setPlanFilter(null,this)">ทั้งหมด</button>
+                <button class="tab-pill" onclick="setPlanFilter('แผนบรู',this)">บรู</button>
+                <button class="tab-pill" onclick="setPlanFilter('แผนยุทธศาสตร์',this)">ยุทธ</button>
+                <button class="tab-pill" onclick="setPlanFilter('ดัดแปลงสภาพอากาศ (ฝุ่น)',this)">ฝุ่น</button>
+                <button class="tab-pill" onclick="setPlanFilter('ดัดแปลงสภาพอากาศ (ลูกเห็บ)',this)">ลูกเห็บ</button>
+            </div>
+            <div class="ms-auto" style="font-size:.75rem;color:var(--muted);">แสดง <strong id="filterCount">-</strong>
+                รายการ</div>
+        </div>
+
+        <!-- ROW: DAILY TREND + PLAN PIE -->
+        <div class="row g-3 mb-2">
+            <div class="col-lg-8">
+                <div class="dash-card">
+                    <div class="dc-head">
+                        <div class="dc-title"><i class="fas fa-chart-bar"
+                                style="color:var(--primary);"></i>แนวโน้มการใช้น้ำมันรายวัน</div>
+                        <div class="tab-pills">
+                            <button class="tab-pill active" onclick="switchChart('bar',this)">แท่ง</button>
+                            <button class="tab-pill" onclick="switchChart('line',this)">เส้น</button>
+                        </div>
+                    </div>
+                    <div class="dc-body">
+                        <div class="ch tall"><canvas id="dailyChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="dash-card" style="height:100%;">
+                    <div class="dc-head">
+                        <div class="dc-title"><i class="fas fa-chart-pie" style="color:#7c3aed;"></i>สัดส่วนตามแผน</div>
+                    </div>
+                    <div class="dc-body">
+                        <div class="ch"><canvas id="pieChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW: COST BY PLAN + TOP DEST -->
+        <div class="row g-3 mb-2">
+            <div class="col-lg-6">
+                <div class="dash-card">
+                    <div class="dc-head">
+                        <div class="dc-title"><i class="fas fa-money-bill-wave" style="color:#059669;"></i>มูลค่าตามแผน
+                            (บาท)</div>
+                    </div>
+                    <div class="dc-body">
+                        <div class="ch"><canvas id="costChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="dash-card">
+                    <div class="dc-head">
+                        <div class="dc-title"><i class="fas fa-plane-departure" style="color:#0891b2;"></i>ปลายทางสูงสุด
+                            10 อันดับ</div>
+                    </div>
+                    <div class="dc-body" id="topDest" style="max-height:260px;overflow-y:auto;">
+                        <div style="text-align:center;color:var(--muted);padding:2rem;"><i
+                                class="fas fa-spinner fa-spin"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ████ PER-TANK SECTION ████ -->
+        <div class="dash-card">
+            <div class="dc-head">
+                <div class="dc-title"><i class="fas fa-oil-drum"
+                        style="color:#d97706;"></i>ปริมาณน้ำมันแยกตามแท๊ง/แหล่งน้ำมัน — รายวัน</div>
+                <div class="tab-pills">
+                    <button class="tab-pill active" onclick="switchTankView('chart',this)">กราฟ</button>
+                    <button class="tab-pill" onclick="switchTankView('stock',this)">สต็อกปัจจุบัน</button>
+                </div>
+            </div>
+            <div class="dc-body">
+                <div id="tankChartView">
+                    <div id="tankChartGrid" class="tank-grid">
+                        <div style="text-align:center;color:var(--muted);padding:2rem;grid-column:1/-1;"><i
+                                class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
+                    </div>
+                </div>
+                <div id="tankStockView" style="display:none;">
+                    <div id="tankStockGrid" class="tank-grid">
+                        <div style="text-align:center;color:var(--muted);padding:2rem;grid-column:1/-1;"><i
+                                class="fas fa-spinner fa-spin"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY SUMMARY TABLE -->
+        <div class="dash-card">
+            <div class="dc-head">
+                <div class="dc-title"><i class="fas fa-table" style="color:#64748b;"></i>สรุปการใช้น้ำมันรายวัน</div>
+                <span id="dayCount" style="font-size:.72rem;color:var(--muted);"></span>
+            </div>
+            <div class="dc-body p-0">
+                <div style="overflow-x:auto;max-height:380px;overflow-y:auto;">
+                    <table class="table dtbl mb-0">
+                        <thead style="position:sticky;top:0;z-index:2;">
+                            <tr>
+                                <th>วันที่</th>
+                                <th class="text-end">จ่ายออก (L)</th>
+                                <th class="text-end">ซื้อเข้า (L)</th>
+                                <th class="text-end">รายการ</th>
+                                <th class="text-end">มูลค่า (฿)</th>
+                                <th>แผนหลัก</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyTbody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /main -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ==================== GLOBALS ====================
+        let allTx = [], filteredTx = [], budgetData = {}, inventorySources = [];
+        let dailyChartI = null, pieI = null, costI = null;
+        let tankChartInstances = {};
+        let chartType = 'bar';
+        let selectedPlan = null; // null = ทั้งหมด
+        const BURN_DAYS = 14;
+
+        const PLANS = [
+            { key: 'แผนบรู', label: 'แผนบรู', color: '#f59e0b', style: 'yellow', icon: 'fa-cloud-rain' },
+            { key: 'แผนยุทธศาสตร์', label: 'แผนยุทธ', color: '#3b82f6', style: 'blue', icon: 'fa-shield-alt' },
+            { key: 'ดัดแปลงสภาพอากาศ (ฝุ่น)', label: 'ดัดแปลง (ฝุ่น)', color: '#06b6d4', style: 'cyan', icon: 'fa-smog' },
+            { key: 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)', label: 'ดัดแปลง (ลูกเห็บ)', color: '#ef4444', style: 'red', icon: 'fa-gem' },
+        ];
+
+        const planBadgeColor = {
+            'แผนบรู': '#f59e0b', 'แผนยุทธศาสตร์': '#3b82f6',
+            'ดัดแปลงสภาพอากาศ (ฝุ่น)': '#06b6d4', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': '#ef4444'
+        };
+        const planShort = { 'แผนบรู': 'บรู', 'แผนยุทธศาสตร์': 'ยุทธ', 'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'ฝุ่น', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'ลูกเห็บ' };
+
+        function getPlan(missions) {
+            const s = (missions || '').toString();
+            if (s.includes('ลูกเห็บ')) return 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)';
+            if (s.includes('ฝุ่น') || s.includes('ดัดแปลงสภาพอากาศ')) return 'ดัดแปลงสภาพอากาศ (ฝุ่น)';
+            if (s.includes('บรู') || s.includes('ฝนหลวง') || s.includes('บินสำรวจ')) return 'แผนบรู';
+            return 'แผนยุทธศาสตร์';
+        }
+        function fmt(n, d = 0) { if (n == null || isNaN(n)) return '0'; return Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+        function fmtD(d) { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${+p[0] + 543}` : d; }
+        function fmtDShort(d) { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d; }
+        function getVol(t) { return parseFloat(t.volume_liters) || parseFloat(t.volume) || 0; }
+        function isOut(t) {
+            const ty = (t.transaction_type || '').toLowerCase();
+            return ty.includes('จ่าย') || ty.includes('dispense') || ty.includes('เติมน้ำมัน') ||
+                (ty.includes('ซื้อ') && (t.destination_name || '').match(/เครื่องบิน|c208|casa|nc212|l410|bell|aw|h130|ska|caravan|skycourier/i));
+        }
+        function isIn(t) {
+            const ty = (t.transaction_type || '').toLowerCase();
+            return ty.includes('ซื้อ') || ty.includes('เติมเข้า') || ty.includes('purchase');
+        }
+        // ตัดเฉพาะปรับยอด — ไม่ตัดโอนย้าย (โอนย้ายยังเป็นการเคลื่อนไหวของน้ำมัน)
+        function isAdjustment(t) {
+            const ty = (t.transaction_type || '').toLowerCase();
+            return ty.includes('ปรับยอด') || (ty.includes('adjust') && !ty.includes('โอน'));
+        }
+        // fuzzy หา budget plan key ให้ match แม้ key ใน Google Sheets จะต่างกันนิดหน่อย
+        function findBudgetPlan(planKey) {
+            if (!budgetData.plans) return null;
+            if (budgetData.plans[planKey]) return budgetData.plans[planKey];
+            const keys = Object.keys(budgetData.plans);
+            let found = null;
+            if (planKey.includes('ลูกเห็บ'))
+                found = keys.find(k => k.includes('ลูกเห็บ'));
+            else if (planKey.includes('ฝุ่น'))
+                found = keys.find(k => k.includes('ฝุ่น') && !k.includes('ลูกเห็บ'));
+            else if (planKey.includes('บรู'))
+                found = keys.find(k => k.includes('บรู'));
+            else if (planKey.includes('ยุทธ'))
+                found = keys.find(k => k.includes('ยุทธ'));
+            return found ? budgetData.plans[found] : null;
+        }
+        function groupByDate(arr) { const m = {}; arr.forEach(t => { if (t.date) m[t.date] = (m[t.date] || []).concat(t); }); return m; }
+        function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : s; }
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            setDefaultDates();
+            loadData();
+            document.getElementById('refreshBtn').addEventListener('click', loadData);
+        });
+
+        function setDefaultDates() {
+            const today = new Date();
+            // เริ่มต้นปีงบประมาณ 1 ต.ค. (ปีปัจจุบันถ้าเดือน < ต.ค. ใช้ปีก่อน)
+            const fiscalYear = today.getMonth() >= 9 ? today.getFullYear() : today.getFullYear() - 1;
+            document.getElementById('filterStart').value = `${fiscalYear}-10-01`;
+            document.getElementById('filterEnd').value = today.toISOString().slice(0, 10);
+        }
+
+        // ==================== LOAD ====================
+        async function loadData() {
+            showLoad(true);
+            try {
+                document.getElementById('loadingText').textContent = 'เชื่อมต่อ Google Sheets...';
+                const [txR, bdR, invR] = await Promise.all([
+                    fetch(`${GOOGLE_SCRIPT_URL}?action=getTransactionLogs&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.TRANSACTION_HISTORY}`),
+                    fetch(`${GOOGLE_SCRIPT_URL}?action=getBudgetData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.BUDGET}`),
+                    fetch(`${GOOGLE_SCRIPT_URL}?action=getMasterData&sheetsId=${GOOGLE_SHEETS_ID}&gid=${SHEET_GIDS.INVENTORY}`)
+                ]);
+                const txD = await txR.json(), bdD = await bdR.json(), invD = await invR.json();
+                if (txD.success && Array.isArray(txD.data)) allTx = txD.data;
+                if (bdD.success && bdD.data) budgetData = bdD.data;
+                if (invD.success && Array.isArray(invD.data)) inventorySources = invD.data;
+                document.getElementById('lastUpdatedText').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+                applyDateFilter();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('lastUpdatedText').textContent = 'โหลดล้มเหลว';
+            }
+            showLoad(false);
+        }
+        function showLoad(on) { document.getElementById('loadingOverlay').classList.toggle('active', on); }
+
+        // ==================== FILTER ====================
+        function setPlanFilter(plan, btn) {
+            selectedPlan = plan;
+            document.querySelectorAll('#planFilterPills .tab-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyDateFilter();
+        }
+
+        function applyDateFilter() {
+            const s = document.getElementById('filterStart').value;
+            const e = document.getElementById('filterEnd').value;
+            filteredTx = allTx.filter(t => {
+                if (!t.date) return false;
+                if (s && t.date < s) return false;
+                if (e && t.date > e) return false;
+                // plan filter: applies only to dispense transactions (in-transactions don't have plan)
+                if (selectedPlan && isOut(t) && getPlan(t.missions) !== selectedPlan) return false;
+                return true;
+            });
+            document.getElementById('filterCount').textContent = filteredTx.length;
+            renderAll();
+        }
+        function resetFilter() { setDefaultDates(); selectedPlan = null; document.querySelectorAll('#planFilterPills .tab-pill').forEach((b, i) => b.classList.toggle('active', i === 0)); applyDateFilter(); }
+
+        // ==================== RENDER ALL ====================
+        function renderAll() {
+            const out = filteredTx.filter(isOut);
+            const inp = filteredTx.filter(isIn);
+            renderForecast();     // << FIRST - most important
+            renderAlerts();
+            renderKPIs(out, inp);
+            renderDailyChart(out, inp);
+            renderPie(out);
+            renderCostChart(out);
+            renderTopDest(out);
+            renderTankCharts(out, inp);
+            renderDailyTable(out, inp);
+        }
+
+        // ==================== FORECAST (HERO) ====================
+        function renderForecast() {
+            const today = new Date(); // ใช้วันจริง
+            const agoN = new Date(today); agoN.setDate(today.getDate() - BURN_DAYS);
+            const isoN = agoN.toISOString().slice(0, 10);
+            const recent = allTx.filter(t => t.date >= isoN && !isAdjustment(t));
+            const recentOut = recent.filter(isOut);
+            const daySet = new Set(recentOut.map(t => t.date).filter(Boolean));
+            const activeDays = Math.max(daySet.size, 1);
+
+            let html = '';
+            PLANS.forEach(plan => {
+                // fuzzy match budget key
+                const p = findBudgetPlan(plan.key);
+                const budget = p ? (p.budget || 0) : 0;
+                const remaining = p ? (p.remaining || 0) : 0;
+                const spent = budget - remaining;
+                const pct = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : 0;
+
+                // Cost burn rate for this plan
+                const planRecent = recentOut.filter(t => getPlan(t.missions) === plan.key);
+                const planCost = planRecent.reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
+                const dailyCost = planCost / activeDays;
+
+                // Liters burn rate
+                const planLiters = planRecent.reduce((s, t) => s + getVol(t), 0);
+                const dailyLiters = planLiters / activeDays;
+
+                let daysHtml = '', daysClass = 'safe', dateStr = '', daysNum = null;
+                if (remaining <= 0) {
+                    daysHtml = `<div class="fcast-days empty"><i class="fas fa-ban me-1"></i>หมดแล้ว / ไม่มีงบ</div>`;
+                    daysClass = 'empty';
+                } else if (dailyCost <= 0) {
+                    daysHtml = `<div class="fcast-days safe"><i class="fas fa-infinity me-1"></i>ยังไม่มีการใช้</div>`;
+                } else {
+                    daysNum = Math.floor(remaining / dailyCost);
+                    const endDate = new Date(today); endDate.setDate(today.getDate() + daysNum);
+                    dateStr = endDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+                    daysClass = daysNum > 60 ? 'safe' : daysNum > 30 ? 'warn' : 'crit';
+                    const cls2 = daysClass;
+                    daysHtml = `<div class="fcast-days ${cls2}">
+        <i class="fas fa-hourglass-half me-1"></i>
+        ~${fmt(daysNum)} วัน
+      </div>`;
+                }
+
+                const fillPct = 100 - pct;
+                html += `<div class="fcast-card" style="border-color:${plan.color}44;">
+      ${dateStr ? `<div class="fcast-date-badge">หมดประมาณ ${dateStr}</div>` : ''}
+      <div class="fcast-plan" style="color:${plan.color};"><i class="fas ${plan.icon} me-1"></i>${plan.label}</div>
+      <div class="fcast-remaining" style="color:${plan.color};">${budget > 0 ? fmt(remaining) : '-'}</div>
+      <div class="fcast-sub">${budget > 0 ? `คงเหลือจาก ${fmt(budget)} บาท` : 'ยังไม่ตั้งงบประมาณ'}</div>
+      <div class="fcast-pbar"><div class="fcast-pbar-fill" style="width:${fillPct.toFixed(1)}%;background:${plan.color};"></div></div>
+      ${daysHtml}
+      ${dailyCost > 0 ? `<div class="fcast-burn">เฉลี่ย ${fmt(dailyCost)} ฿/วัน · ${fmt(dailyLiters, 1)} L/วัน (${BURN_DAYS} วัน)</div>` : ''}
+    </div>`;
+            });
+            document.getElementById('forecastCards').innerHTML = html || '<div style="color:var(--muted);padding:1rem;">ไม่มีข้อมูลงบประมาณ</div>';
+        }
+
+        // ==================== ALERTS ====================
+        function renderAlerts() {
+            const c = document.getElementById('alertBanners');
+            c.innerHTML = '';
+            if (!budgetData.plans) return;
+            PLANS.forEach(plan => {
+                const p = budgetData.plans[plan.key];
+                if (!p || p.budget <= 0) return;
+                const pct = (p.remaining / p.budget) * 100;
+                if (pct <= 10) c.innerHTML += `<div class="abanner r"><i class="fas fa-exclamation-triangle"></i>งบประมาณ <strong>${plan.label}</strong> เหลือน้อยมาก! (${fmt(p.remaining)} บาท · ${fmt(pct, 1)}%)</div>`;
+                else if (pct <= 25) c.innerHTML += `<div class="abanner y"><i class="fas fa-exclamation-circle"></i>งบประมาณ <strong>${plan.label}</strong> ใกล้หมด (${fmt(p.remaining)} บาท · ${fmt(pct, 1)}%)</div>`;
+            });
+        }
+
+        // ==================== KPIs ====================
+        function renderKPIs(out, inp) {
+            const totalL = out.reduce((s, t) => s + getVol(t), 0);
+            const totalC = filteredTx.filter(isIn).reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
+            const today = new Date();
+            const ago14 = new Date(today); ago14.setDate(today.getDate() - BURN_DAYS);
+            const iso14 = ago14.toISOString().slice(0, 10);
+            const last14out = out.filter(t => t.date >= iso14);
+            const days14 = Math.max(new Set(last14out.map(t => t.date).filter(Boolean)).size, 1);
+            const avg = last14out.reduce((s, t) => s + getVol(t), 0) / days14;
+            const airL = out.filter(t => (t.destination_name || '').match(/เครื่องบิน|c208|casa|nc212|l410|bell|aw|h130|ska|caravan|skycourier/i)).reduce((s, t) => s + getVol(t), 0);
+            document.getElementById('kpiTotalL').textContent = fmt(totalL);
+            document.getElementById('kpiAvg').textContent = fmt(avg, 1);
+            document.getElementById('kpiCost').textContent = fmt(totalC);
+            document.getElementById('kpiTx').textContent = fmt(filteredTx.length);
+            document.getElementById('kpiAircraft').textContent = fmt(airL);
+        }
+
+        // ==================== DAILY CHART ====================
+        function renderDailyChart(out, inp) {
+            // รวมทุกรายการเป็นยอดรวมต่อวัน
+            const all = [...out, ...inp];
+            const dates = [...new Set(all.map(t => t.date).filter(Boolean))].sort();
+            const byDate = groupByDate(all);
+            const labels = dates.map(fmtDShort);
+            const totalV = dates.map(d => byDate[d] ? byDate[d].reduce((s, t) => s + getVol(t), 0) : 0);
+
+            if (dailyChartI) dailyChartI.destroy();
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            const isLine = chartType === 'line';
+
+            // gradient fill
+            const grad = ctx.createLinearGradient(0, 0, 0, 310);
+            grad.addColorStop(0, 'rgba(99,102,241,0.55)');
+            grad.addColorStop(1, 'rgba(99,102,241,0.02)');
+
+            dailyChartI = new Chart(ctx, {
+                type: isLine ? 'line' : 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'ปริมาณรวม (L)',
+                        data: totalV,
+                        backgroundColor: isLine ? grad : 'rgba(99,102,241,0.72)',
+                        borderColor: '#6366f1',
+                        borderWidth: isLine ? 2.5 : 0,
+                        borderRadius: isLine ? 0 : 6,
+                        fill: isLine,
+                        tension: .42,
+                        pointRadius: isLine ? 3 : 0,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: c => ` ปริมาณรวม: ${fmt(c.raw, 1)} L` },
+                            titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 10 }, maxRotation: 45 } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 }, callback: v => fmt(v) } }
+                    }
+                }
+            });
+        }
+        function switchChart(type, btn) {
+            chartType = type;
+            document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderDailyChart(filteredTx.filter(isOut), filteredTx.filter(isIn));
+        }
+
+        // ==================== PIE ====================
+        function renderPie(out) {
+            const totals = {}; PLANS.forEach(p => { totals[p.key] = 0; });
+            out.forEach(t => { const k = getPlan(t.missions); if (totals[k] !== undefined) totals[k] += getVol(t); });
+            if (pieI) pieI.destroy();
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            pieI = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: PLANS.map(p => p.label), datasets: [{ data: PLANS.map(p => totals[p.key] || 0), backgroundColor: PLANS.map(p => p.color + 'cc'), borderColor: PLANS.map(p => p.color), borderWidth: 2, hoverOffset: 8 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '60%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Sarabun', size: 10 }, padding: 8 } },
+                        tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw, 1)} L` }, titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' } }
+                    }
+                }
+            });
+        }
+
+        // ==================== COST CHART ====================
+        function renderCostChart(out) {
+            const costs = {}; PLANS.forEach(p => { costs[p.key] = 0; });
+            out.forEach(t => { const k = getPlan(t.missions); if (costs[k] !== undefined) costs[k] += (parseFloat(t.total_cost) || 0); });
+            if (costI) costI.destroy();
+            const ctx = document.getElementById('costChart').getContext('2d');
+            costI = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: PLANS.map(p => p.label), datasets: [{ label: 'มูลค่า (฿)', data: PLANS.map(p => costs[p.key] || 0), backgroundColor: PLANS.map(p => p.color + 'bb'), borderColor: PLANS.map(p => p.color), borderWidth: 1, borderRadius: 8 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmt(c.raw)} ฿` }, titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' } } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 }, callback: v => fmt(v) } },
+                        y: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        // ==================== TOP DESTINATIONS ====================
+        function renderTopDest(out) {
+            const map = {};
+            out.forEach(t => { const d = (t.destination_name || 'ไม่ระบุ').trim(); map[d] = (map[d] || 0) + getVol(t); });
+            const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            const maxV = sorted[0] ? sorted[0][1] : 1;
+            const c = document.getElementById('topDest');
+            if (!sorted.length) { c.innerHTML = '<div style="text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูล</div>'; return; }
+            c.innerHTML = sorted.map(([name, liters], i) => `
+    <div class="vrow">
+      <div class="vrank">${i + 1}</div>
+      <div class="vname" title="${name}">${trunc(name, 26)}</div>
+      <div class="vbar-w"><div class="vbar"><div class="vbar-f" style="width:${(liters / maxV * 100).toFixed(1)}%"></div></div></div>
+      <div class="vltr">${fmt(liters, 1)} L</div>
+    </div>`).join('');
+        }
+
+        // ==================== PER-TANK CHARTS ====================
+        // Stable key: replace non-alphanumeric chars with underscore
+        function srcKey(src) {
+            return 'tk_' + src.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
+        }
+
+        function destroyAllTankCharts() {
+            Object.values(tankChartInstances).forEach(c => { try { c.destroy(); } catch (e) { } });
+            tankChartInstances = {};
+            // Also destroy any orphaned charts on existing canvases (Chart.js 4 API)
+            document.querySelectorAll('[id^="tank-chart-"]').forEach(canvas => {
+                const existing = Chart.getChart(canvas);
+                if (existing) { try { existing.destroy(); } catch (e) { } }
+            });
+        }
+
+        // ==================== PER-TANK CHARTS ====================
+        function srcKey(src) {
+            return 'tk_' + src.replace(/[^a-zA-Z0-9ก-ฮ]/g, '_').slice(0, 30);
+        }
+
+        function destroyAllTankCharts() {
+            Object.values(tankChartInstances).forEach(c => { try { c.destroy(); } catch (e) { } });
+            tankChartInstances = {};
+            document.querySelectorAll('[id^="tank-chart-"]').forEach(canvas => {
+                const existing = Chart.getChart(canvas);
+                if (existing) { try { existing.destroy(); } catch (e) { } }
+            });
+        }
+
+        function renderTankCharts(out, inp) {
+            destroyAllTankCharts();
+
+            // คัดกรองรายการที่มีปริมาตร > 0 และไม่ใช่การปรับยอด
+            const tankTx = filteredTx.filter(t => !isAdjustment(t) && getVol(t) > 0);
+
+            // รวบรวมชื่อแหล่งน้ำมันทั้งหมด (Inventory + รายการที่มีใน Tx)
+            const nameSet = new Set();
+            inventorySources.forEach(s => { if (s.name) nameSet.add(s.name.trim()); });
+            allTx.forEach(t => {
+                if (t.source_name) nameSet.add(t.source_name.trim());
+                if (t.destination_name && (t.transaction_type || '').includes('โอนย้าย')) nameSet.add(t.destination_name.trim());
+            });
+
+            const sourceMap = {};
+            nameSet.forEach(name => {
+                if (!name || name === 'ไม่ระบุ') return;
+                sourceMap[name] = { out: [], in: [], other: [] };
+            });
+
+            // หมวดหมู่รายการลงแต่ละแท๊ง
+            tankTx.forEach(t => {
+                const src = (t.source_name || '').trim();
+                const dest = (t.destination_name || '').trim();
+                if (src && sourceMap[src]) {
+                    if (isOut(t)) sourceMap[src].out.push(t);
+                    else if (isIn(t)) sourceMap[src].in.push(t);
+                    else sourceMap[src].other.push(t);
+                }
+                if (dest && sourceMap[dest] && dest !== src) {
+                    sourceMap[dest].in.push(t);
+                }
+            });
+
+            const activeSources = Object.keys(sourceMap).filter(name => {
+                const d = sourceMap[name];
+                return d.out.length > 0 || d.in.length > 0 || d.other.length > 0;
+            }).sort();
+
+            const allDates = [...new Set(tankTx.map(t => t.date).filter(Boolean))].sort();
+            const grid = document.getElementById('tankChartGrid');
+
+            if (!activeSources.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูลแหล่งน้ำมัน</div>';
+                return;
+            }
+
+            grid.innerHTML = activeSources.map(src => {
+                const key = srcKey(src);
+                return `
+                <div class="tank-card">
+                    <div class="tank-header">
+                        <div class="tank-name"><i class="fas fa-oil-drum me-1" style="color:#d97706;"></i>${trunc(src, 32)}</div>
+                        <div class="tank-meta" id="tank-meta-${key}"></div>
+                    </div>
+                    <div class="tank-body">
+                        <div class="ch sm"><canvas id="tank-chart-${key}"></canvas></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            activeSources.forEach(src => {
+                const key = srcKey(src);
+                const data = sourceMap[src];
+                const outByD = groupByDate(data.out), inByD = groupByDate(data.in), otherByD = groupByDate(data.other);
+
+                const outV = allDates.map(d => outByD[d] ? outByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
+                const inV = allDates.map(d => inByD[d] ? inByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
+                const otherV = allDates.map(d => otherByD[d] ? otherByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
+
+                const totOut = outV.reduce((a, b) => a + b, 0), totIn = inV.reduce((a, b) => a + b, 0), totOth = otherV.reduce((a, b) => a + b, 0);
+
+                const metaEl = document.getElementById('tank-meta-' + key);
+                if (metaEl) {
+                    metaEl.innerHTML = `<span style="color:#3b82f6;font-weight:700;">จ่าย ${fmt(totOut)} L</span>`
+                        + (totIn > 0 ? ` &middot; <span style="color:#16a34a;font-weight:700;">รับ ${fmt(totIn)} L</span>` : '')
+                        + (totOth > 0 ? ` &middot; <span style="color:#64748b;font-weight:700;">อื่น ${fmt(totOth)} L</span>` : '');
+                }
+
+                const canvasEl = document.getElementById('tank-chart-' + key);
+                if (!canvasEl) return;
+                tankChartInstances[key] = new Chart(canvasEl.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: allDates.map(fmtDShort),
+                        datasets: [
+                            { label: 'จ่ายออก (L)', data: outV, backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 4 },
+                            { label: 'รับเข้า (L)', data: inV, backgroundColor: 'rgba(22,163,74,0.7)', borderRadius: 4 },
+                            { label: 'อื่นๆ (L)', data: otherV, backgroundColor: 'rgba(100,116,139,0.5)', borderRadius: 4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top', labels: { font: { size: 9 }, boxWidth: 10 } },
+                            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw, 1)} L` } }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 45 } },
+                            y: { beginAtZero: true, ticks: { font: { size: 8 } } }
+                        }
+                    }
+                });
+            });
+            renderTankStock();
+        }
+
+        function renderTankStock() {
+            const grid = document.getElementById('tankStockGrid');
+            if (!inventorySources.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูล Inventory</div>'; return; }
+            const active = inventorySources.filter(s => s.name && (s.status || 'active').toLowerCase() === 'active' || !s.status);
+            grid.innerHTML = active.map(s => {
+                const stock = parseFloat(s.current_stock) || 0, cap = parseFloat(s.capacity) || null;
+                const pct = cap ? Math.min(100, (stock / cap) * 100) : null;
+                const cls = pct != null && pct <= 15 ? 'crit' : (pct <= 40 ? 'low' : '');
+                return `
+                <div class="tank-card">
+                    <div class="tank-header">
+                        <div class="tank-name"><i class="fas fa-oil-drum me-1" style="color:#d97706;"></i>${trunc(s.name || 'ไม่ระบุ', 32)}</div>
+                        <span class="bp" style="background:${stock > 0 ? '#dcfce7' : '#f1f5f9'};color:${stock > 0 ? '#15803d' : '#64748b'};">${s.type || 'other'}</span>
+                    </div>
+                    <div class="tank-body">
+                        <div style="font-size:1.5rem;font-weight:900;">${fmt(stock)} <small style="font-size:.7rem;color:var(--muted);">ลิตร</small></div>
+                        ${cap ? `
+                        <div style="font-size:.72rem;color:var(--muted);margin:.2rem 0;">ความจุ ${fmt(cap)} L · เหลือ ${fmt(pct, 1)}%</div>
+                        <div class="stock-bar"><div class="stock-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
+                        ${pct <= 15 ? `<div style="font-size:.7rem;color:#dc2626;font-weight:700;"><i class="fas fa-exclamation-triangle me-1"></i>ระดับต่ำมาก!</div>` : ''}
+                        ` : '<div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">ความจุ: ไม่จำกัด</div>'}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function switchTankView(view, btn) {
+            document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tankChartView').style.display = view === 'chart' ? '' : 'none';
+            document.getElementById('tankStockView').style.display = view === 'stock' ? '' : 'none';
+        }
+
+        function renderDailyTable(out, inp) {
+            const allDates = [...new Set([...out.map(t => t.date), ...inp.map(t => t.date)].filter(Boolean))].sort().reverse();
+            document.getElementById('dayCount').textContent = allDates.length + ' วัน';
+            if (!allDates.length) { document.getElementById('dailyTbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>'; return; }
+            const outD = groupByDate(out), inD = groupByDate(inp);
+            document.getElementById('dailyTbody').innerHTML = allDates.map(date => {
+                const od = outD[date] || [], id2 = inD[date] || [];
+                const ov = od.reduce((s, t) => s + getVol(t), 0), iv = id2.reduce((s, t) => s + getVol(t), 0);
+                const cost = [...od, ...id2].reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
+                const pc = {}; od.forEach(t => { const k = getPlan(t.missions); pc[k] = (pc[k] || 0) + getVol(t); });
+                const mp = Object.entries(pc).sort((a, b) => b[1] - a[1])[0];
+                const bh = mp ? `<span class="bp" style="background:${planBadgeColor[mp[0]]}22;color:${planBadgeColor[mp[0]]};border:1px solid ${planBadgeColor[mp[0]]}44;">${planShort[mp[0]] || mp[0]}</span>` : '-';
+                return `
+                <tr>
+                    <td style="white-space:nowrap;font-weight:600;">${fmtD(date)}</td>
+                    <td class="text-end">${ov > 0 ? '<strong>' + fmt(ov, 1) + '</strong>' : '-'}</td>
+                    <td class="text-end" style="color:#059669;">${iv > 0 ? fmt(iv, 1) : '-'}</td>
+                    <td class="text-end">${od.length + id2.length}</td>
+                    <td class="text-end">${cost > 0 ? fmt(cost) : '-'}</td>
+                    <td>${bh}</td>
+                </tr>`;
+            }).join('');
+        }
+    </script>
+</body>
+
+</html>
