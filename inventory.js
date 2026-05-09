@@ -1891,15 +1891,19 @@ async function processTransactionToSheets(logEntry) {
                 if (dstName) deltaData[dstName] = liters;
                 // src (ปตท.) ก็เพิ่ม (tracking เท่านั้น)
                 if (srcName) deltaData[srcName] = liters;
+                console.log(`📊 Delta (PTT Refill): ${srcName} (+${liters}), ${dstName} (+${liters})`);
             } else if (txType === 'drain') {
                 // เดรน: ลดที่ source
                 if (srcName) deltaData[srcName] = -liters;
+                console.log(`📊 Delta (Drain): ${srcName} (-${liters})`);
             } else if (txType === 'return_drum') {
                 // คืนถัง: เพิ่มที่ source (คืนเข้าคลัง)
                 if (srcName) deltaData[srcName] = liters;
+                console.log(`📊 Delta (Return Drum): ${srcName} (+${liters})`);
             } else if (txType === 'remove_drum_nakhonsawan' || txType === 'remove_drum_khlong_luang') {
                 // ลบถังออก: ลดที่ source
                 if (srcName) deltaData[srcName] = -liters;
+                console.log(`📊 Delta (Remove Drum): ${srcName} (-${liters})`);
             } else {
                 // จ่ายออกปกติ (aircraft, transfer): ลดที่ source
                 if (srcName) deltaData[srcName] = -liters;
@@ -1907,9 +1911,14 @@ async function processTransactionToSheets(logEntry) {
                 if (dstName && logEntry.destinationType &&
                     ['tank', 'truck', 'drum'].includes(logEntry.destinationType)) {
                     deltaData[dstName] = liters;
+                    console.log(`📊 Delta (Transfer): ${srcName} (-${liters}), ${dstName} (+${liters})`);
+                } else {
+                    console.log(`📊 Delta (Dispense): ${srcName} (-${liters})`);
                 }
             }
         }
+        
+        console.log('🚀 Sending Transaction with Delta:', JSON.stringify(deltaData));
 
         const updateData = deltaData;
 
@@ -1993,33 +2002,59 @@ async function processTransactionToSheets(logEntry) {
             gid: INVENTORY_SHEET_GID
         };
 
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain' // ใช้ text/plain เพื่อหลีกเลี่ยง CORS preflight สำหรับ GAS
-            },
-            body: JSON.stringify(payload)
-        });
+        let success = false;
+        let lastError = null;
+        const maxRetries = 3;
 
-        const result = await response.json();
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 1) {
+                    console.log(`⏳ Retrying combined action (Attempt ${attempt}/${maxRetries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
 
-        if (result.success) {
-            console.log('✅ ประมวลผลรายการสำเร็จ (Combined Action)');
-            if (typeof loadTransactionLogsFromSheets === 'function') {
-                loadTransactionLogsFromSheets(true);
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log('✅ ประมวลผลรายการสำเร็จ (Combined Action)');
+                    success = true;
+                    
+                    // โหลดข้อมูลใหม่ทั้งหมดจาก Server เพื่อให้ยอดตรงกับที่คำนวณใน Sheet
+                    if (typeof loadInventoryFromSheets === 'function') {
+                        loadInventoryFromSheets(); 
+                    }
+                    if (typeof loadTransactionLogsFromSheets === 'function') {
+                        loadTransactionLogsFromSheets(true);
+                    }
+                    saveData();
+                    break; // Exit retry loop
+                } else {
+                    throw new Error(result.error || 'GAS processTransaction failed');
+                }
+            } catch (error) {
+                console.warn(`❌ Attempt ${attempt} failed:`, error);
+                lastError = error;
             }
-            saveData();
-        } else {
-            throw new Error(result.error || 'GAS processTransaction failed');
+        }
+
+        if (!success) {
+            console.error('⚠️ All attempts for combined action failed:', lastError);
+            alert(`ไม่สามารถบันทึกข้อมูลไปยังระบบได้หลังจากลอง ${maxRetries} ครั้ง\nกรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง หรือรีเฟรชหน้าจอ\nError: ${lastError.message}`);
+            throw lastError;
         }
 
     } catch (error) {
-        console.warn('⚠️ Combined action failed, falling back to sequential:', error);
-        // Fallback เป็นแบบเดิมถ้าแบบใหม่มีปัญหา
-        await Promise.all([
-            saveInventoryToSheets(),
-            logTransactionToSheets(logEntry)
-        ]);
+        console.error('Fatal error in processTransactionToSheets:', error);
     }
 }
 
@@ -5576,10 +5611,11 @@ async function handleDispenseSubmit() {
         }
 
         // อัพเดท stock ของปลายทาง (ถ้าเป็นแหล่งน้ำมัน)
-        if (destinationType === 'tank') {
+        if (['tank', 'truck', 'drum'].includes(destinationType)) {
             const destIndex = fuelSources.findIndex(s => s.id === destinationId);
             if (destIndex !== -1) {
                 fuelSources[destIndex].currentStock += liters;
+                console.log(`✅ Updated local destination stock [${destinationName}]: +${liters}`);
             }
         }
 

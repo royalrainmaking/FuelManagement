@@ -4277,7 +4277,28 @@ function processTransaction(transactionDataString, updateInventoryDataString, sh
     // 1. บันทึก Transaction Log
     const logResult = internalLogTransaction(spreadsheet, transactionData, logs);
     
+    // ถ้าบันทึก Log ไม่สำเร็จ ให้หยุด
+    if (!logResult.success) {
+      throw new Error('ไม่สามารถบันทึก Log ได้: ' + logs.join(' | '));
+    }
+    
+    // ถ้า UID นี้มีอยู่แล้ว (คือการ retry) ให้หยุด ไม่ต้องอัปเดต inventory ซ้ำ
+    if (logResult.alreadyExists) {
+      logs.push('⏭️ Inventory update skipped because transaction already exists (UID duplicate check)');
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: true,
+          message: 'รายการนี้ได้รับการบันทึกแล้ว (ข้ามการอัปเดต inventory เพื่อป้องกันยอดซ้ำ)',
+          logs: logs
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
     // 2. อัปเดต Inventory
+    // บังคับให้เป็นโหมด DELTA เสมอสำหรับรายการ Transaction
+    updateData.__isDelta = true;
+    
+    logs.push(`📊 updateData keys: ${Object.keys(updateData).join(', ')}`);
     const inventoryResult = internalUpdateInventory(spreadsheet, inventoryGid, updateData, logs);
     
     logs.push('=== 🟢 processTransaction COMPLETED ===');
@@ -4321,7 +4342,7 @@ function internalLogTransaction(spreadsheet, transactionData, logs) {
       const existing = findTransactionByUID(logSheet, searchUid);
       if (existing) {
         logs.push('⚠️ UID ' + searchUid + ' already exists. Skipping append to prevent duplicate.');
-        return true; // Already exists, consider it a success
+        return { success: true, alreadyExists: true }; 
       }
     }
     
@@ -4366,10 +4387,10 @@ function internalLogTransaction(spreadsheet, transactionData, logs) {
       logs.push('⚠️ LINE Notification error: ' + e.toString());
     }
     
-    return true;
+    return { success: true, alreadyExists: false };
   } catch (e) {
     logs.push('❌ Error in internalLogTransaction: ' + e.toString());
-    return false;
+    return { success: false, alreadyExists: false };
   } finally {
     if (lock && lock.hasLock()) {
       lock.releaseLock();
@@ -4404,8 +4425,8 @@ function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
     const values = range.getValues();
     const headers = values[0];
     
-    const nameCol = findColumnIndex(headers, ['name', 'source_name', 'ชื่อ']);
-    const stockCol = findColumnIndex(headers, ['current_stock', 'คงเหลือ', 'stock']);
+    const nameCol = findColumnIndex(headers, ['name', 'source_name', 'ชื่อ', 'แหล่งน้ำมัน', 'รายการ']);
+    const stockCol = findColumnIndex(headers, ['current_stock', 'คงเหลือ', 'stock', 'จำนวนคงเหลือ(ลิตร)', 'จำนวนลิตรปัจจุบัน']);
     
     if (nameCol === -1 || stockCol === -1) {
       logs.push('❌ Column not found in inventory');
@@ -4413,34 +4434,76 @@ function internalUpdateInventory(spreadsheet, gid, updateData, logs) {
     }
     
     // updateData อาจมี 2 รูปแบบ:
-    // 1. { name: deltaValue } เมื่อ key มี prefix "__delta__"
-    // 2. { name: absoluteValue } แบบเดิม (กรณี fallback)
-    const isDelta = updateData.__isDelta === true;
+    // 1. { name: deltaValue } เมื่อ key มี prefix "__delta__" (ผ่าน processTransaction)
+    // 2. { name: absoluteValue } แบบเดิม (กรณี fallback หรือเรียกจาก updateInventory)
+    
+    // ตรวจสอบ __isDelta แบบยืดหยุ่น (รองรับทั้ง boolean และ string)
+    let isDelta = updateData.__isDelta === true || updateData.__isDelta === 'true' || updateData.__isDelta === 1;
+    
+    // ถ้าไม่มี __isDelta แต่ค่าส่วนใหญ่เป็นค่าลบ ให้สันนิษฐานว่าเป็น Delta (ป้องกันกรณีหลุด)
+    if (!isDelta) {
+      const values = Object.values(updateData).filter(v => typeof v === 'number');
+      if (values.length > 0 && values.some(v => v < 0)) {
+        isDelta = true;
+        logs.push('ℹ️ Auto-detected DELTA mode due to negative values');
+      }
+    }
+    
+    logs.push(`🔍 Inventory Update Mode: ${isDelta ? 'DELTA' : 'ABSOLUTE'} (received __isDelta: ${updateData.__isDelta})`);
+    
+    // สร้าง trimmed version ของ updateData keys เพื่อการค้นหาที่แม่นยำขึ้น
+    const trimmedUpdateData = {};
+    Object.keys(updateData).forEach(key => {
+      if (key !== '__isDelta') {
+        trimmedUpdateData[key.toString().trim()] = updateData[key];
+      }
+    });
+    
+    // ติดตามว่า key ไหนถูกอัปเดตไปแล้วบ้าง เพื่อป้องกันการอัปเดตซ้ำในกรณีที่มีชื่อซ้ำใน Sheet
+    const processedKeys = new Set();
+    let updatedCount = 0;
     
     for (let i = 1; i < values.length; i++) {
       const rowName = (values[i][nameCol] || '').toString().trim();
       if (!rowName) continue;
       
-      if (isDelta) {
-        // Delta mode: อ่านค่าปัจจุบันแล้วบวก/ลบ
-        if (updateData[rowName] !== undefined) {
-          const currentStock = parseFloat(values[i][stockCol]) || 0;
-          const delta = parseFloat(updateData[rowName]) || 0;
+      const trimmedRowName = rowName;
+      if (trimmedUpdateData[trimmedRowName] !== undefined) {
+        if (isDelta) {
+          // Delta mode: อ่านค่าปัจจุบันแล้วบวก/ลบ
+          if (processedKeys.has(trimmedRowName)) {
+            logs.push(`⚠️ Skipping duplicate row for [${trimmedRowName}] at row ${i+1}`);
+            continue;
+          }
+          
+          const rawCurrentStock = values[i][stockCol];
+          const currentStock = parseFloat(rawCurrentStock) || 0;
+          const delta = parseFloat(trimmedUpdateData[trimmedRowName]) || 0;
           const newStock = currentStock + delta;
+          
           values[i][stockCol] = newStock;
-          logs.push(`✅ Delta update [${rowName}]: ${currentStock} + (${delta}) = ${newStock}`);
-        }
-      } else {
-        // Absolute mode (legacy fallback): เขียนค่าตรงๆ
-        if (updateData[rowName] !== undefined) {
-          values[i][stockCol] = updateData[rowName];
-          logs.push(`⚠️ Absolute update [${rowName}] = ${updateData[rowName]} (อาจเกิด race condition)`);
+          logs.push(`✅ Delta update [${trimmedRowName}] row ${i+1}: raw=${rawCurrentStock}, current=${currentStock} + delta=${delta} => new=${newStock}`);
+          
+          processedKeys.add(trimmedRowName);
+          updatedCount++;
+        } else {
+          // Absolute mode: เขียนค่าตรงๆ
+          const oldValue = values[i][stockCol];
+          values[i][stockCol] = trimmedUpdateData[trimmedRowName];
+          logs.push(`⚠️ Absolute update [${trimmedRowName}] row ${i+1}: old=${oldValue} => new=${trimmedUpdateData[trimmedRowName]}`);
+          updatedCount++;
         }
       }
     }
     
-    range.setValues(values);
-    logs.push('✅ Inventory updated successfully (delta mode: ' + isDelta + ')');
+    if (updatedCount > 0) {
+      range.setValues(values);
+      logs.push(`✅ Inventory updated successfully: ${updatedCount} rows affected`);
+    } else {
+      logs.push('⚠️ No matching fuel sources found to update in inventory');
+      // ตรวจสอบว่ามีคีย์อะไรบ้างใน updateData แต่หาไม่เจอ
+      logs.push(`   UpdateData keys: ${Object.keys(trimmedUpdateData).join(', ')}`);
+    }
     return true;
   } catch (e) {
     logs.push('❌ Error in internalUpdateInventory: ' + e.toString());
