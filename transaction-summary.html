@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สรุปรายการเดินบัญชี - ระบบจัดการน้ำมัน</title>
     <link rel="icon" href="img/ptt.png" type="image/png">
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;200;300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;200;300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@100;300;400;500;700;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="inventory-style.css">
     <style>
         .summary-card {
@@ -38,7 +41,7 @@
             justify-content: center;
             align-items: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -67,7 +70,7 @@
             background: white;
             min-height: 100%;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             flex-direction: column;
         }
@@ -407,12 +410,12 @@
         .loading-overlay.active {
             display: flex;
         }
-        
+
         /* Ensure modal appears above overlay */
         .modal {
             z-index: 1060 !important;
         }
-        
+
         .modal-backdrop {
             z-index: 1050 !important;
         }
@@ -433,8 +436,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .empty-state {
@@ -568,6 +576,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Navigation Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -580,7 +589,8 @@
                 </div>
             </a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
-                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-light btn-sm" title="ข้อมูลอากาศยาน">
+                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-light btn-sm"
+                    title="ข้อมูลอากาศยาน">
                     <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
                 </a>
                 <a href="index.html" class="btn btn-light btn-sm">
@@ -588,6 +598,9 @@
                 </a>
                 <a href="price-management.html" class="btn btn-light btn-sm" target="_blank">
                     <i class="fas fa-cog me-1"></i> จัดการราคา
+                </a>
+                <a href="budget-print.html" class="btn btn-warning btn-sm fw-bold" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
+                    <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
                 </a>
             </div>
         </div>
@@ -597,9 +610,13 @@
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-container text-center">
             <div class="loading-spinner"></div>
-            <div class="loading-text mt-3" id="loadingText" style="color: white; font-weight: 500;">กำลังประมวลผล...</div>
-            <div class="progress mt-3" style="width: 250px; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; overflow: hidden; display: none;" id="progressContainer">
-                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+            <div class="loading-text mt-3" id="loadingText" style="color: white; font-weight: 500;">กำลังประมวลผล...
+            </div>
+            <div class="progress mt-3"
+                style="width: 250px; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; overflow: hidden; display: none;"
+                id="progressContainer">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                    role="progressbar" style="width: 0%"></div>
             </div>
         </div>
     </div>
@@ -654,15 +671,19 @@
                         สถานะการเบิกจ่าย
                     </h5>
                     <div class="payment-card-grid">
-                        <div class="payment-sub-card bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
-                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">เบิกจ่ายแล้ว</div>
+                        <div
+                            class="payment-sub-card bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
+                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">เบิกจ่ายแล้ว
+                            </div>
                             <div id="totalPaid">
                                 <div style="font-size: 1.8rem; font-weight: 800;">0 บาท</div>
                                 <div style="font-size: 1.1rem; font-weight: 700;">0 รายการ</div>
                             </div>
                         </div>
-                        <div class="payment-sub-card bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
-                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">ยังไม่เบิกจ่าย</div>
+                        <div
+                            class="payment-sub-card bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                            <div class="summary-stat-label" style="color: inherit; margin-bottom: 0.5rem;">
+                                ยังไม่เบิกจ่าย</div>
                             <div id="totalUnpaid">
                                 <div style="font-size: 1.8rem; font-weight: 800;">0 บาท</div>
                                 <div style="font-size: 1.1rem; font-weight: 700;">0 รายการ</div>
@@ -671,7 +692,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-md-6">
                 <div class="summary-stat-budget">
                     <h5 class="fw-bold mb-4 d-flex align-items-center">
@@ -681,25 +702,29 @@
                     <div class="row g-3">
                         <div class="col-6">
                             <div class="budget-item bg-warning bg-opacity-10 border-start border-4 border-warning">
-                                <span class="budget-label"><i class="fas fa-cloud-rain text-warning" style="width: 20px;"></i> บรู</span>
+                                <span class="budget-label"><i class="fas fa-cloud-rain text-warning"
+                                        style="width: 20px;"></i> บรู</span>
                                 <span class="budget-value text-warning" id="quickRemainingBru">0</span>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="budget-item bg-primary bg-opacity-10 border-start border-4 border-primary">
-                                <span class="budget-label"><i class="fas fa-shield-alt text-primary" style="width: 20px;"></i> ยุทธ</span>
+                                <span class="budget-label"><i class="fas fa-shield-alt text-primary"
+                                        style="width: 20px;"></i> ยุทธ</span>
                                 <span class="budget-value text-primary" id="quickRemainingYuttaya">0</span>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="budget-item bg-info bg-opacity-10 border-start border-4 border-info">
-                                <span class="budget-label"><i class="fas fa-smog text-info" style="width: 20px;"></i> ฝุ่น</span>
+                                <span class="budget-label"><i class="fas fa-smog text-info" style="width: 20px;"></i>
+                                    ฝุ่น</span>
                                 <span class="budget-value text-info" id="quickRemainingDust">0</span>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="budget-item bg-danger bg-opacity-10 border-start border-4 border-danger">
-                                <span class="budget-label"><i class="fas fa-gem text-danger" style="width: 20px;"></i> ลูกเห็บ</span>
+                                <span class="budget-label"><i class="fas fa-gem text-danger" style="width: 20px;"></i>
+                                    ลูกเห็บ</span>
                                 <span class="budget-value text-danger" id="quickRemainingCentral">0</span>
                             </div>
                         </div>
@@ -715,7 +740,8 @@
                     <label class="form-label fw-bold">ค้นหารายการ</label>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" class="form-control" id="searchInput" placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง ผู้บันทึก UID...">
+                        <input type="text" class="form-control" id="searchInput"
+                            placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง ผู้บันทึก UID...">
                     </div>
                 </div>
 
@@ -740,66 +766,78 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">สถานะเบิกจ่าย</label>
-                    <div id="paymentStatusCheckboxContainer" class="filter-checkbox-group d-flex align-items-center gap-3" style="height: 42px; border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 15px; background: white;">
+                    <div id="paymentStatusCheckboxContainer"
+                        class="filter-checkbox-group d-flex align-items-center gap-3"
+                        style="height: 42px; border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 15px; background: white;">
                         <div class="form-check mb-0">
-                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="paid" id="statusPaid" checked>
+                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="paid"
+                                id="statusPaid" checked>
                             <label class="form-check-label" for="statusPaid">เบิกจ่ายแล้ว</label>
                         </div>
                         <div class="form-check mb-0">
-                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="unpaid" id="statusUnpaid" checked>
+                            <input class="form-check-input status-filter-checkbox" type="checkbox" value="unpaid"
+                                id="statusUnpaid" checked>
                             <label class="form-check-label" for="statusUnpaid">ยังไม่เบิกจ่าย</label>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">แผนของเงิน</label>
-                    <div id="planFilterContainer" class="filter-checkbox-group d-flex flex-wrap gap-2" style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white; min-height: 42px;">
+                    <div id="planFilterContainer" class="filter-checkbox-group d-flex flex-wrap gap-2"
+                        style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white; min-height: 42px;">
                         <div class="form-check mb-0">
-                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนยุทธศาสตร์" id="planYuttaya" checked>
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนยุทธศาสตร์"
+                                id="planYuttaya" checked>
                             <label class="form-check-label" for="planYuttaya">แผนยุทธฯ</label>
                         </div>
                         <div class="form-check mb-0">
-                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนบรู" id="planBru" checked>
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="แผนบรู"
+                                id="planBru" checked>
                             <label class="form-check-label" for="planBru">แผนบรูฯ</label>
                         </div>
                         <div class="form-check mb-0">
-                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="planDust" checked>
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox"
+                                value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="planDust" checked>
                             <label class="form-check-label" for="planDust">ฝุ่น</label>
                         </div>
                         <div class="form-check mb-0">
-                            <input class="form-check-input plan-filter-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="planHail" checked>
+                            <input class="form-check-input plan-filter-checkbox" type="checkbox"
+                                value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="planHail" checked>
                             <label class="form-check-label" for="planHail">ลูกเห็บ</label>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">กลุ่มการเบิกเงิน (หมายเหตุ)</label>
-                    <div id="noteFilterContainer" class="filter-checkbox-group" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white;">
+                    <div id="noteFilterContainer" class="filter-checkbox-group"
+                        style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white;">
                     </div>
                 </div>
                 <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
                     <button class="btn btn-primary px-4" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>
-                    <button type="button" class="btn btn-success px-4" id="exportFilteredBtn" title="Export ข้อมูลที่กรองแล้ว">
+                    <button type="button" class="btn btn-success px-4" id="exportFilteredBtn"
+                        title="Export ข้อมูลที่กรองแล้ว">
                         <i class="fas fa-file-excel me-1"></i> Export ที่กรอง
                     </button>
                     <button type="button" class="btn btn-outline-success px-4" id="exportAllBtn" title="Export ทั้งหมด">
                         <i class="fas fa-download me-1"></i> Export ทั้งหมด
                     </button>
-                    <button type="button" class="btn btn-outline-info px-4" id="exportInventoryBtn" title="Export แหล่งน้ำมัน">
+                    <button type="button" class="btn btn-outline-info px-4" id="exportInventoryBtn"
+                        title="Export แหล่งน้ำมัน">
                         <i class="fas fa-gas-pump me-1"></i> Export แหล่งน้ำมัน
                     </button>
                 </div>
             </div>
-            
+
             <!-- Advanced Filters (Toggle) -->
             <div class="mt-3 pt-3 border-top">
                 <button class="btn btn-sm btn-outline-primary" id="toggleAdvancedFilters">
                     <i class="fas fa-sliders-h me-1"></i>ตัวกรองขั้นสูง
                 </button>
             </div>
-            
+
             <!-- Advanced Filters Panel -->
             <div id="advancedFiltersPanel" class="mt-3" style="display: none;">
                 <div class="row g-4 mb-4">
@@ -815,22 +853,26 @@
                 <div class="row g-4">
                     <div class="col-md-3">
                         <label class="form-label fw-bold">แหล่งน้ำมัน</label>
-                        <div id="sourceFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div id="sourceFilterContainer" class="filter-checkbox-group"
+                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">ปลายทาง</label>
-                        <div id="destinationFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div id="destinationFilterContainer" class="filter-checkbox-group"
+                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">หน่วย</label>
-                        <div id="unitFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div id="unitFilterContainer" class="filter-checkbox-group"
+                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">ภารกิจ</label>
-                        <div id="missionFilterContainer" class="filter-checkbox-group" style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+                        <div id="missionFilterContainer" class="filter-checkbox-group"
+                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
                         </div>
                     </div>
                 </div>
@@ -882,26 +924,33 @@
     <!-- Payment Note Modal -->
     <div class="modal fade" id="paymentNoteModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
-                <div class="modal-header" style="background: linear-gradient(135deg, #198754 0%, #157347 100%); color: white; border: none;">
+            <div class="modal-content border-0"
+                style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
+                <div class="modal-header"
+                    style="background: linear-gradient(135deg, #198754 0%, #157347 100%); color: white; border: none;">
                     <h5 class="modal-title">
                         <i class="fas fa-comment-dollar me-2"></i>
                         ระบุหมายเหตุการเบิกเงิน
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="paymentNoteModalCloseBtn"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"
+                        id="paymentNoteModalCloseBtn"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="paymentNoteInput" class="form-label fw-bold text-success">หมายเหตุ / กลุ่มการเบิกเงิน</label>
+                        <label for="paymentNoteInput" class="form-label fw-bold text-success">หมายเหตุ /
+                            กลุ่มการเบิกเงิน</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0"><i class="fas fa-tag text-success"></i></span>
-                            <input type="text" class="form-control border-start-0 ps-0" id="paymentNoteInput" list="existingPaymentNotes" placeholder="เช่น ชุดที่ 1, รอบเดือน ม.ค. 67, บัญชี ก.">
+                            <span class="input-group-text bg-white border-end-0"><i
+                                    class="fas fa-tag text-success"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="paymentNoteInput"
+                                list="existingPaymentNotes" placeholder="เช่น ชุดที่ 1, รอบเดือน ม.ค. 67, บัญชี ก.">
                             <datalist id="existingPaymentNotes">
                                 <!-- Existing notes will be populated here -->
                             </datalist>
                         </div>
                         <div class="form-text mt-2">
-                            <i class="fas fa-info-circle me-1"></i>คุณสามารถเลือกจากรายการที่เคยใช้ หรือพิมพ์ใหม่เพื่อสร้างกลุ่มใหม่
+                            <i class="fas fa-info-circle me-1"></i>คุณสามารถเลือกจากรายการที่เคยใช้
+                            หรือพิมพ์ใหม่เพื่อสร้างกลุ่มใหม่
                         </div>
                     </div>
                 </div>
@@ -918,7 +967,8 @@
     <!-- Edit Modal -->
     <div class="modal fade" id="editModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
+            <div class="modal-content border-0"
+                style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <div class="modal-header bg-warning text-dark border-0 p-4">
                     <h5 class="modal-title fw-bold">
                         <i class="fas fa-edit me-2"></i>แก้ไขรายการ
@@ -928,25 +978,30 @@
                 <div class="modal-body p-4 bg-light">
                     <form id="editTransactionForm">
                         <input type="hidden" id="editUid">
-                        
+
                         <!-- UID & Core Info (Read-only) -->
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
                                 <div class="p-3 bg-white rounded border border-primary border-opacity-25 h-100">
-                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-fingerprint me-1"></i>UID รายการ</label>
-                                    <div id="editUidDisplay" class="fw-bold" style="font-family: 'Courier New', monospace; letter-spacing: 1px; color: #0d6efd; font-size: 1.1rem;">-</div>
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
+                                            class="fas fa-fingerprint me-1"></i>UID รายการ</label>
+                                    <div id="editUidDisplay" class="fw-bold"
+                                        style="font-family: 'Courier New', monospace; letter-spacing: 1px; color: #0d6efd; font-size: 1.1rem;">
+                                        -</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="p-3 bg-white rounded border h-100">
-                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-tag me-1"></i>ประเภทรายการ</label>
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
+                                            class="fas fa-tag me-1"></i>ประเภทรายการ</label>
                                     <div id="editTypeDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editType">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="p-3 bg-white rounded border h-100">
-                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-plane me-1"></i>อากาศยาน/เลขทะเบียน</label>
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
+                                            class="fas fa-plane me-1"></i>อากาศยาน/เลขทะเบียน</label>
                                     <div id="editAircraftDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editAircraftType">
                                     <input type="hidden" id="editAircraftNumber">
@@ -958,14 +1013,16 @@
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <div class="p-3 bg-white rounded border h-100">
-                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-sign-out-alt me-1"></i>แหล่งที่มา (ต้นทาง)</label>
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
+                                            class="fas fa-sign-out-alt me-1"></i>แหล่งที่มา (ต้นทาง)</label>
                                     <div id="editSourceDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editSource">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="p-3 bg-white rounded border h-100">
-                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i class="fas fa-sign-in-alt me-1"></i>ปลายทาง</label>
+                                    <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
+                                            class="fas fa-sign-in-alt me-1"></i>ปลายทาง</label>
                                     <div id="editDestinationDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editDestination">
                                 </div>
@@ -979,14 +1036,16 @@
                             <div class="col-md-6">
                                 <label for="editDate" class="form-label fw-bold">วันที่</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-primary"></i></span>
+                                    <span class="input-group-text bg-white"><i
+                                            class="fas fa-calendar-alt text-primary"></i></span>
                                     <input type="date" class="form-control" id="editDate" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="editTime" class="form-label fw-bold">เวลา</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white"><i class="fas fa-clock text-primary"></i></span>
+                                    <span class="input-group-text bg-white"><i
+                                            class="fas fa-clock text-primary"></i></span>
                                     <input type="time" class="form-control" id="editTime" step="1" required>
                                 </div>
                             </div>
@@ -995,7 +1054,8 @@
                             <div class="col-md-12">
                                 <label class="form-label fw-bold">หน่วย</label>
                                 <div class="searchable-dropdown" data-dropdown-id="editUnit">
-                                    <input type="text" class="form-control dropdown-search" id="editUnit" placeholder="ค้นหาหน่วย..." required autocomplete="off">
+                                    <input type="text" class="form-control dropdown-search" id="editUnit"
+                                        placeholder="ค้นหาหน่วย..." required autocomplete="off">
                                     <div class="dropdown-options"></div>
                                     <input type="hidden" class="dropdown-value" id="editUnitValue">
                                 </div>
@@ -1011,22 +1071,28 @@
                             <div class="col-md-4">
                                 <label for="editVolume" class="form-label fw-bold">ปริมาณ (ลิตร)</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-gas-pump text-primary"></i></span>
-                                    <input type="number" class="form-control border-start-0 ps-0" id="editVolume" step="0.01" required placeholder="0.00" oninput="calculateEditTotal()">
+                                    <span class="input-group-text bg-white border-end-0"><i
+                                            class="fas fa-gas-pump text-primary"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editVolume"
+                                        step="0.01" required placeholder="0.00" oninput="calculateEditTotal()">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label for="editPricePerLiter" class="form-label fw-bold">ราคาต่อลิตร</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-tag text-success"></i></span>
-                                    <input type="number" class="form-control border-start-0 ps-0" id="editPricePerLiter" step="0.01" placeholder="0.00" oninput="calculateEditTotal()">
+                                    <span class="input-group-text bg-white border-end-0"><i
+                                            class="fas fa-tag text-success"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editPricePerLiter"
+                                        step="0.01" placeholder="0.00" oninput="calculateEditTotal()">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label for="editTotalCost" class="form-label fw-bold">มูลค่ารวม (บาท)</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-money-bill-wave text-warning"></i></span>
-                                    <input type="number" class="form-control border-start-0 ps-0" id="editTotalCost" step="0.01" required placeholder="0.00">
+                                    <span class="input-group-text bg-white border-end-0"><i
+                                            class="fas fa-money-bill-wave text-warning"></i></span>
+                                    <input type="number" class="form-control border-start-0 ps-0" id="editTotalCost"
+                                        step="0.01" required placeholder="0.00">
                                 </div>
                             </div>
 
@@ -1048,49 +1114,59 @@
                                 <div id="editMissionsGroup" class="row g-2">
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินบริการ" id="editMission1">
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="บินบริการ" id="editMission1">
                                             <label class="form-check-label" for="editMission1">บินบริการ</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ปฏิบัติการฝนหลวง" id="editMission2">
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="ปฏิบัติการฝนหลวง" id="editMission2">
                                             <label class="form-check-label" for="editMission2">ปฏิบัติการฝนหลวง</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="editMission3">
-                                            <label class="form-check-label" for="editMission3">ดัดแปลงสภาพอากาศ (ฝุ่น)</label>
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="ดัดแปลงสภาพอากาศ (ฝุ่น)" id="editMission3">
+                                            <label class="form-check-label" for="editMission3">ดัดแปลงสภาพอากาศ
+                                                (ฝุ่น)</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="editMission4">
-                                            <label class="form-check-label" for="editMission4">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</label>
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)" id="editMission4">
+                                            <label class="form-check-label" for="editMission4">ดัดแปลงสภาพอากาศ
+                                                (ลูกเห็บ)</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินสำรวจ" id="editMission5">
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="บินสำรวจ" id="editMission5">
                                             <label class="form-check-label" for="editMission5">บินสำรวจ</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="บินทดสอบ" id="editMission6">
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="บินทดสอบ" id="editMission6">
                                             <label class="form-check-label" for="editMission6">บินทดสอบ</label>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-check">
-                                            <input class="form-check-input mission-checkbox" type="checkbox" value="อื่นๆ" id="editMissionOther">
+                                            <input class="form-check-input mission-checkbox" type="checkbox"
+                                                value="อื่นๆ" id="editMissionOther">
                                             <label class="form-check-label" for="editMissionOther">อื่นๆ (ระบุ)</label>
                                         </div>
                                     </div>
                                 </div>
                                 <div id="editOtherMissionContainer" class="mt-2" style="display: none;">
-                                    <input type="text" id="editOtherMissionDetails" class="form-control form-control-sm" placeholder="ระบุรายละเอียดภารกิจ...">
+                                    <input type="text" id="editOtherMissionDetails" class="form-control form-control-sm"
+                                        placeholder="ระบุรายละเอียดภารกิจ...">
                                 </div>
                             </div>
                         </div>
@@ -1117,7 +1193,8 @@
     <!-- Detail Modal -->
     <div class="modal fade" id="detailModal" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0" id="detailModalContent" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
+            <div class="modal-content border-0" id="detailModalContent"
+                style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
                 <!-- Content will be populated here by JavaScript -->
             </div>
         </div>
@@ -1126,24 +1203,32 @@
     <!-- Image Viewer Modal -->
     <div class="modal fade" id="imageModal" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
-                <div class="modal-header" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
+            <div class="modal-content border-0"
+                style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
+                <div class="modal-header"
+                    style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
                     <h5 class="modal-title">
                         <i class="fas fa-image me-2"></i>
                         <span id="imageModalTitle">รูปภาพเอกสาร</span>
                     </h5>
                     <div class="ms-auto d-flex align-items-center">
-                        <button type="button" class="btn btn-link text-white me-2 p-0" id="fullscreenToggleBtn" title="ขยายเต็มจอ">
+                        <button type="button" class="btn btn-link text-white me-2 p-0" id="fullscreenToggleBtn"
+                            title="ขยายเต็มจอ">
                             <i class="fas fa-expand"></i>
                         </button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                     </div>
                 </div>
-                <div class="modal-body text-center p-0" style="background: #f8f9fa; position: relative; overflow: hidden; min-height: 200px; display: flex; align-items: center; justify-content: center;">
-                    <div id="imageLoadingSpinner" class="spinner-border text-primary" role="status" style="display: none;">
+                <div class="modal-body text-center p-0"
+                    style="background: #f8f9fa; position: relative; overflow: hidden; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <div id="imageLoadingSpinner" class="spinner-border text-primary" role="status"
+                        style="display: none;">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <img id="imageModalImage" src="" alt="รูปภาพ" style="max-width: 100%; height: auto; max-height: 70vh; object-fit: contain; transition: transform 0.3s ease;" referrerpolicy="no-referrer">
+                    <img id="imageModalImage" src="" alt="รูปภาพ"
+                        style="max-width: 100%; height: auto; max-height: 70vh; object-fit: contain; transition: transform 0.3s ease;"
+                        referrerpolicy="no-referrer">
                 </div>
                 <div class="modal-footer border-top bg-white">
                     <small class="text-muted me-auto" id="imageModalInfo"></small>
@@ -1159,31 +1244,37 @@
     </div>
 
     <!-- Cancel Confirmation Modal -->
-    <div class="modal fade" id="cancelConfirmationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal fade" id="cancelConfirmationModal" tabindex="-1" data-bs-backdrop="static"
+        data-bs-keyboard="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
-                <div class="modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%); color: white;">
+            <div class="modal-content border-0"
+                style="border-radius: 20px; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3);">
+                <div class="modal-header"
+                    style="background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%); color: white;">
                     <h5 class="modal-title">
                         <i class="fas fa-exclamation-triangle me-2"></i>
                         ยืนยันการยกเลิกรายการ
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
-                
+
                 <!-- Warning Section (Non-scrollable) -->
                 <div style="padding: 1.5rem;">
                     <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                        <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; color: #856404; flex-shrink: 0;"></i>
+                        <i class="fas fa-exclamation-circle"
+                            style="font-size: 1.5rem; color: #856404; flex-shrink: 0;"></i>
                         <div>
-                            <h6 style="color: #856404; margin-bottom: 0.5rem; font-weight: 600;">เตือน: การยกเลิกถาวร</h6>
+                            <h6 style="color: #856404; margin-bottom: 0.5rem; font-weight: 600;">เตือน: การยกเลิกถาวร
+                            </h6>
                             <p style="color: #856404; margin-bottom: 0; font-size: 0.9rem;">
-                                การยกเลิกรายการจะนำรายการออกจากระบบและคืนลิตรกลับไปยังแหล่งจ่าย 
+                                การยกเลิกรายการจะนำรายการออกจากระบบและคืนลิตรกลับไปยังแหล่งจ่าย
                                 ต้องการดำเนินการต่อหรือไม่?
                             </p>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                     <!-- Full Transaction Details -->
                     <div id="cancelConfirmationDetails" style="margin-bottom: 1.5rem;">
@@ -1191,14 +1282,17 @@
                     </div>
 
                     <!-- Canceller Name Verification -->
-                    <div style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: #0c5ed6; text-transform: uppercase; display: block; margin-bottom: 0.5rem;">
+                    <div
+                        style="background: #e7f3ff; border: 2px solid #0d6efd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+                        <label
+                            style="font-size: 0.8rem; font-weight: 600; color: #0c5ed6; text-transform: uppercase; display: block; margin-bottom: 0.5rem;">
                             <i class="fas fa-user-check me-1"></i>ยืนยันตัวตนของผู้ยกเลิก
                         </label>
                         <p style="font-size: 0.85rem; color: #0c5ed6; margin-bottom: 1rem;">
                             โปรดกรอกชื่อของคุณเพื่อยืนยันการยกเลิกรายการ
                         </p>
-                        <input type="text" class="form-control" id="cancellerName" placeholder="กรอกชื่อของคุณ (เช่น สมชาย ใจดี)" style="border-radius: 6px;">
+                        <input type="text" class="form-control" id="cancellerName"
+                            placeholder="กรอกชื่อของคุณ (เช่น สมชาย ใจดี)" style="border-radius: 6px;">
                         <small style="color: #0c5ed6; display: block; margin-top: 0.5rem;">
                             <i class="fas fa-info-circle me-1"></i>ข้อมูลนี้จะถูกบันทึกในระบบเพื่อการตรวจสอบ
                         </small>
@@ -1206,10 +1300,12 @@
                 </div>
                 <div class="modal-footer border-0 bg-light">
                     <div id="cancelLoadingSpinner" style="display: none; margin-right: auto;">
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="color: #dc3545;"></span>
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"
+                            style="color: #dc3545;"></span>
                         <span style="color: #dc3545; font-weight: 500;">กำลังประมวลผล...</span>
                     </div>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="cancelModalCloseBtn">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
+                        id="cancelModalCloseBtn">
                         <i class="fas fa-times me-1"></i>ยกเลิก
                     </button>
                     <button type="button" class="btn btn-danger" id="confirmCancelBtn">
@@ -1228,4 +1324,5 @@
     <script src="provinces.js"></script>
     <script src="transaction-summary.js"></script>
 </body>
+
 </html>

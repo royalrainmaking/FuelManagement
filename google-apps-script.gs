@@ -1529,6 +1529,14 @@ function logTransaction(dataString, sheetsId) {
       throw new Error('ไม่สามารถสร้างหรือเข้าถึง Transaction_Log sheet ได้');
     }
     
+    // ใช้ LockService เพื่อป้องกัน race condition เมื่อมีหลายคนกดบันทึกพร้อมกัน
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(15000); // รอสูงสุด 15 วินาที
+    } catch (e) {
+      throw new Error('ระบบไม่สามารถบันทึกข้อมูลได้ในขณะนี้เนื่องจากมีผู้ใช้งานจำนวนมาก กรุณาลองใหม่อีกครั้ง');
+    }
+    
     // Check if UID already exists to prevent duplicates (e.g. from network retries)
     const searchUid = transactionData.uid || '';
     if (searchUid) {
@@ -1618,6 +1626,11 @@ function logTransaction(dataString, sheetsId) {
         logs: logs
       }))
       .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    if (lock && lock.hasLock()) {
+      lock.releaseLock();
+      console.log('🔓 Lock released in logTransaction');
+    }
   }
 }
 
@@ -4294,7 +4307,9 @@ function processTransaction(transactionDataString, updateInventoryDataString, sh
  * ฟังก์ชันภายในสำหรับบันทึก Log (ใช้ Spreadsheet object เดิม)
  */
 function internalLogTransaction(spreadsheet, transactionData, logs) {
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000);
     let logSheet = spreadsheet.getSheetByName('Transaction_Log');
     if (!logSheet || logSheet.getLastRow() === 0) {
       logSheet = createTransactionLogSheet(spreadsheet.getId());
@@ -4348,13 +4363,17 @@ function internalLogTransaction(spreadsheet, transactionData, logs) {
         logs.push('🟢 LINE notification sent');
       }
     } catch (e) {
-      logs.push('⚠️ LINE notification failed: ' + e.toString());
+      logs.push('⚠️ LINE Notification error: ' + e.toString());
     }
     
     return true;
   } catch (e) {
     logs.push('❌ Error in internalLogTransaction: ' + e.toString());
     return false;
+  } finally {
+    if (lock && lock.hasLock()) {
+      lock.releaseLock();
+    }
   }
 }
 
