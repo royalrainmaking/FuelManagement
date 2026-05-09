@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         /* ===== General Styles ===== */
         * {
@@ -127,11 +129,11 @@
             min-height: 297mm;
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
             border-radius: 4px;
-            padding: 12mm 14mm 10mm 14mm;
+            padding: 10mm 12mm 10mm 12mm;
             position: relative;
             display: flex;
             flex-direction: column;
-            gap: 0;
+            gap: 2px;
         }
 
         /* ===== Print Sheet Header ===== */
@@ -193,15 +195,15 @@
 
         /* ===== Section titles ===== */
         .section-title {
-            font-size: 10pt;
+            font-size: 9.5pt;
             font-weight: 800;
             color: white;
-            padding: 4px 10px;
+            padding: 3px 10px;
             border-radius: 4px;
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .section-budget {
@@ -222,6 +224,7 @@
             border-collapse: collapse;
             font-size: 9pt;
             margin-bottom: 8px;
+            table-layout: auto;
         }
 
         .budget-table th {
@@ -234,7 +237,7 @@
         }
 
         .budget-table td {
-            padding: 5px 8px;
+            padding: 4px 8px;
             border: 1px solid #e2e8f0;
             vertical-align: middle;
         }
@@ -298,7 +301,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 8.5pt;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .fuel-table th {
@@ -368,11 +371,11 @@
             background: #f8fafc;
             border: 1.5px solid #e2e8f0;
             border-radius: 6px;
-            padding: 6px 12px;
+            padding: 5px 12px;
             display: flex;
             justify-content: space-around;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .fuel-total-item {
@@ -524,8 +527,22 @@
                 min-height: unset !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
-                padding: 10mm 12mm 8mm 12mm !important;
+                padding: 8mm 10mm 5mm 10mm !important;
                 margin: 0 !important;
+                font-size: 0.95em;
+                /* Scale everything down 5% to ensure 1-page fit */
+            }
+
+            .budget-table td,
+            .budget-table th,
+            .fuel-table td,
+            .fuel-table th {
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+            }
+
+            .section-title {
+                margin-top: 2px !important;
             }
 
             @page {
@@ -535,14 +552,46 @@
         }
 
         /* ====== Responsive ====== */
-        @media (max-width: 800px) {
+        @media (max-width: 850px) {
             .page-preview {
                 padding: 12px;
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .print-sheet {
-                width: 100%;
-                transform-origin: top center;
+                width: 210mm;
+                /* คงขนาด A4 ไว้เพื่อให้ตารางไม่ล้น */
+                margin: 0 auto;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .toolbar {
+                padding: 10px 12px;
+            }
+
+            .brand-sub {
+                display: none;
+            }
+
+            .brand-text {
+                font-size: 0.9rem !important;
+            }
+
+            .btn-toolbar span {
+                display: none;
+                /* Hide text on small screens */
+            }
+
+            .btn-toolbar {
+                padding: 8px 12px;
+            }
+
+            .toolbar-actions {
+                gap: 6px;
             }
         }
     </style>
@@ -570,13 +619,17 @@
         </div>
         <div class="toolbar-actions">
             <button class="btn-toolbar btn-refresh" onclick="loadAllData()" id="refreshBtn">
-                <i class="fas fa-sync-alt"></i> รีเฟรช
+                <i class="fas fa-sync-alt"></i> <span>รีเฟรช</span>
+            </button>
+            <button class="btn-toolbar btn-save-img" onclick="downloadAsImage()"
+                style="background: #7c3aed; color:white;">
+                <i class="fas fa-image"></i> <span>รูปภาพ</span>
             </button>
             <a href="index.html" class="btn-toolbar btn-back">
-                <i class="fas fa-arrow-left"></i> กลับ
+                <i class="fas fa-arrow-left"></i> <span>กลับ</span>
             </a>
             <button class="btn-toolbar btn-print" onclick="window.print()">
-                <i class="fas fa-print"></i> พิมพ์ / ดาวน์โหลด PDF
+                <i class="fas fa-print"></i> <span>พิมพ์ / PDF</span>
             </button>
         </div>
     </div>
@@ -718,6 +771,7 @@
         </div><!-- /print-sheet -->
     </div><!-- /page-preview -->
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="config.js"></script>
     <script>
         // =======================================
@@ -777,12 +831,10 @@
         //  MAIN LOAD
         // =======================================
         async function loadAllData() {
-            showLoading(true, 'เชื่อมต่อ Google Sheets...');
+            showLoading(true, 'กำลังดึงข้อมูลล่าสุด...');
             hideError();
 
             try {
-                // Parallel fetch: budget + transactions + inventory
-                showLoading(true, 'กำลังโหลดงบประมาณ...');
                 const [budgetRes, txRes, invRes] = await Promise.all([
                     fetchBudget(),
                     fetchTransactions(),
@@ -795,12 +847,44 @@
 
                 renderAll();
                 setDateTime();
+                showLoading(false);
             } catch (err) {
                 console.error('Load error:', err);
                 showError('ไม่สามารถโหลดข้อมูลได้: ' + err.message);
-            } finally {
                 showLoading(false);
             }
+        }
+
+        // ฟังก์ชันดาวน์โหลดเป็นรูปภาพ
+        function downloadAsImage() {
+            const sheet = document.getElementById('printSheet');
+            const btn = document.querySelector('.btn-save-img');
+            const originalBtnText = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> กำลังสร้างรูป...';
+            btn.disabled = true;
+
+            // ตั้งค่า scale ให้รูปชัดขึ้น
+            html2canvas(sheet, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const date = new Date().toISOString().split('T')[0];
+                link.download = `สรุปงบน้ำมัน_${date}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error('Canvas error:', err);
+                alert('ไม่สามารถสร้างรูปภาพได้: ' + err.message);
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
+            });
         }
 
         // =======================================
