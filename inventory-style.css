@@ -1,4 +1,4 @@
-﻿/* Reset และ Base Styles */
+/* Reset และ Base Styles */
 * {
     margin: 0;
     padding: 0;
@@ -1148,22 +1148,23 @@ header h1 {
     background-color: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(10px);
     animation: fadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-content {
     background: #ffffff;
-    margin: 5% auto;
+    margin: 2rem auto;
     padding: 2rem;
     border-radius: 8px;
     width: 90%;
     max-width: 500px;
-    max-height: 80vh;
     border: 1px solid #e0e6ed;
     border-top: 4px solid #1e3c72;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     position: relative;
     animation: slideUp 0.3s ease;
-    overflow-y: auto;
 }
 
 .close {
@@ -2499,8 +2500,8 @@ header h1 {
     
     .modal-content {
         width: 95%;
-        margin: 10% auto;
-        padding: 1.5rem;
+        margin: 1rem auto 2rem auto;
+        padding: 1.25rem;
     }
 }
 
