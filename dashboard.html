@@ -694,6 +694,62 @@
                 grid-template-columns: 1fr;
             }
         }
+    
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 5mm;
+            }
+
+            /* Hide everything that is not the content */
+            .navbar, 
+            .hero, 
+            .btn, 
+            #refreshBtn, 
+            .hide-on-print,
+            #loadingOverlay { 
+                display: none !important; 
+            }
+            
+            /* Reset container */
+            .container-fluid {
+                margin-top: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+
+            /* Card styling for print */
+            .dash-card {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 0 10mm 0 !important;
+                page-break-inside: avoid !important;
+                page-break-after: always !important;
+            }
+            
+            .dash-card:last-child {
+                page-break-after: auto !important;
+            }
+
+            /* Table scaling */
+            .table {
+                font-size: 8pt !important;
+                width: 100% !important;
+            }
+
+            .table thead th {
+                background-color: #1e293b !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .bp {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
     </style>
 </head>
 
@@ -710,6 +766,7 @@
                 </div>
             </a>
             <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-warning btn-sm fw-bold shadow-sm me-2" onclick="printDashboard()"><i class="fas fa-print me-1"></i> สั่งปริ้น</button>
                 <button class="btn btn-light btn-sm" id="refreshBtn"><i class="fas fa-sync-alt me-1"></i>รีเฟรช</button>
                 <a href="transaction-summary.html" class="btn btn-light btn-sm"><i
                         class="fas fa-list me-1"></i>รายการ</a>
@@ -743,61 +800,16 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div><!-- /hero -->
 
     <!-- MAIN -->
-    <div class="main container-fluid">
+    <div id="dashboardContent" class="main container-fluid">
 
         <!-- ALERT BANNERS -->
         <div id="alertBanners"></div>
 
-        <!-- ███ FORECAST HERO - MOST IMPORTANT ███ -->
-        <div class="forecast-hero">
-            <h2><i class="fas fa-crystal-ball"></i>ประมาณการงบประมาณ (คาดการณ์วันหมด) — อิงอัตราใช้จ่าย 14 วันล่าสุด
-            </h2>
-            <div class="fcast-grid" id="forecastCards">
-                <div style="color:rgba(255,255,255,.6);padding:1rem;text-align:center;"><i
-                        class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
-            </div>
-        </div>
-
-        <!-- KPI -->
-        <div class="kpi-grid">
-            <div class="kpi-card" style="--ac:#1d4ed8">
-                <div class="kpi-icon" style="background:#eff6ff;color:#1d4ed8;"><i class="fas fa-gas-pump"></i></div>
-                <div class="kpi-lbl">ปริมาณรวมทั้งหมด</div>
-                <div class="kpi-val" id="kpiTotalL">-</div>
-                <div class="kpi-sub">ลิตร (ช่วงที่เลือก)</div>
-            </div>
-            <div class="kpi-card" style="--ac:#059669">
-                <div class="kpi-icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-calendar-day"></i>
-                </div>
-                <div class="kpi-lbl">เฉลี่ยต่อวัน (30 วัน)</div>
-                <div class="kpi-val" id="kpiAvg">-</div>
-                <div class="kpi-sub">ลิตร/วัน</div>
-            </div>
-            <div class="kpi-card" style="--ac:#d97706">
-                <div class="kpi-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-coins"></i></div>
-                <div class="kpi-lbl">มูลค่ารวม (PTT)</div>
-                <div class="kpi-val" id="kpiCost">-</div>
-                <div class="kpi-sub">บาท</div>
-            </div>
-            <div class="kpi-card" style="--ac:#7c3aed">
-                <div class="kpi-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fas fa-list-check"></i></div>
-                <div class="kpi-lbl">จำนวนรายการ</div>
-                <div class="kpi-val" id="kpiTx">-</div>
-                <div class="kpi-sub">รายการ</div>
-            </div>
-            <div class="kpi-card" style="--ac:#0891b2">
-                <div class="kpi-icon" style="background:#ecfeff;color:#0891b2;"><i class="fas fa-plane"></i></div>
-                <div class="kpi-lbl">จ่ายให้เครื่องบิน</div>
-                <div class="kpi-val" id="kpiAircraft">-</div>
-                <div class="kpi-sub">ลิตร</div>
-            </div>
-        </div>
-
         <!-- FILTER BAR -->
-        <div class="filter-bar">
+        <div class="filter-bar mb-4">
             <label><i class="fas fa-filter me-1"></i>ช่วงวันที่</label>
             <input type="date" id="filterStart">
             <span style="color:var(--muted);font-size:.8rem;">ถึง</span>
@@ -813,121 +825,24 @@
                 <button class="tab-pill" onclick="setPlanFilter('ดัดแปลงสภาพอากาศ (ฝุ่น)',this)">ฝุ่น</button>
                 <button class="tab-pill" onclick="setPlanFilter('ดัดแปลงสภาพอากาศ (ลูกเห็บ)',this)">ลูกเห็บ</button>
             </div>
-            <div class="ms-auto" style="font-size:.75rem;color:var(--muted);">แสดง <strong id="filterCount">-</strong>
-                รายการ</div>
+            <div class="ms-auto" style="font-size:.75rem;color:var(--muted);">แสดง <strong id="filterCount">-</strong> รายการ</div>
         </div>
 
-        <!-- ROW: DAILY TREND + PLAN PIE -->
-        <div class="row g-3 mb-2">
-            <div class="col-lg-8">
-                <div class="dash-card">
-                    <div class="dc-head">
-                        <div class="dc-title"><i class="fas fa-chart-bar"
-                                style="color:var(--primary);"></i>แนวโน้มการใช้น้ำมันรายวัน</div>
-                        <div class="tab-pills">
-                            <button class="tab-pill active" onclick="switchChart('bar',this)">แท่ง</button>
-                            <button class="tab-pill" onclick="switchChart('line',this)">เส้น</button>
-                        </div>
-                    </div>
-                    <div class="dc-body">
-                        <div class="ch tall"><canvas id="dailyChart"></canvas></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4">
-                <div class="dash-card" style="height:100%;">
-                    <div class="dc-head">
-                        <div class="dc-title"><i class="fas fa-chart-pie" style="color:#7c3aed;"></i>สัดส่วนตามแผน</div>
-                    </div>
-                    <div class="dc-body">
-                        <div class="ch"><canvas id="pieChart"></canvas></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ROW: COST BY PLAN + TOP DEST -->
-        <div class="row g-3 mb-2">
-            <div class="col-lg-6">
-                <div class="dash-card">
-                    <div class="dc-head">
-                        <div class="dc-title"><i class="fas fa-money-bill-wave" style="color:#059669;"></i>มูลค่าตามแผน
-                            (บาท)</div>
-                    </div>
-                    <div class="dc-body">
-                        <div class="ch"><canvas id="costChart"></canvas></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="dash-card">
-                    <div class="dc-head">
-                        <div class="dc-title"><i class="fas fa-plane-departure" style="color:#0891b2;"></i>ปลายทางสูงสุด
-                            10 อันดับ</div>
-                    </div>
-                    <div class="dc-body" id="topDest" style="max-height:260px;overflow-y:auto;">
-                        <div style="text-align:center;color:var(--muted);padding:2rem;"><i
-                                class="fas fa-spinner fa-spin"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ████ PER-TANK SECTION ████ -->
-        <div class="dash-card">
+        <!-- MONTHLY TREND CHART -->
+        <div class="dash-card mb-4" style="border:1px solid var(--border); box-shadow:0 10px 15px -3px rgba(0,0,0,.05);">
             <div class="dc-head">
-                <div class="dc-title"><i class="fas fa-oil-drum"
-                        style="color:#d97706;"></i>ปริมาณน้ำมันแยกตามแท๊ง/แหล่งน้ำมัน — รายวัน</div>
-                <div class="tab-pills">
-                    <button class="tab-pill active" onclick="switchTankView('chart',this)">กราฟ</button>
-                    <button class="tab-pill" onclick="switchTankView('stock',this)">สต็อกปัจจุบัน</button>
-                </div>
+                <div class="dc-title"><i class="fas fa-chart-line" style="color:var(--primary);"></i>ภาพรวมการใช้น้ำมันรายเดือน</div>
             </div>
-            <div class="dc-body">
-                <div id="tankChartView">
-                    <div id="tankChartGrid" class="tank-grid">
-                        <div style="text-align:center;color:var(--muted);padding:2rem;grid-column:1/-1;"><i
-                                class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
-                    </div>
-                </div>
-                <div id="tankStockView" style="display:none;">
-                    <div id="tankStockGrid" class="tank-grid">
-                        <div style="text-align:center;color:var(--muted);padding:2rem;grid-column:1/-1;"><i
-                                class="fas fa-spinner fa-spin"></i></div>
-                    </div>
-                </div>
+            <div class="dc-body" style="padding: 1.5rem;">
+                <div class="ch tall" style="height: 300px;"><canvas id="globalMonthlyChart"></canvas></div>
             </div>
         </div>
 
-        <!-- DAILY SUMMARY TABLE -->
-        <div class="dash-card">
-            <div class="dc-head">
-                <div class="dc-title"><i class="fas fa-table" style="color:#64748b;"></i>สรุปการใช้น้ำมันรายวัน</div>
-                <span id="dayCount" style="font-size:.72rem;color:var(--muted);"></span>
-            </div>
-            <div class="dc-body p-0">
-                <div style="overflow-x:auto;max-height:380px;overflow-y:auto;">
-                    <table class="table dtbl mb-0">
-                        <thead style="position:sticky;top:0;z-index:2;">
-                            <tr>
-                                <th>วันที่</th>
-                                <th class="text-end">จ่ายออก (L)</th>
-                                <th class="text-end">ซื้อเข้า (L)</th>
-                                <th class="text-end">รายการ</th>
-                                <th class="text-end">มูลค่า (฿)</th>
-                                <th>แผนหลัก</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dailyTbody">
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">กำลังโหลด...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <!-- DETAILED MONTHLY CARDS -->
+        <div id="detailedMonthlyContainer">
+            <div style="text-align:center;color:var(--muted);padding:2rem;"><i class="fas fa-spinner fa-spin"></i> กำลังประมวลผลข้อมูล...</div>
         </div>
-
+    
     </div><!-- /main -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -948,8 +863,8 @@
         ];
 
         const planBadgeColor = {
-            'แผนบรู': '#f59e0b', 'แผนยุทธศาสตร์': '#3b82f6',
-            'ดัดแปลงสภาพอากาศ (ฝุ่น)': '#06b6d4', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': '#ef4444'
+            'แผนบรู': '#10b981', 'แผนยุทธศาสตร์': '#eab308',
+            'ดัดแปลงสภาพอากาศ (ฝุ่น)': '#ef4444', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': '#8b5cf6'
         };
         const planShort = { 'แผนบรู': 'บรู', 'แผนยุทธศาสตร์': 'ยุทธ', 'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'ฝุ่น', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'ลูกเห็บ' };
 
@@ -1063,420 +978,485 @@
         // ==================== RENDER ALL ====================
         function renderAll() {
             const out = filteredTx.filter(isOut);
-            const inp = filteredTx.filter(isIn);
-            renderForecast();     // << FIRST - most important
-            renderAlerts();
-            renderKPIs(out, inp);
-            renderDailyChart(out, inp);
-            renderPie(out);
-            renderCostChart(out);
-            renderTopDest(out);
-            renderTankCharts(out, inp);
-            renderDailyTable(out, inp);
-        }
-
-        // ==================== FORECAST (HERO) ====================
-        function renderForecast() {
-            const today = new Date(); // ใช้วันจริง
-            const agoN = new Date(today); agoN.setDate(today.getDate() - BURN_DAYS);
-            const isoN = agoN.toISOString().slice(0, 10);
-            const recent = allTx.filter(t => t.date >= isoN && !isAdjustment(t));
-            const recentOut = recent.filter(isOut);
-            const daySet = new Set(recentOut.map(t => t.date).filter(Boolean));
-            const activeDays = Math.max(daySet.size, 1);
-
-            let html = '';
-            PLANS.forEach(plan => {
-                // fuzzy match budget key
-                const p = findBudgetPlan(plan.key);
-                const budget = p ? (p.budget || 0) : 0;
-                const remaining = p ? (p.remaining || 0) : 0;
-                const spent = budget - remaining;
-                const pct = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : 0;
-
-                // Cost burn rate for this plan
-                const planRecent = recentOut.filter(t => getPlan(t.missions) === plan.key);
-                const planCost = planRecent.reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
-                const dailyCost = planCost / activeDays;
-
-                // Liters burn rate
-                const planLiters = planRecent.reduce((s, t) => s + getVol(t), 0);
-                const dailyLiters = planLiters / activeDays;
-
-                let daysHtml = '', daysClass = 'safe', dateStr = '', daysNum = null;
-                if (remaining <= 0) {
-                    daysHtml = `<div class="fcast-days empty"><i class="fas fa-ban me-1"></i>หมดแล้ว / ไม่มีงบ</div>`;
-                    daysClass = 'empty';
-                } else if (dailyCost <= 0) {
-                    daysHtml = `<div class="fcast-days safe"><i class="fas fa-infinity me-1"></i>ยังไม่มีการใช้</div>`;
-                } else {
-                    daysNum = Math.floor(remaining / dailyCost);
-                    const endDate = new Date(today); endDate.setDate(today.getDate() + daysNum);
-                    dateStr = endDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
-                    daysClass = daysNum > 60 ? 'safe' : daysNum > 30 ? 'warn' : 'crit';
-                    const cls2 = daysClass;
-                    daysHtml = `<div class="fcast-days ${cls2}">
-        <i class="fas fa-hourglass-half me-1"></i>
-        ~${fmt(daysNum)} วัน
-      </div>`;
-                }
-
-                const fillPct = 100 - pct;
-                html += `<div class="fcast-card" style="border-color:${plan.color}44;">
-      ${dateStr ? `<div class="fcast-date-badge">หมดประมาณ ${dateStr}</div>` : ''}
-      <div class="fcast-plan" style="color:${plan.color};"><i class="fas ${plan.icon} me-1"></i>${plan.label}</div>
-      <div class="fcast-remaining" style="color:${plan.color};">${budget > 0 ? fmt(remaining) : '-'}</div>
-      <div class="fcast-sub">${budget > 0 ? `คงเหลือจาก ${fmt(budget)} บาท` : 'ยังไม่ตั้งงบประมาณ'}</div>
-      <div class="fcast-pbar"><div class="fcast-pbar-fill" style="width:${fillPct.toFixed(1)}%;background:${plan.color};"></div></div>
-      ${daysHtml}
-      ${dailyCost > 0 ? `<div class="fcast-burn">เฉลี่ย ${fmt(dailyCost)} ฿/วัน · ${fmt(dailyLiters, 1)} L/วัน (${BURN_DAYS} วัน)</div>` : ''}
-    </div>`;
-            });
-            document.getElementById('forecastCards').innerHTML = html || '<div style="color:var(--muted);padding:1rem;">ไม่มีข้อมูลงบประมาณ</div>';
-        }
-
-        // ==================== ALERTS ====================
-        function renderAlerts() {
+            const inp = filteredTx.filter(t => isIn(t) && !isOut(t));
+            // renderAlerts() removed
             const c = document.getElementById('alertBanners');
-            c.innerHTML = '';
-            if (!budgetData.plans) return;
-            PLANS.forEach(plan => {
-                const p = budgetData.plans[plan.key];
-                if (!p || p.budget <= 0) return;
-                const pct = (p.remaining / p.budget) * 100;
-                if (pct <= 10) c.innerHTML += `<div class="abanner r"><i class="fas fa-exclamation-triangle"></i>งบประมาณ <strong>${plan.label}</strong> เหลือน้อยมาก! (${fmt(p.remaining)} บาท · ${fmt(pct, 1)}%)</div>`;
-                else if (pct <= 25) c.innerHTML += `<div class="abanner y"><i class="fas fa-exclamation-circle"></i>งบประมาณ <strong>${plan.label}</strong> ใกล้หมด (${fmt(p.remaining)} บาท · ${fmt(pct, 1)}%)</div>`;
+            if (c) c.innerHTML = '';
+            
+            renderDetailedMonthlySummary(out, inp);
+        }
+
+        let globalChartI = null;
+        const monthlyChartInstances = {};
+
+        // ==================== DETAILED MONTHLY ====================
+        function renderDetailedMonthlySummary(out, inp) {
+            // Clean up old charts
+            if (globalChartI) { globalChartI.destroy(); globalChartI = null; }
+            Object.values(monthlyChartInstances).forEach(c => c.destroy());
+            for (let k in monthlyChartInstances) delete monthlyChartInstances[k];
+
+            const monthMap = {};
+            // Gather data for IN transactions (purchases/refills)
+            inp.forEach(t => {
+                if (!t.date) return;
+                const m = t.date.substring(0, 7);
+                if (!monthMap[m]) monthMap[m] = {
+                    key: m, liters: 0, cost: 0,
+                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}
+                };
+                const vol = getVol(t);
+                const cost = parseFloat(t.total_cost) || 0;
+                
+                // The user explicitly requested: "แยกตามต้นทาง (รับเข้า/จ่ายออก) อันนี้ให้เอามาจาก คอลั่ม E"
+                // So ONLY use t.source_name (Column E) for this table. Do not add t.destination_name to sources!
+                const srcRaw = (t.source_name || 'ไม่ระบุ').trim();
+                const destRaw = (t.destination_name || 'ไม่ระบุ').trim();
+                
+                let srcLabel = srcRaw;
+                if (srcRaw.includes('ปตท') || srcRaw.includes('PTT') || (t.transaction_type && t.transaction_type.includes('ซื้อ'))) {
+                    if (destRaw && destRaw !== 'ไม่ระบุ') {
+                        srcLabel = `${srcRaw} ➡️ ${destRaw}`;
+                    }
+                }
+                
+                // For Sources table, ONLY use the original raw source name (srcRaw) to group them all together
+                if (srcRaw && srcRaw !== 'ไม่ระบุ') {
+                    monthMap[m].sources[srcRaw] = (monthMap[m].sources[srcRaw] || {liters: 0, cost: 0, inLiters: 0, outLiters: 0});
+                    
+                    if (srcRaw.includes('ปตท') || srcRaw.includes('PTT') || (t.transaction_type && t.transaction_type.includes('ซื้อ'))) {
+                        monthMap[m].sources[srcRaw].outLiters += vol;
+                        monthMap[m].sources[srcRaw].liters += vol;
+                        monthMap[m].sources[srcRaw].cost += cost;
+                    } else {
+                        monthMap[m].sources[srcRaw].inLiters += vol;
+                    }
+                }
+                
+                const dest = (t.destination_name || 'ไม่ระบุ').trim();
+                
+                // Add to aircrafts table as requested (to show the purchase cost and item)
+                let aircraftName = '';
+                const acNum = (t.aircraft_number && String(t.aircraft_number).trim() !== '' && String(t.aircraft_number).trim() !== '-') ? String(t.aircraft_number).trim() : '';
+                const acType = (t.aircraft_type && String(t.aircraft_type).trim() !== '') ? String(t.aircraft_type).trim() : '';
+                
+                if (acNum) {
+                    if (acType) {
+                        aircraftName = `${acType} : ${acNum}`;
+                    } else {
+                        if (acNum === '1615') aircraftName = 'BELL 206B3 : 1615';
+                        else if (['1916', '1922', '1933', '1934'].includes(acNum)) aircraftName = 'CARAVAN C208 : ' + acNum;
+                        else aircraftName = acNum;
+                    }
+                }
+                
+                if (!aircraftName) {
+                    aircraftName = srcLabel;
+                }
+                
+                const msn = getPlan(t.missions);
+                const unitProv = (t.unit || 'ไม่ระบุ').trim();
+                const aircraftKey = `${aircraftName}|||${msn}|||${unitProv}|||${dest}`;
+                monthMap[m].aircrafts[aircraftKey] = (monthMap[m].aircrafts[aircraftKey] || {liters: 0, cost: 0});
+                monthMap[m].aircrafts[aircraftKey].liters += vol;
+                monthMap[m].aircrafts[aircraftKey].cost += cost;
+                
+                // Track missions for IN transactions
+                monthMap[m].missions[msn] = (monthMap[m].missions[msn] || {liters: 0, cost: 0});
+                monthMap[m].missions[msn].liters += vol;
+                monthMap[m].missions[msn].cost += cost;
+                
+                // Track provinces for IN transactions
+                if (unitProv && unitProv !== 'ไม่ระบุ' && unitProv !== '') {
+                    const provKey = `${unitProv}|||${msn}`;
+                    monthMap[m].provinces[provKey] = (monthMap[m].provinces[provKey] || {liters: 0, cost: 0});
+                    monthMap[m].provinces[provKey].liters += vol;
+                    monthMap[m].provinces[provKey].cost += cost;
+                }
+                
+                // Add to total cost and volume
+                monthMap[m].liters += vol;
+                monthMap[m].cost += cost;
+                
+                // Track daily usage within month
+                // Removed days mapping from inp
             });
-        }
+            
+            // Gather data for all out transactions (dispenses)
+            out.forEach(t => {
+                if (!t.date) return;
+                const m = t.date.substring(0, 7); // YYYY-MM
+                if (!monthMap[m]) monthMap[m] = {
+                    key: m,
+                    liters: 0, cost: 0,
+                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}
+                };
+                
+                const vol = getVol(t);
+                const cost = parseFloat(t.total_cost) || 0;
+                
+                monthMap[m].liters += vol;
+                monthMap[m].cost += cost;
+                
+                // Track daily usage within month
+                if (!monthMap[m].days[t.date]) monthMap[m].days[t.date] = {};
+                const planName = getPlan(t.missions);
+                monthMap[m].days[t.date][planName] = (monthMap[m].days[t.date][planName] || 0) + vol;
+                
+                // Track source
+                const src = (t.source_name || 'ไม่ระบุ').trim();
+                monthMap[m].sources[src] = (monthMap[m].sources[src] || {liters: 0, cost: 0, inLiters: 0, outLiters: 0});
+                monthMap[m].sources[src].liters += vol;
+                monthMap[m].sources[src].outLiters += vol;
+                monthMap[m].sources[src].cost += cost;
+                
+                const destName = (t.destination_name || '').trim();
+                
+                let aircraft = null;
+                const acNum = (t.aircraft_number && String(t.aircraft_number).trim() !== '' && String(t.aircraft_number).trim() !== '-') ? String(t.aircraft_number).trim() : '';
+                const acType = (t.aircraft_type && String(t.aircraft_type).trim() !== '') ? String(t.aircraft_type).trim() : '';
+                
+                if (acNum) {
+                    if (acType) {
+                        aircraft = `${acType} : ${acNum}`;
+                    } else {
+                        if (acNum === '1615') aircraft = 'BELL 206B3 : 1615';
+                        else if (['1916', '1922', '1933', '1934'].includes(acNum)) aircraft = 'CARAVAN C208 : ' + acNum;
+                        else aircraft = acNum;
+                    }
+                } else if (destName.match(/c208|casa|nc212|l410|bell|aw\d|h130|ska\d|caravan|skycourier/i)) {
+                    aircraft = destName;
+                }
+                
+                let prov = (t.unit && String(t.unit).trim() !== '') ? String(t.unit).trim() : (destName || 'ไม่ระบุ');
+                const destF = (t.destination_name || 'ไม่ระบุ').trim();
+                
+                const msn = getPlan(t.missions);
+                
+                if (aircraft && aircraft !== 'ไม่ระบุ') {
+                    const acKey = `${aircraft}|||${msn}|||${prov}|||${destF}`;
+                    monthMap[m].aircrafts[acKey] = (monthMap[m].aircrafts[acKey] || {liters: 0, cost: 0});
+                    monthMap[m].aircrafts[acKey].liters += vol;
+                    monthMap[m].aircrafts[acKey].cost += cost;
+                }
+                
+                monthMap[m].missions[msn] = (monthMap[m].missions[msn] || {liters: 0, cost: 0});
+                monthMap[m].missions[msn].liters += vol;
+                monthMap[m].missions[msn].cost += cost;
+                
+                if (prov && prov !== 'ไม่ระบุ' && prov !== '') {
+                    const provKey = `${prov}|||${msn}`;
+                    monthMap[m].provinces[provKey] = (monthMap[m].provinces[provKey] || {liters: 0, cost: 0});
+                    monthMap[m].provinces[provKey].liters += vol;
+                    monthMap[m].provinces[provKey].cost += cost;
+                }
+            });
+            
+            const months = Object.keys(monthMap).sort().reverse();
+            const container = document.getElementById('detailedMonthlyContainer');
+            
+            if (!months.length) {
+                container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:2rem;background:#fff;border-radius:12px;border:1px solid var(--border);">ไม่มีข้อมูลในรอบเวลาที่เลือก</div>';
+                
+                // Clear global chart
+                const ctxG = document.getElementById('globalMonthlyChart');
+                if(ctxG) {
+                   const cG = ctxG.getContext('2d');
+                   cG.clearRect(0, 0, ctxG.width, ctxG.height);
+                }
+                return;
+            }
 
-        // ==================== KPIs ====================
-        function renderKPIs(out, inp) {
-            const totalL = out.reduce((s, t) => s + getVol(t), 0);
-            const totalC = filteredTx.filter(isIn).reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
-            const today = new Date();
-            const ago14 = new Date(today); ago14.setDate(today.getDate() - BURN_DAYS);
-            const iso14 = ago14.toISOString().slice(0, 10);
-            const last14out = out.filter(t => t.date >= iso14);
-            const days14 = Math.max(new Set(last14out.map(t => t.date).filter(Boolean)).size, 1);
-            const avg = last14out.reduce((s, t) => s + getVol(t), 0) / days14;
-            const airL = out.filter(t => (t.destination_name || '').match(/เครื่องบิน|c208|casa|nc212|l410|bell|aw|h130|ska|caravan|skycourier/i)).reduce((s, t) => s + getVol(t), 0);
-            document.getElementById('kpiTotalL').textContent = fmt(totalL);
-            document.getElementById('kpiAvg').textContent = fmt(avg, 1);
-            document.getElementById('kpiCost').textContent = fmt(totalC);
-            document.getElementById('kpiTx').textContent = fmt(filteredTx.length);
-            document.getElementById('kpiAircraft').textContent = fmt(airL);
-        }
+            const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            
+            // 1. Render Global Monthly Bar Chart
+            const sortedMonthsAsc = [...months].reverse();
+            const gLabels = sortedMonthsAsc.map(m => {
+                const parts = m.split('-');
+                return monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543).toString().slice(-2);
+            });
+            const gData = sortedMonthsAsc.map(m => monthMap[m].liters);
+            
+            const ctxGlobal = document.getElementById('globalMonthlyChart').getContext('2d');
+            const grad = ctxGlobal.createLinearGradient(0, 0, 0, 300);
+            grad.addColorStop(0, 'rgba(37, 99, 235, 0.8)');
+            grad.addColorStop(1, 'rgba(37, 99, 235, 0.2)');
 
-        // ==================== DAILY CHART ====================
-        function renderDailyChart(out, inp) {
-            // รวมทุกรายการเป็นยอดรวมต่อวัน
-            const all = [...out, ...inp];
-            const dates = [...new Set(all.map(t => t.date).filter(Boolean))].sort();
-            const byDate = groupByDate(all);
-            const labels = dates.map(fmtDShort);
-            const totalV = dates.map(d => byDate[d] ? byDate[d].reduce((s, t) => s + getVol(t), 0) : 0);
-
-            if (dailyChartI) dailyChartI.destroy();
-            const ctx = document.getElementById('dailyChart').getContext('2d');
-            const isLine = chartType === 'line';
-
-            // gradient fill
-            const grad = ctx.createLinearGradient(0, 0, 0, 310);
-            grad.addColorStop(0, 'rgba(99,102,241,0.55)');
-            grad.addColorStop(1, 'rgba(99,102,241,0.02)');
-
-            dailyChartI = new Chart(ctx, {
-                type: isLine ? 'line' : 'bar',
+            globalChartI = new Chart(ctxGlobal, {
+                type: 'bar',
                 data: {
-                    labels,
+                    labels: gLabels,
                     datasets: [{
                         label: 'ปริมาณรวม (L)',
-                        data: totalV,
-                        backgroundColor: isLine ? grad : 'rgba(99,102,241,0.72)',
-                        borderColor: '#6366f1',
-                        borderWidth: isLine ? 2.5 : 0,
-                        borderRadius: isLine ? 0 : 6,
-                        fill: isLine,
-                        tension: .42,
-                        pointRadius: isLine ? 3 : 0,
-                        pointHoverRadius: 5,
-                        pointBackgroundColor: '#6366f1'
+                        data: gData,
+                        backgroundColor: grad,
+                        borderColor: '#2563eb',
+                        borderWidth: 1,
+                        borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            callbacks: { label: c => ` ปริมาณรวม: ${fmt(c.raw, 1)} L` },
+                            callbacks: { label: c => ` ${fmt(c.raw, 1)} L` },
                             titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' }
                         }
                     },
                     scales: {
-                        x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 10 }, maxRotation: 45 } },
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 }, callback: v => fmt(v) } }
+                        x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 12 } } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 12 }, callback: v => fmt(v) } }
                     }
                 }
             });
-        }
-        function switchChart(type, btn) {
-            chartType = type;
-            document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderDailyChart(filteredTx.filter(isOut), filteredTx.filter(isIn));
-        }
 
-        // ==================== PIE ====================
-        function renderPie(out) {
-            const totals = {}; PLANS.forEach(p => { totals[p.key] = 0; });
-            out.forEach(t => { const k = getPlan(t.missions); if (totals[k] !== undefined) totals[k] += getVol(t); });
-            if (pieI) pieI.destroy();
-            const ctx = document.getElementById('pieChart').getContext('2d');
-            pieI = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: PLANS.map(p => p.label), datasets: [{ data: PLANS.map(p => totals[p.key] || 0), backgroundColor: PLANS.map(p => p.color + 'cc'), borderColor: PLANS.map(p => p.color), borderWidth: 2, hoverOffset: 8 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '60%',
-                    plugins: {
-                        legend: { position: 'bottom', labels: { font: { family: 'Sarabun', size: 10 }, padding: 8 } },
-                        tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw, 1)} L` }, titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' } }
-                    }
-                }
-            });
-        }
+            // 2. Render Cards for each Month
+            let html = '';
+            months.forEach(m => {
+                const data = monthMap[m];
+                const parts = m.split('-');
+                const mLabel = monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543);
+                
 
-        // ==================== COST CHART ====================
-        function renderCostChart(out) {
-            const costs = {}; PLANS.forEach(p => { costs[p.key] = 0; });
-            out.forEach(t => { const k = getPlan(t.missions); if (costs[k] !== undefined) costs[k] += (parseFloat(t.total_cost) || 0); });
-            if (costI) costI.destroy();
-            const ctx = document.getElementById('costChart').getContext('2d');
-            costI = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: PLANS.map(p => p.label), datasets: [{ label: 'มูลค่า (฿)', data: PLANS.map(p => costs[p.key] || 0), backgroundColor: PLANS.map(p => p.color + 'bb'), borderColor: PLANS.map(p => p.color), borderWidth: 1, borderRadius: 8 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmt(c.raw)} ฿` }, titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' } } },
-                    scales: {
-                        x: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 }, callback: v => fmt(v) } },
-                        y: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 11 } } }
-                    }
-                }
-            });
-        }
 
-        // ==================== TOP DESTINATIONS ====================
-        function renderTopDest(out) {
-            const map = {};
-            out.forEach(t => { const d = (t.destination_name || 'ไม่ระบุ').trim(); map[d] = (map[d] || 0) + getVol(t); });
-            const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10);
-            const maxV = sorted[0] ? sorted[0][1] : 1;
-            const c = document.getElementById('topDest');
-            if (!sorted.length) { c.innerHTML = '<div style="text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูล</div>'; return; }
-            c.innerHTML = sorted.map(([name, liters], i) => `
-    <div class="vrow">
-      <div class="vrank">${i + 1}</div>
-      <div class="vname" title="${name}">${trunc(name, 26)}</div>
-      <div class="vbar-w"><div class="vbar"><div class="vbar-f" style="width:${(liters / maxV * 100).toFixed(1)}%"></div></div></div>
-      <div class="vltr">${fmt(liters, 1)} L</div>
-    </div>`).join('');
-        }
+                const renderTable = (obj, icon, title, isPlan=false, extraClass='') => {
+                    const sorted = Object.entries(obj).sort((a,b)=>b[1].liters-a[1].liters);
+                    if(!sorted.length) return `<div class="text-muted text-center py-4" style="font-size:.85rem;">ไม่มีข้อมูล</div>`;
+                    
+                    const maxL = sorted.length ? sorted[0][1].liters : 1;
+                    
+                    let rows = sorted.map(([name, vals], i) => {
+                        const pct = (vals.liters / data.liters) * 100;
+                        const w = (vals.liters / maxL) * 100;
+                        
+                        let badgeHtml = ``;
+                        if(isPlan) {
+                           badgeHtml = `<span class="bp" style="background:${planBadgeColor[name]}22;color:${planBadgeColor[name]};border:1px solid ${planBadgeColor[name]}44;font-size:0.7rem;">${planShort[name] || name}</span>`;
+                        }
+                        
+                        let nameHtml = isPlan ? badgeHtml : name;
+                        if (name.includes('|||')) {
+                            const parts = name.split('|||');
+                            const acName = parts[0];
+                            const fullPlan = parts[1];
+                            const provK = parts[2] || '';
+                            let destF = parts[3] || '';
+                            
+                            // Prevent duplicate destination text if it's already in the name or province
+                            if (destF && (acName.includes(destF) || provK.includes(destF))) {
+                                destF = '';
+                            }
+                            
+                            const pColor = typeof planBadgeColor !== 'undefined' && planBadgeColor[fullPlan] ? planBadgeColor[fullPlan] : '#475569';
+                            const pBg = pColor + '22';
+                            const pBorder = pColor + '44';
+                            const pShort = (typeof planShort !== 'undefined' && planShort[fullPlan]) ? planShort[fullPlan] : fullPlan;
+                            
+                            let detailsHtml = '';
+                            if (fullPlan && fullPlan !== 'ไม่ระบุ') {
+                                detailsHtml += `<span class="bp" style="background:${pBg};color:${pColor};border:1px solid ${pBorder};font-size:0.65rem;padding:1px 4px;">${pShort}</span>`;
+                            }
+                            if (provK && provK !== 'ไม่ระบุ' && provK !== '') {
+                                detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-map-marker-alt" style="color:#94a3b8;"></i> ${provK}</span>`;
+                            }
+                            if (destF && destF !== 'ไม่ระบุ' && destF !== '') {
+                                detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-plane-arrival" style="color:#94a3b8;"></i> ${destF}</span>`;
+                            }
 
-        // ==================== PER-TANK CHARTS ====================
-        // Stable key: replace non-alphanumeric chars with underscore
-        function srcKey(src) {
-            return 'tk_' + src.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
-        }
-
-        function destroyAllTankCharts() {
-            Object.values(tankChartInstances).forEach(c => { try { c.destroy(); } catch (e) { } });
-            tankChartInstances = {};
-            // Also destroy any orphaned charts on existing canvases (Chart.js 4 API)
-            document.querySelectorAll('[id^="tank-chart-"]').forEach(canvas => {
-                const existing = Chart.getChart(canvas);
-                if (existing) { try { existing.destroy(); } catch (e) { } }
-            });
-        }
-
-        // ==================== PER-TANK CHARTS ====================
-        function srcKey(src) {
-            return 'tk_' + src.replace(/[^a-zA-Z0-9ก-ฮ]/g, '_').slice(0, 30);
-        }
-
-        function destroyAllTankCharts() {
-            Object.values(tankChartInstances).forEach(c => { try { c.destroy(); } catch (e) { } });
-            tankChartInstances = {};
-            document.querySelectorAll('[id^="tank-chart-"]').forEach(canvas => {
-                const existing = Chart.getChart(canvas);
-                if (existing) { try { existing.destroy(); } catch (e) { } }
-            });
-        }
-
-        function renderTankCharts(out, inp) {
-            destroyAllTankCharts();
-
-            // คัดกรองรายการที่มีปริมาตร > 0 และไม่ใช่การปรับยอด
-            const tankTx = filteredTx.filter(t => !isAdjustment(t) && getVol(t) > 0);
-
-            // รวบรวมชื่อแหล่งน้ำมันทั้งหมด (Inventory + รายการที่มีใน Tx)
-            const nameSet = new Set();
-            inventorySources.forEach(s => { if (s.name) nameSet.add(s.name.trim()); });
-            allTx.forEach(t => {
-                if (t.source_name) nameSet.add(t.source_name.trim());
-                if (t.destination_name && (t.transaction_type || '').includes('โอนย้าย')) nameSet.add(t.destination_name.trim());
-            });
-
-            const sourceMap = {};
-            nameSet.forEach(name => {
-                if (!name || name === 'ไม่ระบุ') return;
-                sourceMap[name] = { out: [], in: [], other: [] };
-            });
-
-            // หมวดหมู่รายการลงแต่ละแท๊ง
-            tankTx.forEach(t => {
-                const src = (t.source_name || '').trim();
-                const dest = (t.destination_name || '').trim();
-                if (src && sourceMap[src]) {
-                    if (isOut(t)) sourceMap[src].out.push(t);
-                    else if (isIn(t)) sourceMap[src].in.push(t);
-                    else sourceMap[src].other.push(t);
-                }
-                if (dest && sourceMap[dest] && dest !== src) {
-                    sourceMap[dest].in.push(t);
-                }
-            });
-
-            const activeSources = Object.keys(sourceMap).filter(name => {
-                const d = sourceMap[name];
-                return d.out.length > 0 || d.in.length > 0 || d.other.length > 0;
-            }).sort();
-
-            const allDates = [...new Set(tankTx.map(t => t.date).filter(Boolean))].sort();
-            const grid = document.getElementById('tankChartGrid');
-
-            if (!activeSources.length) {
-                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูลแหล่งน้ำมัน</div>';
-                return;
-            }
-
-            grid.innerHTML = activeSources.map(src => {
-                const key = srcKey(src);
-                return `
-                <div class="tank-card">
-                    <div class="tank-header">
-                        <div class="tank-name"><i class="fas fa-oil-drum me-1" style="color:#d97706;"></i>${trunc(src, 32)}</div>
-                        <div class="tank-meta" id="tank-meta-${key}"></div>
+                            nameHtml = `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:2px 0;">
+                                            <span style="font-weight:700;color:#1e293b;font-size:0.85rem;">${acName}</span>
+                                            ${detailsHtml}
+                                        </div>`;
+                        }
+                        
+                        return `
+                        <tr>
+                            <td style="width:30px;text-align:center;color:var(--muted);font-weight:600;padding:0.4rem;">${i+1}</td>
+                            <td style="padding:0.4rem;">${nameHtml}</td>
+                            <td class="text-end" style="font-weight:700;padding:0.4rem;">${fmt(vals.liters, 1)} L</td>
+                            <td style="width:70px;vertical-align:middle;padding:0.4rem;">
+                                <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;width:100%;">
+                                    <div style="height:100%;width:${w}%;background:var(--primary);border-radius:3px;"></div>
+                                </div>
+                            </td>
+                            <td class="text-end" style="color:var(--muted);font-size:.75rem;padding:0.4rem;">${fmt(pct,1)}%</td>
+                            <td class="text-end" style="color:var(--green);font-size:.8rem;padding:0.4rem;">${fmt(vals.cost)} ฿</td>
+                        </tr>`;
+                    }).join('');
+                    
+                    return `
+                    <div class="${extraClass}" style="background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:0.75rem;overflow:hidden;">
+                        <div style="background:#f8fafc;padding:.5rem .75rem;font-size:.85rem;font-weight:700;color:#1e293b;border-bottom:1px solid var(--border);">
+                            <i class="${icon} me-2" style="color:var(--muted);"></i>${title}
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="table table-sm table-hover mb-0" style="font-size:.8rem;">
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                };
+                
+                html += `
+                <div class="dash-card mb-4" style="border:1px solid #cbd5e1; box-shadow:0 10px 15px -3px rgba(0,0,0,.05);">
+                    <div class="dc-head" style="background:#f8fafc;border-bottom:1px solid var(--border);padding:1.5rem;">
+                        <div class="d-flex w-100 justify-content-between align-items-center flex-wrap gap-3">
+                            <div style="font-size:1.4rem;font-weight:800;color:#1e293b;">
+                                <i class="far fa-calendar-alt me-2" style="color:#2563eb;"></i>${mLabel}
+                            </div>
+                            <div class="d-flex gap-4 text-end">
+                                <div>
+                                    <div style="font-size:.8rem;color:var(--muted);font-weight:600;">ปริมาณรวม</div>
+                                    <div style="font-size:1.5rem;font-weight:900;color:var(--primary);line-height:1;">${fmt(data.liters, 1)} <small style="font-size:1rem;">L</small></div>
+                                </div>
+                                <div>
+                                    <div style="font-size:.8rem;color:var(--muted);font-weight:600;">มูลค่ารวม</div>
+                                    <div style="font-size:1.5rem;font-weight:900;color:var(--green);line-height:1;">${fmt(data.cost)} <small style="font-size:1rem;">฿</small></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="tank-body">
-                        <div class="ch sm"><canvas id="tank-chart-${key}"></canvas></div>
+                    
+                    <div class="dc-body" style="padding:1.5rem;">
+                        <div class="row g-4">
+                            
+                            <div class="col-xl-5">
+                                <div style="font-weight:700;color:#1e293b;margin-bottom:1rem;"><i class="fas fa-chart-bar me-2" style="color:#64748b;"></i>การใช้งานรายวัน</div>
+                                <div style="height:320px;margin-bottom:2rem;"><canvas id="monthChart_${m}"></canvas></div>
+                                
+                                ${renderTable(data.provinces, 'fas fa-map', 'สรุปการใช้งานรายจังหวัด (ระบุแผน)')}
+                            </div>
+                            
+                            
+                            <div class="col-xl-7">
+                                ${renderTable(data.missions, 'fas fa-tasks', 'แยกตามภารกิจ (แผน)', true)}
+                                ${renderTable(data.sources, 'fas fa-gas-pump', 'แยกตามต้นทาง (ยอดเบิกจ่าย)', false, 'hide-on-print')}
+                                ${renderTable(data.aircrafts, 'fas fa-plane', 'แยกตามเครื่องบิน (ระบุแผนและจังหวัด)', false, 'hide-on-print')}
+                            </div>
+                        </div>
                     </div>
                 </div>`;
-            }).join('');
+            });
+            
+            container.innerHTML = html;
+            
+            // 3. Render Daily Charts for each month
+            months.forEach(m => {
+                const cEl = document.getElementById('monthChart_' + m);
+                if(!cEl) return;
+                
+                const daysMap = monthMap[m].days;
+                const dKeys = Object.keys(daysMap).sort(); // YYYY-MM-DD
+                const labels = dKeys.map(d => parseInt(d.split('-')[2], 10).toString()); // Just the day number
+                
+                // Get all unique plans across this month
+                const allPlans = new Set();
+                dKeys.forEach(d => {
+                    if (typeof daysMap[d] === 'object') {
+                        Object.keys(daysMap[d]).forEach(p => allPlans.add(p));
+                    }
+                });
+                
+                const planColors = {
+                    'แผนยุทธศาสตร์': '#eab308', // yellow
+                    'แผนปฏิบัติการ': '#10b981', // green
+                    'สนับสนุน': '#8b5cf6', // purple
+                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': '#8b5cf6', // purple
+                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': '#ef4444', // red
+                    'แผนบรู': '#10b981', // green
+                    'ไม่ระบุ': '#94a3b8' // gray
+                };
+                
+                const planColorsBg = {
+                    'แผนยุทธศาสตร์': 'rgba(234, 179, 8, 0.1)',
+                    'แผนปฏิบัติการ': 'rgba(16, 185, 129, 0.1)',
+                    'สนับสนุน': 'rgba(139, 92, 246, 0.1)',
+                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'rgba(139, 92, 246, 0.1)',
+                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'rgba(239, 68, 68, 0.1)',
+                    'แผนบรู': 'rgba(16, 185, 129, 0.1)',
+                    'ไม่ระบุ': 'rgba(148, 163, 184, 0.1)'
+                };
 
-            activeSources.forEach(src => {
-                const key = srcKey(src);
-                const data = sourceMap[src];
-                const outByD = groupByDate(data.out), inByD = groupByDate(data.in), otherByD = groupByDate(data.other);
-
-                const outV = allDates.map(d => outByD[d] ? outByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
-                const inV = allDates.map(d => inByD[d] ? inByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
-                const otherV = allDates.map(d => otherByD[d] ? otherByD[d].reduce((s, t) => s + getVol(t), 0) : 0);
-
-                const totOut = outV.reduce((a, b) => a + b, 0), totIn = inV.reduce((a, b) => a + b, 0), totOth = otherV.reduce((a, b) => a + b, 0);
-
-                const metaEl = document.getElementById('tank-meta-' + key);
-                if (metaEl) {
-                    metaEl.innerHTML = `<span style="color:#3b82f6;font-weight:700;">จ่าย ${fmt(totOut)} L</span>`
-                        + (totIn > 0 ? ` &middot; <span style="color:#16a34a;font-weight:700;">รับ ${fmt(totIn)} L</span>` : '')
-                        + (totOth > 0 ? ` &middot; <span style="color:#64748b;font-weight:700;">อื่น ${fmt(totOth)} L</span>` : '');
-                }
-
-                const canvasEl = document.getElementById('tank-chart-' + key);
-                if (!canvasEl) return;
-                tankChartInstances[key] = new Chart(canvasEl.getContext('2d'), {
-                    type: 'bar',
+                const datasets = Array.from(allPlans).map(plan => {
+                    const dataVals = dKeys.map(d => {
+                        return (typeof daysMap[d] === 'object') ? (daysMap[d][plan] || 0) : 0;
+                    });
+                    const color = planColors[plan] || '#0ea5e9';
+                    const bgColor = planColorsBg[plan] || 'rgba(14, 165, 233, 0.1)';
+                    return {
+                        label: plan,
+                        data: dataVals,
+                        backgroundColor: bgColor,
+                        borderColor: color,
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: color
+                    };
+                });
+                
+                const ctx = cEl.getContext('2d');
+                monthlyChartInstances[m] = new Chart(ctx, {
+                    type: 'line',
                     data: {
-                        labels: allDates.map(fmtDShort),
-                        datasets: [
-                            { label: 'จ่ายออก (L)', data: outV, backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 4 },
-                            { label: 'รับเข้า (L)', data: inV, backgroundColor: 'rgba(22,163,74,0.7)', borderRadius: 4 },
-                            { label: 'อื่นๆ (L)', data: otherV, backgroundColor: 'rgba(100,116,139,0.5)', borderRadius: 4 }
-                        ]
+                        labels: labels,
+                        datasets: datasets
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: true, position: 'top', labels: { font: { size: 9 }, boxWidth: 10 } },
-                            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw, 1)} L` } }
-                        },
+                        plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: 'Sarabun', size: 10 } } } },
                         scales: {
-                            x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 45 } },
-                            y: { beginAtZero: true, ticks: { font: { size: 8 } } }
+                            x: { grid: { display: false }, title: { display:true, text:'วันที่', font:{family:'Sarabun',size:10} } },
+                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 } } }
                         }
                     }
                 });
             });
-            renderTankStock();
         }
-
-        function renderTankStock() {
-            const grid = document.getElementById('tankStockGrid');
-            if (!inventorySources.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;">ไม่มีข้อมูล Inventory</div>'; return; }
-            const active = inventorySources.filter(s => s.name && (s.status || 'active').toLowerCase() === 'active' || !s.status);
-            grid.innerHTML = active.map(s => {
-                const stock = parseFloat(s.current_stock) || 0, cap = parseFloat(s.capacity) || null;
-                const pct = cap ? Math.min(100, (stock / cap) * 100) : null;
-                const cls = pct != null && pct <= 15 ? 'crit' : (pct <= 40 ? 'low' : '');
-                return `
-                <div class="tank-card">
-                    <div class="tank-header">
-                        <div class="tank-name"><i class="fas fa-oil-drum me-1" style="color:#d97706;"></i>${trunc(s.name || 'ไม่ระบุ', 32)}</div>
-                        <span class="bp" style="background:${stock > 0 ? '#dcfce7' : '#f1f5f9'};color:${stock > 0 ? '#15803d' : '#64748b'};">${s.type || 'other'}</span>
-                    </div>
-                    <div class="tank-body">
-                        <div style="font-size:1.5rem;font-weight:900;">${fmt(stock)} <small style="font-size:.7rem;color:var(--muted);">ลิตร</small></div>
-                        ${cap ? `
-                        <div style="font-size:.72rem;color:var(--muted);margin:.2rem 0;">ความจุ ${fmt(cap)} L · เหลือ ${fmt(pct, 1)}%</div>
-                        <div class="stock-bar"><div class="stock-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
-                        ${pct <= 15 ? `<div style="font-size:.7rem;color:#dc2626;font-weight:700;"><i class="fas fa-exclamation-triangle me-1"></i>ระดับต่ำมาก!</div>` : ''}
-                        ` : '<div style="font-size:.72rem;color:var(--muted);margin-top:.2rem;">ความจุ: ไม่จำกัด</div>'}
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function switchTankView(view, btn) {
-            document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById('tankChartView').style.display = view === 'chart' ? '' : 'none';
-            document.getElementById('tankStockView').style.display = view === 'stock' ? '' : 'none';
-        }
-
-        function renderDailyTable(out, inp) {
-            const allDates = [...new Set([...out.map(t => t.date), ...inp.map(t => t.date)].filter(Boolean))].sort().reverse();
-            document.getElementById('dayCount').textContent = allDates.length + ' วัน';
-            if (!allDates.length) { document.getElementById('dailyTbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่มีข้อมูล</td></tr>'; return; }
-            const outD = groupByDate(out), inD = groupByDate(inp);
-            document.getElementById('dailyTbody').innerHTML = allDates.map(date => {
-                const od = outD[date] || [], id2 = inD[date] || [];
-                const ov = od.reduce((s, t) => s + getVol(t), 0), iv = id2.reduce((s, t) => s + getVol(t), 0);
-                const cost = [...od, ...id2].reduce((s, t) => s + (parseFloat(t.total_cost) || 0), 0);
-                const pc = {}; od.forEach(t => { const k = getPlan(t.missions); pc[k] = (pc[k] || 0) + getVol(t); });
-                const mp = Object.entries(pc).sort((a, b) => b[1] - a[1])[0];
-                const bh = mp ? `<span class="bp" style="background:${planBadgeColor[mp[0]]}22;color:${planBadgeColor[mp[0]]};border:1px solid ${planBadgeColor[mp[0]]}44;">${planShort[mp[0]] || mp[0]}</span>` : '-';
-                return `
-                <tr>
-                    <td style="white-space:nowrap;font-weight:600;">${fmtD(date)}</td>
-                    <td class="text-end">${ov > 0 ? '<strong>' + fmt(ov, 1) + '</strong>' : '-'}</td>
-                    <td class="text-end" style="color:#059669;">${iv > 0 ? fmt(iv, 1) : '-'}</td>
-                    <td class="text-end">${od.length + id2.length}</td>
-                    <td class="text-end">${cost > 0 ? fmt(cost) : '-'}</td>
-                    <td>${bh}</td>
-                </tr>`;
-            }).join('');
-        }
-    </script>
+    
+    
+        function printDashboard() {
+    var dashEl = document.getElementById('dashboardContent');
+    if (!dashEl) { alert('ไม่พบ element สำหรับพิมพ์'); return; }
+    var printContent = dashEl.innerHTML;
+    var printWindow = window.open('', '_blank');
+    printWindow.document.open();
+    var htmlParts = [];
+    htmlParts.push('<!DOCTYPE html><html><head><title>พิมพ์รายงาน</title>');
+    htmlParts.push('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">');
+    htmlParts.push('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
+    htmlParts.push('<style>');
+    htmlParts.push('@page { size: A4 portrait; margin: 10mm; }');
+    htmlParts.push('body { font-family: \'Sarabun\', sans-serif; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }');
+    htmlParts.push('.navbar, .hero, .btn, #refreshBtn, .hide-on-print, #loadingOverlay { display: none !important; }');
+    htmlParts.push('.container-fluid, .row, .col-xl-5, .col-xl-7 { display: block !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }');
+    htmlParts.push('.dash-card { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 0 10mm 0 !important; page-break-inside: avoid !important; page-break-after: always !important; }');
+    htmlParts.push('.dash-card:last-child { page-break-after: auto !important; }');
+    htmlParts.push('.table { font-size: 11px !important; width: 100% !important; border-collapse: collapse !important; margin-bottom: 10px !important; }');
+    htmlParts.push('.table th { background: #1e293b !important; color: #fff !important; }');
+    htmlParts.push('.table th, .table td { padding: 4px !important; border: 1px solid #ddd !important; }');
+    htmlParts.push('.bp { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }');
+    htmlParts.push('.dc-head { padding: 10px 0 !important; border-bottom: 2px solid #000 !important; }');
+    htmlParts.push('.dc-title { font-size: 14px !important; color: #000 !important; font-weight: bold; }');
+    htmlParts.push('<' + '/style><' + '/head><body>');
+    htmlParts.push('<div class="container-fluid" style="padding:0; margin:0;">');
+    htmlParts.push(printContent);
+    htmlParts.push('<' + '/div>');
+    
+    var scriptStart = '<scr' + 'ipt>';
+    var scriptEnd = '</scr' + 'ipt>';
+    htmlParts.push(scriptStart);
+    htmlParts.push('window.onload = function() { setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); }; }, 500); };');
+    htmlParts.push(scriptEnd);
+    
+    htmlParts.push('<' + '/body><' + '/html>');
+    
+    printWindow.document.write(htmlParts.join(''));
+    printWindow.document.close();
+}
+</script>
 </body>
-
 </html>
