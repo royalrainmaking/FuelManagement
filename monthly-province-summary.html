@@ -17,6 +17,51 @@
         rel="stylesheet">
     <link rel="stylesheet" href="inventory-style.css">
     <style>
+        /* Fullscreen Map Mode */
+        body, html {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+            background-color: #e2e8f0 !important;
+        }
+        .navbar, 
+        #pageHeader,
+        .filters-section,
+        #mapSection .card-header {
+            display: none !important;
+        }
+        .container {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        #mapSection {
+            margin: 0 !important;
+            height: 100vh !important;
+        }
+        #mapSection > .col-12 {
+            padding: 0 !important;
+        }
+        .card {
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        #thailandMap {
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+
+        #provinceDetailPanel::-webkit-scrollbar {
+            display: none;
+        }
+        #provinceDetailPanel {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
         .summary-card {
             border-radius: 12px;
             border: none;
@@ -224,7 +269,7 @@
 
     <!-- Main Content -->
     <div class="container mt-4">
-        <div class="mb-4">
+        <div id="pageHeader" class="mb-4">
             <h2 class="mb-2">
                 <i class="fas fa-map-marked-alt me-2 text-primary"></i>
                 สรุปการใช้น้ำมันรายจังหวัด/เดือน
@@ -234,93 +279,97 @@
 
         <!-- Filters -->
         <div class="filters-section">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">เลือกเดือน/ปี</label>
-                    <select class="form-select" id="monthFilter">
-                        <option value="all">ทุกเดือน</option>
+            <div class="row g-4">
+                <div class="col-12">
+                    <label class="form-label fw-bold mb-2">เลือกเดือน/ปี</label>
+                    <div id="monthFilter" class="d-flex flex-wrap gap-2">
+                        <!-- Buttons จะถูกสร้างด้วย JavaScript -->
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold mb-2">เลือกแผน</label>
+                    <div id="planFilter" class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-primary active" data-value="all">ทุกแผน</button>
+                        <button class="btn btn-outline-success" data-value="แผนบรู">แผนบรู</button>
+                        <button class="btn btn-outline-warning" data-value="แผนยุทธศาสตร์">แผนยุทธศาสตร์</button>
+                        <button class="btn btn-outline-danger" data-value="ดัดแปลงสภาพอากาศ (ฝุ่น)">ดัดแปลงสภาพอากาศ (ฝุ่น)</button>
+                        <button class="btn btn-outline-info" data-value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</button>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold mb-2">เลือกจังหวัด</label>
+                    <div id="provinceFilter" class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-primary active" data-value="all">ทั้งหมด</button>
                         <!-- Options จะถูกสร้างด้วย JavaScript -->
-                    </select>
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">เลือกแผน</label>
-                    <select class="form-select" id="planFilter">
-                        <option value="all">ทุกแผน</option>
-                        <option value="แผนบรู">แผนบรู</option>
-                        <option value="แผนยุทธศาสตร์">แผนยุทธศาสตร์</option>
-                        <option value="ดัดแปลงสภาพอากาศ (ฝุ่น)">ดัดแปลงสภาพอากาศ (ฝุ่น)</option>
-                        <option value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">เลือกจังหวัด</label>
-                    <select class="form-select" id="provinceFilter">
-                        <option value="all">ทั้งหมด</option>
-                        <!-- Options จะถูกสร้างด้วย JavaScript -->
-                    </select>
-                </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button class="btn btn-outline-secondary w-100" id="resetFiltersBtn">
+                <div class="col-12 mt-4 pt-3 border-top text-end">
+                    <button class="btn btn-secondary" id="resetFiltersBtn">
                         <i class="fas fa-undo me-2"></i> รีเซ็ตตัวกรอง
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Summary Statistics (Overall for selected filters) -->
-        <div class="row g-4 mb-4" id="overallStats" style="display: none;">
-            <div class="col-md-6">
-                <div class="card border-0 h-100" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2); overflow: hidden; position: relative;">
-                    <div style="position: absolute; top: -20px; right: -20px; font-size: 10rem; opacity: 0.1; color: white; transform: rotate(-15deg);">
-                        <i class="fas fa-gas-pump"></i>
-                    </div>
-                    <div class="card-body p-4 p-md-5 text-white position-relative">
-                        <div class="d-flex align-items-center mb-3">
-                            <div style="background: rgba(255,255,255,0.2); border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                                <i class="fas fa-gas-pump fa-lg text-white"></i>
+        <!-- Thailand Map Visualization -->
+        <div class="row mb-4" id="mapSection">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" style="border-radius: 16px; overflow: hidden; background: #e2e8f0; position: relative;">
+                        <!-- Floating Header (Left aligned, above graph) -->
+                        <div style="position: absolute; top: 20px; left: 20px; background: transparent; display: flex; align-items: center; z-index: 1050;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <img src="img/logo.png" alt="Logo" style="height: 40px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
+                                <div style="display: flex; align-items: baseline; gap: 10px;">
+                                    <h4 style="margin: 0; font-weight: 900; color: #0f172a; font-size: 1.25rem; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);">รายงานสรุปการใช้น้ำมัน</h4>
+                                    <span style="font-weight: 800; color: #0284c7; font-size: 0.95rem; text-shadow: 0 1px 2px rgba(255,255,255,0.9);">กองบริหารการบินเกษตร</span>
+                                </div>
+                                <div class="spinner-border text-primary ms-2" role="status" id="mapLoadingSpinner" style="display: none; width: 1.2rem; height: 1.2rem;">
+                                    <span class="visually-hidden">Loading map...</span>
+                                </div>
                             </div>
-                            <h5 class="fw-bold mb-0" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">ปริมาณรวม</h5>
                         </div>
-                        <h2 class="display-5 fw-bold mb-0" id="overallVolume" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">0 <small class="fs-5" style="opacity: 0.8;">L</small></h2>
+
+                        <div id="thailandMap" style="width: 100%; height: 100vh; min-height: 640px;"></div>
+                        
+                        <!-- Floating Province Detail Panel -->
+                        <div id="provinceDetailPanel" style="display: none; position: absolute; top: 20px; left: 20px; right: 20px; max-width: 340px; margin-left: auto; max-height: calc(100vh - 100px); overflow-y: auto; background: transparent; z-index: 1000; padding: 15px;">
+                            <!-- Content injected via JS -->
+                        </div>
+                        
+                        <!-- Floating Daily Graph Panel -->
+                        <div id="dailyGraphPanel" style="display: none; position: absolute; top: 75px; left: 20px; right: 20px; max-width: 500px; background: transparent; z-index: 999; padding: 0;">
+                            <h6 style="margin-top: 0; margin-bottom: 8px; font-weight: 900; color: #1e293b; font-size: 1rem; text-shadow: 0 1px 3px rgba(255,255,255,0.9), 0 0 10px rgba(255,255,255,1); display: flex; justify-content: space-between;">
+                                <span><i class="fas fa-chart-area me-2 text-primary"></i><span id="dailyGraphTitle">แนวโน้มการใช้น้ำมันรายวัน</span></span>
+                                <span id="dailyGraphMonthLabel" style="color: #475569; font-size: 0.85rem;"></span>
+                            </h6>
+                            <div id="dailyChart" style="width: 100%; height: 220px;"></div>
+                        </div>
+                        
+                        <!-- Floating Fuel Sources Panel (Always Visible) -->
+                        <div id="fuelSourcesUnderGraph" style="display: none; position: absolute; bottom: 20px; left: 20px; right: 20px; max-width: 280px; background: transparent; z-index: 998; padding: 0;"></div>
+                        
+                        <!-- Floating Mini Month Filter Panel -->
+                        <div id="miniMonthFilterPanel" style="position: absolute; bottom: 20px; right: 20px; background: transparent; z-index: 1000; padding: 6px 8px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 800; color: #1e293b; font-size: 0.85rem; margin-left: 8px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);"><i class="fas fa-calendar-alt me-1 text-primary"></i> เดือน:</span>
+                            <div id="miniMonthFilter" class="d-flex gap-1" style="overflow-x: auto; max-width: 400px; padding-right: 4px;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card border-0 h-100" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 16px; box-shadow: 0 10px 20px rgba(245, 158, 11, 0.2); overflow: hidden; position: relative;">
-                    <div style="position: absolute; top: -20px; right: -20px; font-size: 10rem; opacity: 0.1; color: white; transform: rotate(-15deg);">
-                        <i class="fas fa-coins"></i>
-                    </div>
-                    <div class="card-body p-4 p-md-5 text-white position-relative">
-                        <div class="d-flex align-items-center mb-3">
-                            <div style="background: rgba(255,255,255,0.2); border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
-                                <i class="fas fa-coins fa-lg text-white"></i>
-                            </div>
-                            <h5 class="fw-bold mb-0" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">มูลค่ารวม</h5>
-                        </div>
-                        <h2 class="display-5 fw-bold mb-0" id="overallCost" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">0 <small class="fs-5" style="opacity: 0.8;">฿</small></h2>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Data Container -->
-        <div id="dataContainer">
-            <!-- Cards จะถูกสร้างโดย JavaScript -->
-        </div>
-
-        <div id="emptyState" class="text-center py-5" style="display: none;">
-            <i class="fas fa-inbox fa-4x text-muted opacity-25 mb-3"></i>
-            <h5 class="text-muted">ไม่พบข้อมูลการใช้น้ำมันตามเงื่อนไขที่เลือก</h5>
         </div>
     </div>
 
     <!-- Configuration -->
     <script src="config.js"></script>
     
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Custom JS -->
+    <script src="province-mapping.js"></script>
     <script src="monthly-province-summary.js"></script>
 </body>
 
