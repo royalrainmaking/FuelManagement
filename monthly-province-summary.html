@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปการใช้น้ำมันรายจังหวัด/เดือน - ระบบจัดการน้ำมัน</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;200;300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@100;300;400;500;700;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="inventory-style.css">
+    <style>
+        .summary-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .summary-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-header h4 {
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .month-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .summary-stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-box {
+            padding: 1rem 1.5rem;
+            text-align: center;
+        }
+
+        .stat-box:first-child {
+            border-right: 1px solid #e9ecef;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #2c3e50;
+        }
+
+        .stat-value.liters {
+            color: #198754;
+        }
+
+        .stat-value.cost {
+            color: #f59e0b;
+        }
+
+        .machine-list {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+
+        .machine-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s ease;
+        }
+
+        .machine-item:last-child {
+            border-bottom: none;
+        }
+
+        .machine-item:hover {
+            background-color: #f0f7ff;
+        }
+
+        .machine-name {
+            font-weight: 700;
+            color: #0d6efd;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .machine-stats {
+            text-align: right;
+        }
+
+        .machine-volume {
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .machine-cost {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .filters-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .navbar-logo {
+            max-height: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="index.html">
+                <img src="img/logo.png" alt="Logo" class="navbar-logo me-2">
+                <div>
+                    <div class="fw-bold">ระบบจัดการน้ำมัน</div>
+                    <small class="opacity-75">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</small>
+                </div>
+            </a>
+            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
+                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-light btn-sm"
+                    title="ข้อมูลอากาศยาน">
+                    <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
+                </a>
+                <a href="index.html" class="btn btn-light btn-sm">
+                    <i class="fas fa-home me-1"></i> หน้าแรก
+                </a>
+                <a href="dashboard.html" class="btn btn-warning btn-sm fw-bold" title="Dashboard">
+                    <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                </a>
+                <a href="transaction-summary.html" class="btn btn-light btn-sm" title="สรุปรายการเดินบัญชี">
+                    <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
+                </a>
+                <a href="budget-print.html" class="btn btn-warning btn-sm fw-bold" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
+                    <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-container text-center">
+            <div class="loading-spinner"></div>
+            <div class="loading-text mt-3" id="loadingText" style="color: white; font-weight: 500;">กำลังประมวลผลข้อมูล...</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <div class="mb-4">
+            <h2 class="mb-2">
+                <i class="fas fa-map-marked-alt me-2 text-primary"></i>
+                สรุปการใช้น้ำมันรายจังหวัด/เดือน
+            </h2>
+            <p class="text-muted mb-0">แสดงเฉพาะรายการที่มีการ "ใช้งาน" เพื่อสรุปยอดการใช้น้ำมันและคิดเป็นจำนวนเงิน</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-section">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">เลือกเดือน/ปี</label>
+                    <select class="form-select" id="monthFilter">
+                        <option value="all">ทุกเดือน</option>
+                        <!-- Options จะถูกสร้างด้วย JavaScript -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">เลือกแผน</label>
+                    <select class="form-select" id="planFilter">
+                        <option value="all">ทุกแผน</option>
+                        <option value="แผนบรู">แผนบรู</option>
+                        <option value="แผนยุทธศาสตร์">แผนยุทธศาสตร์</option>
+                        <option value="ดัดแปลงสภาพอากาศ (ฝุ่น)">ดัดแปลงสภาพอากาศ (ฝุ่น)</option>
+                        <option value="ดัดแปลงสภาพอากาศ (ลูกเห็บ)">ดัดแปลงสภาพอากาศ (ลูกเห็บ)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">เลือกจังหวัด</label>
+                    <select class="form-select" id="provinceFilter">
+                        <option value="all">ทั้งหมด</option>
+                        <!-- Options จะถูกสร้างด้วย JavaScript -->
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100" id="resetFiltersBtn">
+                        <i class="fas fa-undo me-2"></i> รีเซ็ตตัวกรอง
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Statistics (Overall for selected filters) -->
+        <div class="row g-4 mb-4" id="overallStats" style="display: none;">
+            <div class="col-md-6">
+                <div class="card border-0 h-100" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2); overflow: hidden; position: relative;">
+                    <div style="position: absolute; top: -20px; right: -20px; font-size: 10rem; opacity: 0.1; color: white; transform: rotate(-15deg);">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <div class="card-body p-4 p-md-5 text-white position-relative">
+                        <div class="d-flex align-items-center mb-3">
+                            <div style="background: rgba(255,255,255,0.2); border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                <i class="fas fa-gas-pump fa-lg text-white"></i>
+                            </div>
+                            <h5 class="fw-bold mb-0" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">ปริมาณรวม</h5>
+                        </div>
+                        <h2 class="display-5 fw-bold mb-0" id="overallVolume" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">0 <small class="fs-5" style="opacity: 0.8;">L</small></h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 h-100" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 16px; box-shadow: 0 10px 20px rgba(245, 158, 11, 0.2); overflow: hidden; position: relative;">
+                    <div style="position: absolute; top: -20px; right: -20px; font-size: 10rem; opacity: 0.1; color: white; transform: rotate(-15deg);">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="card-body p-4 p-md-5 text-white position-relative">
+                        <div class="d-flex align-items-center mb-3">
+                            <div style="background: rgba(255,255,255,0.2); border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                <i class="fas fa-coins fa-lg text-white"></i>
+                            </div>
+                            <h5 class="fw-bold mb-0" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">มูลค่ารวม</h5>
+                        </div>
+                        <h2 class="display-5 fw-bold mb-0" id="overallCost" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1);">0 <small class="fs-5" style="opacity: 0.8;">฿</small></h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Container -->
+        <div id="dataContainer">
+            <!-- Cards จะถูกสร้างโดย JavaScript -->
+        </div>
+
+        <div id="emptyState" class="text-center py-5" style="display: none;">
+            <i class="fas fa-inbox fa-4x text-muted opacity-25 mb-3"></i>
+            <h5 class="text-muted">ไม่พบข้อมูลการใช้น้ำมันตามเงื่อนไขที่เลือก</h5>
+        </div>
+    </div>
+
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="monthly-province-summary.js"></script>
+</body>
+
+</html>

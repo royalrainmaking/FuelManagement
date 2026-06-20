@@ -132,7 +132,7 @@ function getBudgetData(sheetsId, budgetGid) {
         const amount = parseFloat(row[8]) || 0; // คอลัมน์ I (ยอดรวม)
         const missions = (row[17] || '').toString().trim(); // คอลัมน์ R (ภารกิจ)
         
-        if (amount > 0) {
+        if (amount !== 0) {
           totalPurchaseAmount += amount;
           
           let targetPlan = 'แผนยุทธศาสตร์'; // ค่าเริ่มต้น

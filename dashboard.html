@@ -768,9 +768,10 @@
             <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-warning btn-sm fw-bold shadow-sm me-2" onclick="printDashboard()"><i class="fas fa-print me-1"></i> สั่งปริ้น</button>
                 <button class="btn btn-light btn-sm" id="refreshBtn"><i class="fas fa-sync-alt me-1"></i>รีเฟรช</button>
+                <a href="monthly-province-summary.html" class="btn btn-info btn-sm text-white" title="สรุปรายจังหวัด"><i class="fas fa-map-marked-alt me-1"></i>สรุปรายจังหวัด</a>
                 <a href="transaction-summary.html" class="btn btn-light btn-sm"><i
                         class="fas fa-list me-1"></i>รายการ</a>
-                <a href="index.html" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i>กลับ</a>
+                <a href="index.html" class="btn btn-light btn-sm"><i class="fas fa-home me-1"></i>หน้าแรก</a>
             </div>
         </div>
     </nav>
@@ -842,6 +843,7 @@
         <div id="detailedMonthlyContainer">
             <div style="text-align:center;color:var(--muted);padding:2rem;"><i class="fas fa-spinner fa-spin"></i> กำลังประมวลผลข้อมูล...</div>
         </div>
+
     
     </div><!-- /main -->
 
@@ -849,6 +851,7 @@
     <script>
         // ==================== GLOBALS ====================
         let allTx = [], filteredTx = [], budgetData = {}, inventorySources = [];
+        let pttPrices = {}, avgPttPrice = {};
         let dailyChartI = null, pieI = null, costI = null;
         let tankChartInstances = {};
         let chartType = 'bar';
@@ -856,10 +859,10 @@
         const BURN_DAYS = 14;
 
         const PLANS = [
-            { key: 'แผนบรู', label: 'แผนบรู', color: '#f59e0b', style: 'yellow', icon: 'fa-cloud-rain' },
-            { key: 'แผนยุทธศาสตร์', label: 'แผนยุทธ', color: '#3b82f6', style: 'blue', icon: 'fa-shield-alt' },
-            { key: 'ดัดแปลงสภาพอากาศ (ฝุ่น)', label: 'ดัดแปลง (ฝุ่น)', color: '#06b6d4', style: 'cyan', icon: 'fa-smog' },
-            { key: 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)', label: 'ดัดแปลง (ลูกเห็บ)', color: '#ef4444', style: 'red', icon: 'fa-gem' },
+            { key: 'แผนบรู', label: 'แผนบรู', color: '#10b981', style: 'green', icon: 'fa-cloud-rain' },
+            { key: 'แผนยุทธศาสตร์', label: 'แผนยุทธ', color: '#eab308', style: 'yellow', icon: 'fa-shield-alt' },
+            { key: 'ดัดแปลงสภาพอากาศ (ฝุ่น)', label: 'ฝุ่น', color: '#ef4444', style: 'red', icon: 'fa-smog' },
+            { key: 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)', label: 'ลูกเห็บ', color: '#8b5cf6', style: 'purple', icon: 'fa-gem' }
         ];
 
         const planBadgeColor = {
@@ -881,18 +884,32 @@
         function getVol(t) { return parseFloat(t.volume_liters) || parseFloat(t.volume) || 0; }
         function isOut(t) {
             const ty = (t.transaction_type || '').toLowerCase();
-            return ty.includes('จ่าย') || ty.includes('dispense') || ty.includes('เติมน้ำมัน') ||
+            return ty.includes('จ่าย') || ty.includes('dispense') || ty.includes('เติมน้ำมัน') || ty.includes('ใช้งาน') ||
                 (ty.includes('ซื้อ') && (t.destination_name || '').match(/เครื่องบิน|c208|casa|nc212|l410|bell|aw|h130|ska|caravan|skycourier/i));
         }
         function isIn(t) {
-            const ty = (t.transaction_type || '').toLowerCase();
-            return ty.includes('ซื้อ') || ty.includes('เติมเข้า') || ty.includes('purchase');
+            const src = (t.source_name || '').trim();
+            return src === 'ซื้อจาก ปตท' || src.includes('ปตท');
         }
-        // ตัดเฉพาะปรับยอด — ไม่ตัดโอนย้าย (โอนย้ายยังเป็นการเคลื่อนไหวของน้ำมัน)
         function isAdjustment(t) {
             const ty = (t.transaction_type || '').toLowerCase();
             return ty.includes('ปรับยอด') || (ty.includes('adjust') && !ty.includes('โอน'));
         }
+        function isAirplaneDest(t) {
+            const dest = (t.destination_name || '').toLowerCase();
+            const acNum = (t.aircraft_number || '').toString().trim();
+            const acType = (t.aircraft_type || '').toString().trim();
+            
+            if (dest.includes('tank') || dest.includes('แท็งก์') || dest.includes('แทงค์') || dest.includes('รถ') || dest.includes('คลัง')) {
+                return false;
+            }
+            if (acNum !== '' && acNum !== '-') return true;
+            if (acType !== '' && acType !== '-') return true;
+            if (dest.match(/เครื่องบิน|c208|casa|nc212|l410|bell|aw\d|h130|ska\d|caravan|skycourier/i)) return true;
+            
+            return false;
+        }
+
         // fuzzy หา budget plan key ให้ match แม้ key ใน Google Sheets จะต่างกันนิดหน่อย
         function findBudgetPlan(planKey) {
             if (!budgetData.plans) return null;
@@ -941,7 +958,40 @@
                 if (txD.success && Array.isArray(txD.data)) allTx = txD.data;
                 if (bdD.success && bdD.data) budgetData = bdD.data;
                 if (invD.success && Array.isArray(invD.data)) inventorySources = invD.data;
-                document.getElementById('lastUpdatedText').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH');
+
+                // คำนวณราคาเฉลี่ยต่อลิตรของแต่ละจังหวัดแยกตามเดือน จากประวัติการซื้อ
+                if (allTx && allTx.length > 0) {
+                    let monthlyTotals = {};
+                    allTx.forEach(t => {
+                        if (!t.date) return;
+                        let m = t.date.substring(0, 7);
+                        let v = parseFloat(t.volume_liters || t.volume) || 0;
+                        let c = parseFloat(t.total_cost) || 0;
+                        let u = (t.unit || '').trim();
+                        if (v > 0 && c > 0 && u) {
+                            if (!monthlyTotals[m]) monthlyTotals[m] = { provs: {}, sumV: 0, sumC: 0 };
+                            if (!monthlyTotals[m].provs[u]) monthlyTotals[m].provs[u] = {v: 0, c: 0};
+                            monthlyTotals[m].provs[u].v += v;
+                            monthlyTotals[m].provs[u].c += c;
+                            monthlyTotals[m].sumV += v;
+                            monthlyTotals[m].sumC += c;
+                        }
+                    });
+                    
+                    pttPrices = {};
+                    avgPttPrice = {};
+                    let globalSumC = 0, globalSumV = 0;
+                    
+                    for (let m in monthlyTotals) {
+                        avgPttPrice[m] = monthlyTotals[m].sumC / monthlyTotals[m].sumV;
+                        globalSumC += monthlyTotals[m].sumC;
+                        globalSumV += monthlyTotals[m].sumV;
+                        for (let p in monthlyTotals[m].provs) {
+                            pttPrices[`${m}_${p}`] = monthlyTotals[m].provs[p].c / monthlyTotals[m].provs[p].v;
+                        }
+                    }
+                    pttPrices['__GLOBAL_AVG'] = globalSumV > 0 ? globalSumC / globalSumV : 0;
+                }
                 applyDateFilter();
             } catch (e) {
                 console.error(e);
@@ -966,8 +1016,8 @@
                 if (!t.date) return false;
                 if (s && t.date < s) return false;
                 if (e && t.date > e) return false;
-                // plan filter: applies only to dispense transactions (in-transactions don't have plan)
                 if (selectedPlan && isOut(t) && getPlan(t.missions) !== selectedPlan) return false;
+                if (!isAirplaneDest(t)) return false;
                 return true;
             });
             document.getElementById('filterCount').textContent = filteredTx.length;
@@ -1003,15 +1053,25 @@
                 const m = t.date.substring(0, 7);
                 if (!monthMap[m]) monthMap[m] = {
                     key: m, liters: 0, cost: 0,
-                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}
+                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}, plans: {}
                 };
                 const vol = getVol(t);
-                const cost = parseFloat(t.total_cost) || 0;
+                const provNameForCost = (t.unit || '').toString().trim();
+                let cost = 0;
+                const pttKey = `${m}_${provNameForCost}`;
                 
-                // The user explicitly requested: "แยกตามต้นทาง (รับเข้า/จ่ายออก) อันนี้ให้เอามาจาก คอลั่ม E"
-                // So ONLY use t.source_name (Column E) for this table. Do not add t.destination_name to sources!
-                const srcRaw = (t.source_name || 'ไม่ระบุ').trim();
-                const destRaw = (t.destination_name || 'ไม่ระบุ').trim();
+                if (provNameForCost && pttPrices[pttKey]) {
+                    cost = vol * pttPrices[pttKey];
+                } else if (avgPttPrice[m] > 0) {
+                    cost = vol * avgPttPrice[m];
+                } else if (pttPrices['__GLOBAL_AVG'] > 0) {
+                    cost = vol * pttPrices['__GLOBAL_AVG'];
+                } else {
+                    cost = parseFloat(t.total_cost) || 0;
+                }
+                
+                const srcRaw = (t.source_name || 'ไม่ระบุ').toString().trim();
+                const destRaw = (t.destination_name || 'ไม่ระบุ').toString().trim();
                 
                 let srcLabel = srcRaw;
                 if (srcRaw.includes('ปตท') || srcRaw.includes('PTT') || (t.transaction_type && t.transaction_type.includes('ซื้อ'))) {
@@ -1020,121 +1080,67 @@
                     }
                 }
                 
-                // For Sources table, ONLY use the original raw source name (srcRaw) to group them all together
                 if (srcRaw && srcRaw !== 'ไม่ระบุ') {
                     monthMap[m].sources[srcRaw] = (monthMap[m].sources[srcRaw] || {liters: 0, cost: 0, inLiters: 0, outLiters: 0});
-                    
-                    if (srcRaw.includes('ปตท') || srcRaw.includes('PTT') || (t.transaction_type && t.transaction_type.includes('ซื้อ'))) {
-                        monthMap[m].sources[srcRaw].outLiters += vol;
-                        monthMap[m].sources[srcRaw].liters += vol;
-                        monthMap[m].sources[srcRaw].cost += cost;
-                    } else {
-                        monthMap[m].sources[srcRaw].inLiters += vol;
-                    }
+                    monthMap[m].sources[srcRaw].inLiters += vol;
                 }
-                
-                const dest = (t.destination_name || 'ไม่ระบุ').trim();
-                
-                // Add to aircrafts table as requested (to show the purchase cost and item)
-                let aircraftName = '';
-                const acNum = (t.aircraft_number && String(t.aircraft_number).trim() !== '' && String(t.aircraft_number).trim() !== '-') ? String(t.aircraft_number).trim() : '';
-                const acType = (t.aircraft_type && String(t.aircraft_type).trim() !== '') ? String(t.aircraft_type).trim() : '';
-                
-                if (acNum) {
-                    if (acType) {
-                        aircraftName = `${acType} : ${acNum}`;
-                    } else {
-                        if (acNum === '1615') aircraftName = 'BELL 206B3 : 1615';
-                        else if (['1916', '1922', '1933', '1934'].includes(acNum)) aircraftName = 'CARAVAN C208 : ' + acNum;
-                        else aircraftName = acNum;
-                    }
-                }
-                
-                if (!aircraftName) {
-                    aircraftName = srcLabel;
-                }
-                
-                const msn = getPlan(t.missions);
-                const unitProv = (t.unit || 'ไม่ระบุ').trim();
-                const aircraftKey = `${aircraftName}|||${msn}|||${unitProv}|||${dest}`;
-                monthMap[m].aircrafts[aircraftKey] = (monthMap[m].aircrafts[aircraftKey] || {liters: 0, cost: 0});
-                monthMap[m].aircrafts[aircraftKey].liters += vol;
-                monthMap[m].aircrafts[aircraftKey].cost += cost;
-                
-                // Track missions for IN transactions
-                monthMap[m].missions[msn] = (monthMap[m].missions[msn] || {liters: 0, cost: 0});
-                monthMap[m].missions[msn].liters += vol;
-                monthMap[m].missions[msn].cost += cost;
-                
-                // Track provinces for IN transactions
-                if (unitProv && unitProv !== 'ไม่ระบุ' && unitProv !== '') {
-                    const provKey = `${unitProv}|||${msn}`;
-                    monthMap[m].provinces[provKey] = (monthMap[m].provinces[provKey] || {liters: 0, cost: 0});
-                    monthMap[m].provinces[provKey].liters += vol;
-                    monthMap[m].provinces[provKey].cost += cost;
-                }
-                
-                // Add to total cost and volume
-                monthMap[m].liters += vol;
-                monthMap[m].cost += cost;
-                
-                // Track daily usage within month
-                // Removed days mapping from inp
             });
-            
-            // Gather data for all out transactions (dispenses)
+
+            // Process OUT transactions
             out.forEach(t => {
                 if (!t.date) return;
-                const m = t.date.substring(0, 7); // YYYY-MM
+                const m = t.date.substring(0, 7);
                 if (!monthMap[m]) monthMap[m] = {
-                    key: m,
-                    liters: 0, cost: 0,
-                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}
+                    key: m, liters: 0, cost: 0,
+                    days: {}, sources: {}, aircrafts: {}, missions: {}, provinces: {}, plans: {}
                 };
-                
+
                 const vol = getVol(t);
-                const cost = parseFloat(t.total_cost) || 0;
+                const provNameForCost = (t.unit || '').toString().trim();
+                let cost = 0;
+                const pttKey = `${m}_${provNameForCost}`;
                 
+                if (provNameForCost && pttPrices[pttKey]) {
+                    cost = vol * pttPrices[pttKey];
+                } else if (avgPttPrice[m] > 0) {
+                    cost = vol * avgPttPrice[m];
+                } else if (pttPrices['__GLOBAL_AVG'] > 0) {
+                    cost = vol * pttPrices['__GLOBAL_AVG'];
+                } else {
+                    cost = parseFloat(t.total_cost) || 0;
+                }
+
                 monthMap[m].liters += vol;
                 monthMap[m].cost += cost;
-                
-                // Track daily usage within month
-                if (!monthMap[m].days[t.date]) monthMap[m].days[t.date] = {};
-                const planName = getPlan(t.missions);
-                monthMap[m].days[t.date][planName] = (monthMap[m].days[t.date][planName] || 0) + vol;
-                
-                // Track source
-                const src = (t.source_name || 'ไม่ระบุ').trim();
-                monthMap[m].sources[src] = (monthMap[m].sources[src] || {liters: 0, cost: 0, inLiters: 0, outLiters: 0});
-                monthMap[m].sources[src].liters += vol;
-                monthMap[m].sources[src].outLiters += vol;
-                monthMap[m].sources[src].cost += cost;
-                
-                const destName = (t.destination_name || '').trim();
-                
-                let aircraft = null;
-                const acNum = (t.aircraft_number && String(t.aircraft_number).trim() !== '' && String(t.aircraft_number).trim() !== '-') ? String(t.aircraft_number).trim() : '';
-                const acType = (t.aircraft_type && String(t.aircraft_type).trim() !== '') ? String(t.aircraft_type).trim() : '';
-                
-                if (acNum) {
-                    if (acType) {
-                        aircraft = `${acType} : ${acNum}`;
-                    } else {
-                        if (acNum === '1615') aircraft = 'BELL 206B3 : 1615';
-                        else if (['1916', '1922', '1933', '1934'].includes(acNum)) aircraft = 'CARAVAN C208 : ' + acNum;
-                        else aircraft = acNum;
-                    }
-                } else if (destName.match(/c208|casa|nc212|l410|bell|aw\d|h130|ska\d|caravan|skycourier/i)) {
-                    aircraft = destName;
+
+                const day = t.date;
+                monthMap[m].days[day] = (monthMap[m].days[day] || 0) + vol;
+
+                const srcRaw = (t.source_name || 'ไม่ระบุ').toString().trim();
+                if (srcRaw && srcRaw !== 'ไม่ระบุ') {
+                    monthMap[m].sources[srcRaw] = (monthMap[m].sources[srcRaw] || {liters: 0, cost: 0, inLiters: 0, outLiters: 0});
+                    monthMap[m].sources[srcRaw].outLiters += vol;
+                    monthMap[m].sources[srcRaw].liters += vol;
+                    monthMap[m].sources[srcRaw].cost += cost;
                 }
-                
-                let prov = (t.unit && String(t.unit).trim() !== '') ? String(t.unit).trim() : (destName || 'ไม่ระบุ');
-                const destF = (t.destination_name || 'ไม่ระบุ').trim();
-                
-                const msn = getPlan(t.missions);
+
+                const acNum = (t.aircraft_number || '').toString().trim();
+                const acType = (t.aircraft_type || '').toString().trim();
+                let aircraft = 'ไม่ระบุ';
+                if (acType && acType !== '-' && acType !== 'ไม่ระบุ' && acNum && acNum !== '-' && acNum !== 'ไม่ระบุ') {
+                    aircraft = `${acType} : ${acNum}`;
+                } else if (acNum && acNum !== '-' && acNum !== 'ไม่ระบุ') {
+                    aircraft = acNum;
+                } else if (acType && acType !== '-' && acType !== 'ไม่ระบุ') {
+                    aircraft = acType;
+                }
+                const msn = (t.missions || t.mission || t.mission_type || 'ไม่ระบุ').toString();
+                const prov = (t.unit || '').toString().trim();
+                const destF = (t.destination_name || '').toString().trim();
+                const plan = getPlan(msn);
                 
                 if (aircraft && aircraft !== 'ไม่ระบุ') {
-                    const acKey = `${aircraft}|||${msn}|||${prov}|||${destF}`;
+                    const acKey = `${aircraft}|||${plan}|||${prov}|||${destF}`;
                     monthMap[m].aircrafts[acKey] = (monthMap[m].aircrafts[acKey] || {liters: 0, cost: 0});
                     monthMap[m].aircrafts[acKey].liters += vol;
                     monthMap[m].aircrafts[acKey].cost += cost;
@@ -1143,9 +1149,20 @@
                 monthMap[m].missions[msn] = (monthMap[m].missions[msn] || {liters: 0, cost: 0});
                 monthMap[m].missions[msn].liters += vol;
                 monthMap[m].missions[msn].cost += cost;
+
+                // plan was moved up
+                monthMap[m].plans[plan] = (monthMap[m].plans[plan] || {liters: 0, cost: 0});
+                monthMap[m].plans[plan].liters += vol;
+                monthMap[m].plans[plan].cost += cost;
+                
+                // Track daily usage by plan here (since plan is now defined)
+                const dayStr = t.date;
+                monthMap[m].daysByPlan = monthMap[m].daysByPlan || {};
+                monthMap[m].daysByPlan[dayStr] = monthMap[m].daysByPlan[dayStr] || {};
+                monthMap[m].daysByPlan[dayStr][plan] = (monthMap[m].daysByPlan[dayStr][plan] || 0) + vol;
                 
                 if (prov && prov !== 'ไม่ระบุ' && prov !== '') {
-                    const provKey = `${prov}|||${msn}`;
+                    const provKey = `${prov}|||${plan}`;
                     monthMap[m].provinces[provKey] = (monthMap[m].provinces[provKey] || {liters: 0, cost: 0});
                     monthMap[m].provinces[provKey].liters += vol;
                     monthMap[m].provinces[provKey].cost += cost;
@@ -1157,8 +1174,6 @@
             
             if (!months.length) {
                 container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:2rem;background:#fff;border-radius:12px;border:1px solid var(--border);">ไม่มีข้อมูลในรอบเวลาที่เลือก</div>';
-                
-                // Clear global chart
                 const ctxG = document.getElementById('globalMonthlyChart');
                 if(ctxG) {
                    const cG = ctxG.getContext('2d');
@@ -1169,84 +1184,91 @@
 
             const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
             
-            // 1. Render Global Monthly Bar Chart
+            // 1. Render Global Monthly Bar Chart (Stacked / Grouped by Plan)
             const sortedMonthsAsc = [...months].reverse();
             const gLabels = sortedMonthsAsc.map(m => {
                 const parts = m.split('-');
-                return monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543).toString().slice(-2);
+                return monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543).toString().substring(2);
             });
-            const gData = sortedMonthsAsc.map(m => monthMap[m].liters);
             
-            const ctxGlobal = document.getElementById('globalMonthlyChart').getContext('2d');
-            const grad = ctxGlobal.createLinearGradient(0, 0, 0, 300);
-            grad.addColorStop(0, 'rgba(37, 99, 235, 0.8)');
-            grad.addColorStop(1, 'rgba(37, 99, 235, 0.2)');
-
-            globalChartI = new Chart(ctxGlobal, {
-                type: 'bar',
-                data: {
-                    labels: gLabels,
-                    datasets: [{
-                        label: 'ปริมาณรวม (L)',
-                        data: gData,
-                        backgroundColor: grad,
-                        borderColor: '#2563eb',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: { label: c => ` ${fmt(c.raw, 1)} L` },
-                            titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' }
-                        }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 12 } } },
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 12 }, callback: v => fmt(v) } }
-                    }
-                }
+            const datasets = PLANS.map(plan => {
+                return {
+                    label: plan.label,
+                    data: sortedMonthsAsc.map(m => monthMap[m].plans[plan.key] ? monthMap[m].plans[plan.key].liters : 0),
+                    backgroundColor: plan.color,
+                    borderRadius: 4
+                };
             });
 
-            // 2. Render Cards for each Month
-            let html = '';
-            months.forEach(m => {
+            const ctxGlobal = document.getElementById('globalMonthlyChart');
+            if (ctxGlobal) {
+                globalChartI = new Chart(ctxGlobal, {
+                    type: 'bar',
+                    data: {
+                        labels: gLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: { display: true, position: 'bottom', labels: { font: { family: 'Sarabun' } } },
+                            tooltip: {
+                                callbacks: {
+                                    label: c => ` ${c.dataset.label}: ${fmt(c.raw, 1)} L`
+                                },
+                                titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: false, grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 12 } } },
+                            y: { stacked: false, beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 12 }, callback: v => fmt(v) } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Render Month Selection Tabs & Cards
+            let html = '<div class="month-tabs" style="display:flex; gap:0.5rem; overflow-x:auto; padding-bottom:1rem; margin-bottom:1rem; scrollbar-width:thin;">';
+            months.forEach((m, i) => {
+                const parts = m.split('-');
+                const mLabel = monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543);
+                const activeClass = i === 0 ? 'btn-primary text-white' : 'btn-outline-primary';
+                html += `<button class="btn ${activeClass} btn-sm month-tab-btn" style="white-space:nowrap; border-radius:20px; padding:0.4rem 1.25rem; font-weight:600;" onclick="showMonthCard('${m}', this)">${mLabel}</button>`;
+            });
+            html += '</div>';
+
+            html += '<div id="monthCardsContainer">';
+
+            months.forEach((m, i) => {
                 const data = monthMap[m];
                 const parts = m.split('-');
                 const mLabel = monthNames[parseInt(parts[1])-1] + ' ' + (parseInt(parts[0])+543);
                 
-
-
                 const renderTable = (obj, icon, title, isPlan=false, extraClass='') => {
                     const sorted = Object.entries(obj).sort((a,b)=>b[1].liters-a[1].liters);
                     if(!sorted.length) return `<div class="text-muted text-center py-4" style="font-size:.85rem;">ไม่มีข้อมูล</div>`;
-                    
                     const maxL = sorted.length ? sorted[0][1].liters : 1;
                     
-                    let rows = sorted.map(([name, vals], i) => {
+                    let rows = sorted.map(([name, vals], idx) => {
                         const pct = (vals.liters / data.liters) * 100;
                         const w = (vals.liters / maxL) * 100;
-                        
-                        let badgeHtml = ``;
+                        let badgeHtml = '';
                         if(isPlan) {
                            badgeHtml = `<span class="bp" style="background:${planBadgeColor[name]}22;color:${planBadgeColor[name]};border:1px solid ${planBadgeColor[name]}44;font-size:0.7rem;">${planShort[name] || name}</span>`;
                         }
                         
                         let nameHtml = isPlan ? badgeHtml : name;
                         if (name.includes('|||')) {
-                            const parts = name.split('|||');
-                            const acName = parts[0];
-                            const fullPlan = parts[1];
-                            const provK = parts[2] || '';
-                            let destF = parts[3] || '';
-                            
-                            // Prevent duplicate destination text if it's already in the name or province
-                            if (destF && (acName.includes(destF) || provK.includes(destF))) {
-                                destF = '';
-                            }
+                            const p = name.split('|||');
+                            const acName = p[0];
+                            const fullPlan = p[1];
+                            const provK = p[2] || '';
+                            let destF = p[3] || '';
+                            if (destF && (acName.includes(destF) || provK.includes(destF))) destF = '';
                             
                             const pColor = typeof planBadgeColor !== 'undefined' && planBadgeColor[fullPlan] ? planBadgeColor[fullPlan] : '#475569';
                             const pBg = pColor + '22';
@@ -1254,15 +1276,9 @@
                             const pShort = (typeof planShort !== 'undefined' && planShort[fullPlan]) ? planShort[fullPlan] : fullPlan;
                             
                             let detailsHtml = '';
-                            if (fullPlan && fullPlan !== 'ไม่ระบุ') {
-                                detailsHtml += `<span class="bp" style="background:${pBg};color:${pColor};border:1px solid ${pBorder};font-size:0.65rem;padding:1px 4px;">${pShort}</span>`;
-                            }
-                            if (provK && provK !== 'ไม่ระบุ' && provK !== '') {
-                                detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-map-marker-alt" style="color:#94a3b8;"></i> ${provK}</span>`;
-                            }
-                            if (destF && destF !== 'ไม่ระบุ' && destF !== '') {
-                                detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-plane-arrival" style="color:#94a3b8;"></i> ${destF}</span>`;
-                            }
+                            if (fullPlan && fullPlan !== 'ไม่ระบุ') detailsHtml += `<span class="bp" style="background:${pBg};color:${pColor};border:1px solid ${pBorder};font-size:0.65rem;padding:1px 4px;">${pShort}</span>`;
+                            if (provK && provK !== 'ไม่ระบุ') detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-map-marker-alt" style="color:#94a3b8;"></i> ${provK}</span>`;
+                            if (destF && destF !== 'ไม่ระบุ') detailsHtml += `<span style="font-size:0.75rem;color:var(--muted);"><i class="fas fa-plane-arrival" style="color:#94a3b8;"></i> ${destF}</span>`;
 
                             nameHtml = `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:2px 0;">
                                             <span style="font-weight:700;color:#1e293b;font-size:0.85rem;">${acName}</span>
@@ -1272,16 +1288,16 @@
                         
                         return `
                         <tr>
-                            <td style="width:30px;text-align:center;color:var(--muted);font-weight:600;padding:0.4rem;">${i+1}</td>
+                            <td style="width:30px;text-align:center;color:var(--muted);font-weight:600;padding:0.4rem;white-space:nowrap;">${idx+1}</td>
                             <td style="padding:0.4rem;">${nameHtml}</td>
-                            <td class="text-end" style="font-weight:700;padding:0.4rem;">${fmt(vals.liters, 1)} L</td>
-                            <td style="width:70px;vertical-align:middle;padding:0.4rem;">
+                            <td class="text-end" style="font-weight:700;padding:0.4rem;white-space:nowrap;">${fmt(vals.liters, 1)} L</td>
+                            <td class="hide-on-print" style="width:70px;vertical-align:middle;padding:0.4rem;">
                                 <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;width:100%;">
                                     <div style="height:100%;width:${w}%;background:var(--primary);border-radius:3px;"></div>
                                 </div>
                             </td>
-                            <td class="text-end" style="color:var(--muted);font-size:.75rem;padding:0.4rem;">${fmt(pct,1)}%</td>
-                            <td class="text-end" style="color:var(--green);font-size:.8rem;padding:0.4rem;">${fmt(vals.cost)} ฿</td>
+                            <td class="text-end" style="color:var(--muted);font-size:.75rem;padding:0.4rem;white-space:nowrap;">${fmt(pct,1)}%</td>
+                            <td class="text-end" style="color:var(--green);font-size:.8rem;padding:0.4rem;white-space:nowrap;">${fmt(vals.cost)} ฿</td>
                         </tr>`;
                     }).join('');
                     
@@ -1292,27 +1308,51 @@
                         </div>
                         <div style="overflow-x:auto;">
                             <table class="table table-sm table-hover mb-0" style="font-size:.8rem;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:30px;text-align:center;background:#1e293b;color:#fff;">#</th>
+                                        <th style="background:#1e293b;color:#fff;">รายการ</th>
+                                        <th class="text-end" style="background:#1e293b;color:#fff;">ปริมาณ (L)</th>
+                                        <th class="hide-on-print" style="width:70px;background:#1e293b;color:#fff;"></th>
+                                        <th class="text-end" style="background:#1e293b;color:#fff;">สัดส่วน</th>
+                                        <th class="text-end" style="background:#1e293b;color:#fff;">มูลค่า (฿)</th>
+                                    </tr>
+                                </thead>
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
                     </div>`;
                 };
                 
+                const displayStyle = i === 0 ? 'block' : 'none';
+                
                 html += `
-                <div class="dash-card mb-4" style="border:1px solid #cbd5e1; box-shadow:0 10px 15px -3px rgba(0,0,0,.05);">
-                    <div class="dc-head" style="background:#f8fafc;border-bottom:1px solid var(--border);padding:1.5rem;">
-                        <div class="d-flex w-100 justify-content-between align-items-center flex-wrap gap-3">
-                            <div style="font-size:1.4rem;font-weight:800;color:#1e293b;">
-                                <i class="far fa-calendar-alt me-2" style="color:#2563eb;"></i>${mLabel}
-                            </div>
-                            <div class="d-flex gap-4 text-end">
-                                <div>
-                                    <div style="font-size:.8rem;color:var(--muted);font-weight:600;">ปริมาณรวม</div>
-                                    <div style="font-size:1.5rem;font-weight:900;color:var(--primary);line-height:1;">${fmt(data.liters, 1)} <small style="font-size:1rem;">L</small></div>
+                <div class="dc-month-section" id="month-card-${m}" style="display:${displayStyle}; border:none; box-shadow:0 10px 25px -5px rgba(0,0,0,0.05); border-radius:16px; margin-bottom:2rem; background:#fff; overflow:hidden;">
+                    
+                    <!-- Beautiful KPI Summary Header -->
+                    <div class="summary-header p-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white;">
+                        <div class="row align-items-center g-4">
+                            <div class="col-md-4">
+                                <div style="display:flex; align-items:center; gap:1rem;">
+                                    <div style="background:rgba(255,255,255,0.1); width:60px; height:60px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:1.75rem;">
+                                        <i class="fas fa-calendar-alt text-white"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:1.5rem; font-weight:800; color:#fff; letter-spacing:0.5px;">${mLabel}</div>
+                                        <div style="font-size:.85rem; color:rgba(255,255,255,0.7);">สรุปการใช้น้ำมันประจำเดือน</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div style="font-size:.8rem;color:var(--muted);font-weight:600;">มูลค่ารวม</div>
-                                    <div style="font-size:1.5rem;font-weight:900;color:var(--green);line-height:1;">${fmt(data.cost)} <small style="font-size:1rem;">฿</small></div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="d-flex justify-content-md-end gap-3 gap-md-4">
+                                    <div style="background:rgba(255,255,255,0.1); padding:1rem 1.5rem; border-radius:12px; min-width:180px; text-align:right;">
+                                        <div style="font-size:.8rem; color:rgba(255,255,255,0.7); font-weight:600; text-transform:uppercase; margin-bottom:4px;">ปริมาณรวม</div>
+                                        <div style="font-size:1.75rem; font-weight:900; color:#38bdf8; line-height:1;">${fmt(data.liters, 1)} <small style="font-size:1rem; opacity:0.8;">L</small></div>
+                                    </div>
+                                    <div style="background:rgba(255,255,255,0.1); padding:1rem 1.5rem; border-radius:12px; min-width:180px; text-align:right;">
+                                        <div style="font-size:.8rem; color:rgba(255,255,255,0.7); font-weight:600; text-transform:uppercase; margin-bottom:4px;">มูลค่ารวม</div>
+                                        <div style="font-size:1.75rem; font-weight:900; color:#4ade80; line-height:1;">${fmt(data.cost)} <small style="font-size:1rem; opacity:0.8;">฿</small></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1320,108 +1360,138 @@
                     
                     <div class="dc-body" style="padding:1.5rem;">
                         <div class="row g-4">
-                            
                             <div class="col-xl-5">
                                 <div style="font-weight:700;color:#1e293b;margin-bottom:1rem;"><i class="fas fa-chart-bar me-2" style="color:#64748b;"></i>การใช้งานรายวัน</div>
                                 <div style="height:320px;margin-bottom:2rem;"><canvas id="monthChart_${m}"></canvas></div>
-                                
-                                ${renderTable(data.provinces, 'fas fa-map', 'สรุปการใช้งานรายจังหวัด (ระบุแผน)')}
+                                ${renderTable(data.provinces, 'fas fa-map', 'สรุปการใช้งานรายจังหวัด (แยกตามแผน)')}
                             </div>
-                            
-                            
                             <div class="col-xl-7">
-                                ${renderTable(data.missions, 'fas fa-tasks', 'แยกตามภารกิจ (แผน)', true)}
-                                ${renderTable(data.sources, 'fas fa-gas-pump', 'แยกตามต้นทาง (ยอดเบิกจ่าย)', false, 'hide-on-print')}
-                                ${renderTable(data.aircrafts, 'fas fa-plane', 'แยกตามเครื่องบิน (ระบุแผนและจังหวัด)', false, 'hide-on-print')}
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-12">${renderTable(data.aircrafts, 'fas fa-plane', 'สรุปการใช้งานรายอากาศยาน (แยกตามแผน)')}</div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">${renderTable(data.plans, 'fas fa-clipboard-list', 'สรุปตามประเภทภารกิจ (แยกตามแผน)', true)}</div>
+                                    <div class="col-md-6">${renderTable(data.sources, 'fas fa-gas-pump', 'แหล่งน้ำมันที่ใช้')}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>`;
             });
-            
+            html += '</div>';
+
             container.innerHTML = html;
-            
-            // 3. Render Daily Charts for each month
+
+            // Global helper function for switching tabs
+            window.showMonthCard = function(m, btnElement) {
+                // Hide all cards
+                document.querySelectorAll('.dc-month-section').forEach(el => el.style.display = 'none');
+                // Show selected card
+                const target = document.getElementById('month-card-' + m);
+                if(target) target.style.display = 'block';
+                
+                // Update button styles
+                document.querySelectorAll('.month-tab-btn').forEach(btn => {
+                    btn.classList.remove('btn-primary', 'text-white');
+                    btn.classList.add('btn-outline-primary');
+                });
+                btnElement.classList.remove('btn-outline-primary');
+                btnElement.classList.add('btn-primary', 'text-white');
+            };
+
+            // Initialize charts for each month
             months.forEach(m => {
-                const cEl = document.getElementById('monthChart_' + m);
-                if(!cEl) return;
+                const data = monthMap[m];
+                const days = Object.keys(data.days).sort();
+                if(!days.length) return;
                 
-                const daysMap = monthMap[m].days;
-                const dKeys = Object.keys(daysMap).sort(); // YYYY-MM-DD
-                const labels = dKeys.map(d => parseInt(d.split('-')[2], 10).toString()); // Just the day number
+                const ctx = document.getElementById('monthChart_' + m);
+                if(!ctx) return;
                 
-                // Get all unique plans across this month
-                const allPlans = new Set();
-                dKeys.forEach(d => {
-                    if (typeof daysMap[d] === 'object') {
-                        Object.keys(daysMap[d]).forEach(p => allPlans.add(p));
-                    }
+                const cData = days.map(d => data.days[d]);
+                const cLabels = days.map(d => {
+                    const p = d.split('-');
+                    return parseInt(p[2]).toString(); // Just the date
                 });
                 
-                const planColors = {
-                    'แผนยุทธศาสตร์': '#eab308', // yellow
-                    'แผนปฏิบัติการ': '#10b981', // green
-                    'สนับสนุน': '#8b5cf6', // purple
-                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': '#8b5cf6', // purple
-                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': '#ef4444', // red
-                    'แผนบรู': '#10b981', // green
-                    'ไม่ระบุ': '#94a3b8' // gray
-                };
-                
-                const planColorsBg = {
-                    'แผนยุทธศาสตร์': 'rgba(234, 179, 8, 0.1)',
-                    'แผนปฏิบัติการ': 'rgba(16, 185, 129, 0.1)',
-                    'สนับสนุน': 'rgba(139, 92, 246, 0.1)',
-                    'ดัดแปลงสภาพอากาศ (ลูกเห็บ)': 'rgba(139, 92, 246, 0.1)',
-                    'ดัดแปลงสภาพอากาศ (ฝุ่น)': 'rgba(239, 68, 68, 0.1)',
-                    'แผนบรู': 'rgba(16, 185, 129, 0.1)',
-                    'ไม่ระบุ': 'rgba(148, 163, 184, 0.1)'
-                };
-
-                const datasets = Array.from(allPlans).map(plan => {
-                    const dataVals = dKeys.map(d => {
-                        return (typeof daysMap[d] === 'object') ? (daysMap[d][plan] || 0) : 0;
-                    });
-                    const color = planColors[plan] || '#0ea5e9';
-                    const bgColor = planColorsBg[plan] || 'rgba(14, 165, 233, 0.1)';
+                const lineDatasets = PLANS.map(planObj => {
+                    const pData = days.map(d => data.daysByPlan && data.daysByPlan[d] && data.daysByPlan[d][planObj.key] ? data.daysByPlan[d][planObj.key] : 0);
+                    // Only add dataset if there's any data for this plan in this month
+                    const hasData = pData.some(val => val > 0);
+                    if (!hasData) return null;
+                    
                     return {
-                        label: plan,
-                        data: dataVals,
-                        backgroundColor: bgColor,
-                        borderColor: color,
+                        label: planObj.label,
+                        data: pData,
+                        borderColor: planObj.color,
+                        backgroundColor: planObj.color + '22',
                         borderWidth: 2,
                         fill: false,
                         tension: 0.3,
                         pointRadius: 3,
                         pointBackgroundColor: '#fff',
-                        pointBorderColor: color
+                        pointBorderColor: planObj.color
                     };
-                });
+                }).filter(Boolean); // remove nulls
                 
-                const ctx = cEl.getContext('2d');
+                // If no plan data, fallback to total (shouldn't happen but safe)
+                if (lineDatasets.length === 0) {
+                    lineDatasets.push({
+                        label: 'ปริมาณรวม',
+                        data: cData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: '#3b82f622',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3
+                    });
+                }
+
                 monthlyChartInstances[m] = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: labels,
-                        datasets: datasets
+                        labels: cLabels,
+                        datasets: lineDatasets
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: 'Sarabun', size: 10 } } } },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: { 
+                            legend: { display: true, position: 'bottom', labels: { font: { family: 'Sarabun', size: 10 }, boxWidth: 12 } }, 
+                            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw, 1)} L` }, titleFont: { family: 'Sarabun' }, bodyFont: { family: 'Sarabun' } } 
+                        },
                         scales: {
-                            x: { grid: { display: false }, title: { display:true, text:'วันที่', font:{family:'Sarabun',size:10} } },
-                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 10 } } }
+                            x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 11 } } },
+                            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Sarabun', size: 11 }, callback: v => fmt(v) } }
                         }
                     }
                 });
             });
         }
-    
-    
+
         function printDashboard() {
     var dashEl = document.getElementById('dashboardContent');
     if (!dashEl) { alert('ไม่พบ element สำหรับพิมพ์'); return; }
-    var printContent = dashEl.innerHTML;
+    
+    // Create a clone to manipulate
+    var clone = dashEl.cloneNode(true);
+    
+    // Convert all canvases to images so they show up in print
+    var originalCanvases = dashEl.querySelectorAll('canvas');
+    var clonedCanvases = clone.querySelectorAll('canvas');
+    for (var i = 0; i < originalCanvases.length; i++) {
+        var img = document.createElement('img');
+        img.src = originalCanvases[i].toDataURL('image/png');
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        clonedCanvases[i].parentNode.replaceChild(img, clonedCanvases[i]);
+    }
+    
+    var printContent = clone.innerHTML;
     var printWindow = window.open('', '_blank');
     printWindow.document.open();
     var htmlParts = [];
@@ -1429,7 +1499,7 @@
     htmlParts.push('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">');
     htmlParts.push('<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
     htmlParts.push('<style>');
-    htmlParts.push('@page { size: A4 portrait; margin: 10mm; }');
+    htmlParts.push('@page { size: A4 landscape; margin: 10mm; }');
     htmlParts.push('body { font-family: \'Sarabun\', sans-serif; background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }');
     htmlParts.push('.navbar, .hero, .btn, #refreshBtn, .hide-on-print, #loadingOverlay { display: none !important; }');
     htmlParts.push('.container-fluid, .row, .col-xl-5, .col-xl-7 { display: block !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }');
