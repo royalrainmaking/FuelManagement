@@ -5,6 +5,11 @@
     box-sizing: border-box;
 }
 
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Noto Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Tahoma', 'Cordia New', 'Trebuchet MS', sans-serif;
     background-color: #f8f9fa;
@@ -650,6 +655,7 @@ header h1 {
     flex-direction: column;
     position: relative;
     z-index: 1;
+    width: 100%;
 }
 
 /* Card Header with Icon */
@@ -1630,11 +1636,62 @@ header h1 {
 
 /* ===== NEW BOOTSTRAP THEME OVERRIDES ===== */
 
-/* Navbar Logo */
+/* Navbar Premium Styling */
+.navbar.bg-primary {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+    border-bottom: 3px solid #d4af37;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+    padding: 0.5rem 1rem;
+}
+
+.navbar-brand .fw-bold {
+    color: #ffffff;
+    font-size: 1.3rem;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    font-family: 'Sarabun', 'Prompt', sans-serif;
+}
+
+.navbar-brand small {
+    color: #e8eef3 !important;
+    font-weight: 300;
+    letter-spacing: 0.3px;
+    font-size: 0.75rem;
+}
+
 .navbar-logo {
-    width: 120px;
-    height: 120px;
+    width: 45px;
+    height: 45px;
     object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.navbar .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 0.4rem 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.navbar .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 991.98px) {
+    .navbar-nav {
+        margin-top: 1rem;
+        gap: 0.5rem !important;
+    }
+    .navbar .btn-outline-light {
+        width: 100%;
+        text-align: left;
+    }
 }
 
 /* Fuel Cards Container */
@@ -2916,4 +2973,82 @@ header h1 {
 .searchable-dropdown .dropdown-search.is-invalid:focus {
     border-color: #e74c3c;
     box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+/* Mobile centering for fuel cards */
+@media (max-width: 575.98px) {
+    .fuel-card {
+        padding: 0.6rem !important;
+        gap: 0.4rem !important;
+    }
+
+    .fuel-info-section {
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 0.4rem !important;
+        width: 100% !important;
+        margin-top: 0.25rem !important;
+    }
+    
+    .fuel-info {
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    
+    .stock-progress {
+        margin-left: 0 !important;
+        margin: 0 auto !important;
+        align-items: center !important;
+        transform: scale(0.85);
+        transform-origin: top center;
+        margin-bottom: -10px !important;
+    }
+
+    .card-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        width: 100% !important;
+        margin-bottom: 0 !important;
+    }
+    
+    .card-header > div {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: left !important;
+        width: 100% !important;
+        gap: 0.5rem !important;
+    }
+
+    .card-icon {
+        margin: 0 !important;
+        width: 36px !important;
+        height: 36px !important;
+        flex-shrink: 0;
+    }
+    
+    .card-icon img {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    .card-title {
+        text-align: left !important;
+        width: auto !important;
+    }
+    
+    .card-title h3 {
+        font-size: 0.85rem !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    .card-type {
+        font-size: 0.6rem !important;
+        padding: 0.1rem 0.3rem !important;
+    }
 }

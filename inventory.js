@@ -2220,15 +2220,59 @@ function createFuelCards() {
                 const percentage = Math.min(stockPercentage, 100);
                 const statusClass = percentage > 70 ? 'high' : percentage > 30 ? 'medium' : 'low';
 
+                // กำหนดสีและเงาตามเปอร์เซ็นต์
+                let fuelColorStart = '#38bdf8';
+                let fuelColorEnd = '#0284c7';
+                let fuelShadow = 'rgba(2, 132, 199, 0.5)';
+                let textColor = '#1e3a8a';
+                
+                if (percentage <= 30) {
+                    fuelColorStart = '#f87171';
+                    fuelColorEnd = '#dc2626';
+                    fuelShadow = 'rgba(220, 38, 38, 0.5)';
+                    textColor = '#991b1b';
+                } else if (percentage > 70) {
+                    fuelColorStart = '#4ade80';
+                    fuelColorEnd = '#16a34a';
+                    fuelShadow = 'rgba(22, 163, 74, 0.5)';
+                    textColor = '#166534';
+                }
+
                 progressTankHTML = `
-                    <div class="stock-progress">
-                        <div class="progress-tank ${statusClass}">
-                            <div class="progress-fill" style="height: ${percentage}%"></div>
+                    <div class="stock-progress" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 65px; flex-shrink: 0; margin-left: auto;">
+                        <div style="position: relative; width: 45px; height: 65px; margin: 0 auto 5px;">
+                            <!-- ฝาถัง -->
+                            <div style="position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 20px; height: 5px; background: #94a3b8; border-radius: 3px 3px 0 0; box-shadow: inset 0 -1px 2px rgba(0,0,0,0.2);"></div>
+                            
+                            <!-- ตัวถัง -->
+                            <div style="position: absolute; bottom: 0; width: 100%; height: 100%; background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: inset 4px 0 8px rgba(0,0,0,0.05), inset -4px 0 8px rgba(255,255,255,0.8), 0 5px 8px -2px rgba(0,0,0,0.1);">
+                                
+                                <!-- ลายตารางหรือขีดวัดระดับแบบอุตสาหกรรม -->
+                                <div style="position: absolute; width: 100%; height: 100%; background-image: linear-gradient(#e2e8f0 1px, transparent 1px); background-size: 100% 10%; opacity: 0.6; z-index: 1;"></div>
+                                
+                                <!-- น้ำมันภายในถัง -->
+                                <div style="position: absolute; bottom: 0; width: 100%; height: ${percentage}%; background: linear-gradient(180deg, ${fuelColorStart} 0%, ${fuelColorEnd} 100%); transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -2px 5px ${fuelShadow}; z-index: 2;">
+                                    <!-- เงาสะท้อนผิวน้ำมัน -->
+                                    <div style="position: absolute; top: 0; width: 100%; height: 3px; background: rgba(255,255,255,0.4);"></div>
+                                    <div style="position: absolute; top: 3px; width: 100%; height: 10px; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%);"></div>
+                                </div>
+                                
+                                <!-- เงาสะท้อนความโค้งของถังกระจก/พลาสติก -->
+                                <div style="position: absolute; top: 0; left: 15%; width: 25%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0) 100%); pointer-events: none; z-index: 3;"></div>
+                            </div>
+                            
+                            <!-- ตัวเลขเปอร์เซ็นต์ซ้อนทับ -->
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 900; font-size: 0.85rem; font-family: 'Sarabun', 'Prompt', sans-serif; color: ${textColor}; text-shadow: 1px 1px 0px #ffffff, -1px -1px 0px #ffffff, 1px -1px 0px #ffffff, -1px 1px 0px #ffffff, 0px 2px 4px rgba(0,0,0,0.3); z-index: 10;">${percentage.toFixed(0)}%</div>
+                            
+                            <!-- สเกล F - E ด้านข้างถัง -->
+                            <div style="position: absolute; right: -12px; height: 100%; width: 10px; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0;">
+                                <span style="font-size: 0.55rem; color: #64748b; font-weight: 800; line-height: 1;">F</span>
+                                <span style="font-size: 0.55rem; color: #cbd5e1; font-weight: 800; line-height: 1;">-</span>
+                                <span style="font-size: 0.55rem; color: #cbd5e1; font-weight: 800; line-height: 1;">-</span>
+                                <span style="font-size: 0.55rem; color: #64748b; font-weight: 800; line-height: 1;">E</span>
+                            </div>
                         </div>
-                        <div class="progress-label">
-                            <span class="percentage">${percentage.toFixed(1)}%</span>
-                            <span class="status-text">${getStatusText(percentage)}</span>
-                        </div>
+                        <div style="font-size: 0.65rem; font-weight: 600; color: #64748b; margin-top: 2px;">${getStatusText(percentage)}</div>
                     </div>
                 `;
             }
