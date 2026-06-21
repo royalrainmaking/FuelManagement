@@ -224,6 +224,83 @@
         .navbar-logo {
             max-height: 40px;
         }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            body, html {
+                height: auto !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+
+            #mapSection {
+                height: auto !important;
+            }
+
+            .mobile-flex-col {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            #thailandMap {
+                height: 55vh !important;
+                min-height: 350px !important;
+            }
+
+            .floating-header {
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                padding: 15px !important;
+                border-radius: 0 !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                max-width: 100%;
+                margin-bottom: 0px !important;
+                z-index: 10;
+            }
+
+            .floating-header h4 {
+                font-size: 1rem !important;
+            }
+
+            .floating-header img {
+                height: 30px !important;
+            }
+
+            .mobile-panels-wrapper {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+                background: #e2e8f0;
+                width: 100%;
+            }
+
+            #provinceDetailPanel,
+            #dailyGraphPanel,
+            #fuelSourcesUnderGraph,
+            #miniMonthFilterPanel {
+                position: relative !important;
+                top: auto !important;
+                bottom: auto !important;
+                left: auto !important;
+                right: auto !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                background: rgba(255, 255, 255, 0.95) !important;
+                border-radius: 12px !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+                padding: 15px !important;
+                height: auto !important;
+                max-height: none !important;
+            }
+
+            #miniMonthFilterPanel {
+                justify-content: center !important;
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 
@@ -239,20 +316,20 @@
                 </div>
             </a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
-                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-light btn-sm"
+                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-outline-light btn-sm"
                     title="ข้อมูลอากาศยาน">
                     <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
                 </a>
-                <a href="index.html" class="btn btn-light btn-sm">
+                <a href="index.html" class="btn btn-outline-light btn-sm">
                     <i class="fas fa-home me-1"></i> หน้าแรก
                 </a>
-                <a href="dashboard.html" class="btn btn-warning btn-sm fw-bold" title="Dashboard">
+                <a href="dashboard.html" class="btn btn-outline-light btn-sm" title="Dashboard">
                     <i class="fas fa-tachometer-alt me-1"></i> Dashboard
                 </a>
-                <a href="transaction-summary.html" class="btn btn-light btn-sm" title="สรุปรายการเดินบัญชี">
+                <a href="transaction-summary.html" class="btn btn-outline-light btn-sm" title="สรุปรายการเดินบัญชี">
                     <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
                 </a>
-                <a href="budget-print.html" class="btn btn-warning btn-sm fw-bold" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
+                <a href="budget-print.html" class="btn btn-outline-light btn-sm" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
                     <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
                 </a>
             </div>
@@ -314,12 +391,12 @@
         <!-- Thailand Map Visualization -->
         <div class="row mb-4" id="mapSection">
             <div class="col-12">
-                <div class="card border-0 shadow-sm" style="border-radius: 16px; overflow: hidden; background: #e2e8f0; position: relative;">
+                <div class="card border-0 shadow-sm mobile-flex-col" style="border-radius: 16px; overflow: hidden; background: #e2e8f0; position: relative;">
                         <!-- Floating Header (Left aligned, above graph) -->
-                        <div style="position: absolute; top: 20px; left: 20px; background: transparent; display: flex; align-items: center; z-index: 1050;">
+                        <div class="floating-header" style="position: absolute; top: 20px; left: 20px; background: transparent; display: flex; align-items: center; z-index: 1050;">
                             <div style="display: flex; align-items: center; gap: 15px;">
                                 <img src="img/logo.png" alt="Logo" style="height: 40px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
-                                <div style="display: flex; align-items: baseline; gap: 10px;">
+                                <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
                                     <h4 style="margin: 0; font-weight: 900; color: #0f172a; font-size: 1.25rem; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);">รายงานสรุปการใช้น้ำมัน</h4>
                                     <span style="font-weight: 800; color: #0284c7; font-size: 0.95rem; text-shadow: 0 1px 2px rgba(255,255,255,0.9);">กองบริหารการบินเกษตร</span>
                                 </div>
@@ -331,27 +408,32 @@
 
                         <div id="thailandMap" style="width: 100%; height: 100vh; min-height: 640px;"></div>
                         
-                        <!-- Floating Province Detail Panel -->
-                        <div id="provinceDetailPanel" style="display: none; position: absolute; top: 20px; left: 20px; right: 20px; max-width: 340px; margin-left: auto; max-height: calc(100vh - 100px); overflow-y: auto; background: transparent; z-index: 1000; padding: 15px;">
-                            <!-- Content injected via JS -->
-                        </div>
-                        
-                        <!-- Floating Daily Graph Panel -->
-                        <div id="dailyGraphPanel" style="display: none; position: absolute; top: 75px; left: 20px; right: 20px; max-width: 500px; background: transparent; z-index: 999; padding: 0;">
-                            <h6 style="margin-top: 0; margin-bottom: 8px; font-weight: 900; color: #1e293b; font-size: 1rem; text-shadow: 0 1px 3px rgba(255,255,255,0.9), 0 0 10px rgba(255,255,255,1); display: flex; justify-content: space-between;">
-                                <span><i class="fas fa-chart-area me-2 text-primary"></i><span id="dailyGraphTitle">แนวโน้มการใช้น้ำมันรายวัน</span></span>
-                                <span id="dailyGraphMonthLabel" style="color: #475569; font-size: 0.85rem;"></span>
-                            </h6>
-                            <div id="dailyChart" style="width: 100%; height: 220px;"></div>
-                        </div>
-                        
-                        <!-- Floating Fuel Sources Panel (Always Visible) -->
-                        <div id="fuelSourcesUnderGraph" style="display: none; position: absolute; bottom: 20px; left: 20px; right: 20px; max-width: 280px; background: transparent; z-index: 998; padding: 0;"></div>
-                        
-                        <!-- Floating Mini Month Filter Panel -->
-                        <div id="miniMonthFilterPanel" style="position: absolute; bottom: 20px; right: 20px; background: transparent; z-index: 1000; padding: 6px 8px; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-weight: 800; color: #1e293b; font-size: 0.85rem; margin-left: 8px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);"><i class="fas fa-calendar-alt me-1 text-primary"></i> เดือน:</span>
-                            <div id="miniMonthFilter" class="d-flex gap-1" style="overflow-x: auto; max-width: 400px; padding-right: 4px;"></div>
+                        <div class="mobile-panels-wrapper">
+                            <!-- Floating Province Detail Panel -->
+                            <div id="provinceDetailPanel" style="display: none; position: absolute; top: 20px; left: 20px; right: 20px; max-width: 340px; margin-left: auto; max-height: calc(100vh - 100px); overflow-y: auto; background: transparent; z-index: 1000; padding: 15px;">
+                                <!-- Content injected via JS -->
+                            </div>
+                            
+                            <!-- Floating Daily Graph Panel -->
+                            <div id="dailyGraphPanel" style="display: none; position: absolute; top: 75px; left: 20px; right: 20px; max-width: 500px; background: transparent; z-index: 999; padding: 0;">
+                                <h6 style="margin-top: 0; margin-bottom: 8px; font-weight: 900; color: #1e293b; font-size: 1rem; text-shadow: 0 1px 3px rgba(255,255,255,0.9), 0 0 10px rgba(255,255,255,1); display: flex; justify-content: space-between;">
+                                    <span><i class="fas fa-chart-area me-2 text-primary"></i><span id="dailyGraphTitle">แนวโน้มการใช้น้ำมันรายวัน</span></span>
+                                    <span id="dailyGraphMonthLabel" style="color: #475569; font-size: 0.85rem;"></span>
+                                </h6>
+                                <div id="dailyChart" style="width: 100%; height: 220px;"></div>
+                            </div>
+                            
+                            <!-- Floating Fuel Sources Panel (Always Visible) -->
+                            <div id="fuelSourcesUnderGraph" style="display: none; position: absolute; bottom: 20px; left: 20px; right: 20px; max-width: 280px; background: transparent; z-index: 998; padding: 0;"></div>
+                            
+                            <!-- Floating Mini Month Filter Panel -->
+                            <div id="miniMonthFilterPanel" style="position: absolute; bottom: 20px; right: 20px; background: transparent; z-index: 1000; padding: 6px 8px; display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: 800; color: #1e293b; font-size: 0.85rem; margin-left: 8px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);"><i class="fas fa-layer-group me-1 text-primary"></i> แผน:</span>
+                                <div id="miniPlanFilter" class="d-flex gap-1" style="overflow-x: auto; max-width: 400px; padding-right: 4px;"></div>
+                                
+                                <span style="font-weight: 800; color: #1e293b; font-size: 0.85rem; margin-left: 8px; text-shadow: 0 1px 2px rgba(255,255,255,0.9);"><i class="fas fa-calendar-alt me-1 text-primary"></i> เดือน:</span>
+                                <div id="miniMonthFilter" class="d-flex gap-1" style="overflow-x: auto; max-width: 400px; padding-right: 4px;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

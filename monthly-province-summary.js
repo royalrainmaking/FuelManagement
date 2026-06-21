@@ -24,7 +24,7 @@ let mapGeoJson = null;
 let mapBlinkInterval = null;
 let dailyChart = null;
 let currentSelectedProvinceData = null;
-let globalActiveSources = new Set();
+let globalActiveSources = new Map();
 
 const planColors = {
     'แผนบรู': '#198754', // success
@@ -478,6 +478,7 @@ function populateFilters() {
                 showProvincePanel(null);
                 renderDailyGraph(null);
                 
+                updateMiniPlanFilter();
                 renderData();
             };
             miniMonthFilter.appendChild(miniBtn);
@@ -489,7 +490,105 @@ function populateFilters() {
     }
     
     updateMiniMonthStyles();
+    updateMiniPlanFilter();
     updateProvinceFilter();
+}
+
+function updateMiniPlanFilter() {
+    const miniPlanFilter = document.getElementById('miniPlanFilter');
+    if (!miniPlanFilter) return;
+
+    let availablePlansForMonth = new Set();
+    
+    if (currentMonthFilter && currentMonthFilter !== 'all' && groupedData[currentMonthFilter]) {
+        Object.keys(groupedData[currentMonthFilter]).forEach(p => {
+            Object.keys(groupedData[currentMonthFilter][p].planData).forEach(plan => {
+                availablePlansForMonth.add(plan);
+            });
+        });
+    } else {
+        Object.keys(groupedData).forEach(m => {
+            Object.keys(groupedData[m]).forEach(p => {
+                Object.keys(groupedData[m][p].planData).forEach(plan => {
+                    availablePlansForMonth.add(plan);
+                });
+            });
+        });
+    }
+
+    if (currentPlanFilter !== 'all' && !availablePlansForMonth.has(currentPlanFilter)) {
+        currentPlanFilter = 'all';
+    }
+
+    miniPlanFilter.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.dataset.value = 'all';
+    allBtn.textContent = 'ทุกแผน';
+    allBtn.onclick = () => {
+        currentPlanFilter = 'all';
+        updateMiniPlanStyles();
+        
+        // Sync with main filter
+        document.querySelectorAll('#planFilter button').forEach(b => {
+            b.classList.remove('active');
+            if (b.dataset.value === 'all') b.classList.add('active');
+        });
+
+        renderData();
+    };
+    miniPlanFilter.appendChild(allBtn);
+
+    Array.from(availablePlansForMonth).sort().forEach(plan => {
+        const btn = document.createElement('button');
+        btn.dataset.value = plan;
+        btn.textContent = plan;
+        btn.onclick = () => {
+            currentPlanFilter = plan;
+            updateMiniPlanStyles();
+            
+            // Sync with main filter
+            document.querySelectorAll('#planFilter button').forEach(b => {
+                b.classList.remove('active');
+                if (b.dataset.value === plan) b.classList.add('active');
+            });
+
+            renderData();
+        };
+        miniPlanFilter.appendChild(btn);
+    });
+
+    updateMiniPlanStyles();
+}
+
+function updateMiniPlanStyles() {
+    const miniPlanFilter = document.getElementById('miniPlanFilter');
+    if (miniPlanFilter) {
+        Array.from(miniPlanFilter.children).forEach(btn => {
+            if (btn.dataset.value === currentPlanFilter) {
+                let colorClass = 'btn-primary';
+                if (btn.dataset.value === 'แผนบรู') colorClass = 'btn-success';
+                else if (btn.dataset.value === 'แผนยุทธศาสตร์') colorClass = 'btn-warning text-dark';
+                else if (btn.dataset.value === 'ดัดแปลงสภาพอากาศ (ฝุ่น)') colorClass = 'btn-danger';
+                
+                btn.className = `btn btn-sm rounded-pill fw-bold shadow-sm ${colorClass}`;
+                if (btn.dataset.value === 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)') {
+                    btn.style.backgroundColor = '#6f42c1';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = '#6f42c1';
+                } else {
+                    btn.style.backgroundColor = '';
+                    if (btn.dataset.value !== 'แผนยุทธศาสตร์') btn.style.color = 'white';
+                    btn.style.borderColor = '';
+                }
+            } else {
+                btn.className = 'btn btn-sm rounded-pill btn-outline-secondary border-0 text-muted';
+                btn.style.backgroundColor = 'transparent';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }
+        });
+    }
 }
 
 function updateMiniMonthStyles() {
@@ -546,7 +645,11 @@ function setupEventListeners() {
         updateProvinceFilter();
         renderData(); 
     });
-    setupButtonGroup('planFilter', (val) => { currentPlanFilter = val; renderData(); });
+    setupButtonGroup('planFilter', (val) => { 
+        currentPlanFilter = val; 
+        updateMiniPlanStyles();
+        renderData(); 
+    });
     setupButtonGroup('provinceFilter', (val) => { currentProvinceFilter = val; renderData(); });
 
     resetFiltersBtn.addEventListener('click', () => {
@@ -561,6 +664,7 @@ function setupEventListeners() {
         const allPlanBtn = planFilter.querySelector('[data-value="all"]');
         if (allPlanBtn) allPlanBtn.classList.add('active');
         currentPlanFilter = 'all';
+        updateMiniPlanStyles();
 
         currentProvinceFilter = 'all';
         currentSelectedProvinceData = null;
@@ -653,7 +757,7 @@ function renderMapData() {
                 if (selectedMonth !== 'all' || mKey === latestMonthForSources) {
                     sources.forEach(s => {
                         provinceUsage[province].sources.add(s);
-                        globalActiveSources.add(s);
+                        globalActiveSources.set(s, province);
                     });
                 }
                 
@@ -977,17 +1081,17 @@ function renderFuelSources() {
             const isTruck = invItem && (invItem.type === 'truck' || sourceName.includes('รถ') || /^\d{2}-\d{4}/.test(sourceName));
             
             if (isTruck && !sourcesToRender.find(s => s.name === sourceName)) {
-                sourcesToRender.push({ name: sourceName, isTruck: true, item: invItem });
+                sourcesToRender.push({ name: sourceName, province: currentSelectedProvinceData.thaiName, isTruck: true, item: invItem });
             }
         });
     } else {
         // No province selected -> Show relevant active trucks based on filters
-        globalActiveSources.forEach(sourceName => {
+        globalActiveSources.forEach((province, sourceName) => {
             const invItem = masterInventoryData.find(item => item.name === sourceName || item.source_name === sourceName);
             const isTruck = invItem && (invItem.type === 'truck' || sourceName.includes('รถ') || /^\d{2}-\d{4}/.test(sourceName));
             
             if (isTruck && !sourcesToRender.find(s => s.name === sourceName)) {
-                sourcesToRender.push({ name: sourceName, isTruck: true, item: invItem });
+                sourcesToRender.push({ name: sourceName, province: province, isTruck: true, item: invItem });
             }
         });
     }
@@ -1007,41 +1111,18 @@ function renderFuelSources() {
             const icon = '<i class="fas fa-truck-moving me-2 text-primary"></i>';
             
             sourcesHtml += `
-                <div style="margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:2px; font-weight:800; color:#1e293b; text-shadow: 0 1px 2px rgba(255,255,255,0.9);">
-                        <span>${icon}${source.name}</span>
+                <div style="margin-bottom: 15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; margin-bottom:6px; font-weight:700; color:#334155;">
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(255,255,255,0.9); flex: 1; margin-right: 10px;" title="${source.name} (จ.${source.province})">
+                            <i class="fas fa-truck text-secondary me-2"></i>${source.name} <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(จ.${source.province})</span>
+                        </span>
+                        <span style="font-weight:800; color:#0f172a; text-shadow: 0 1px 2px rgba(255,255,255,0.9); white-space: nowrap;">${percent.toFixed(1)}%</span>
                     </div>
-                    
-                    <div class="css-truck" style="position: relative; width: 160px; height: 28px; margin-top: 2px;">
-                        <!-- Tank (Progress Bar) -->
-                        <div style="position: absolute; left: 26px; right: 0; bottom: 6px; height: 20px; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px); border-radius: 0 8px 8px 0; border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 1px 4px rgba(0,0,0,0.1); overflow: hidden; z-index: 1;">
-                            <!-- Liquid -->
-                            <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${percent}%; background: linear-gradient(90deg, ${barColor}aa, ${barColor}); transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);">
-                                <div style="position: absolute; top: 0; left: 0; right: 0; height: 50%; background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%);"></div>
-                            </div>
-                            <!-- Text Overlay inside Tank -->
-                            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 800; color: #0f172a; text-shadow: 0 0 3px rgba(255,255,255,0.9), 0 1px 1px rgba(255,255,255,1); z-index: 2;">
-                                ${formatNumber(currentStock)} / ${formatNumber(capacity)} L
-                            </div>
+                    <div class="progress" style="height: 20px; border-radius: 10px; background-color: #e2e8f0; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); position: relative;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: ${percent}%; background-color: ${barColor};" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
                         </div>
-                        
-                        <!-- Cabin -->
-                        <div style="position: absolute; left: 0; bottom: 6px; width: 28px; height: 22px; background: linear-gradient(135deg, #f8fafc, #cbd5e1); border-radius: 8px 3px 3px 4px; border: 1px solid #94a3b8; box-shadow: -1px 1px 3px rgba(0,0,0,0.15); z-index: 2;">
-                            <!-- Window -->
-                            <div style="position: absolute; top: 3px; left: 3px; width: 14px; height: 8px; background: linear-gradient(135deg, #bae6fd, #38bdf8); border-radius: 4px 2px 2px 2px; border: 1px solid #0284c7;"></div>
-                            <!-- Headlight -->
-                            <div style="position: absolute; bottom: 3px; left: 2px; width: 4px; height: 4px; background: #fef08a; border-radius: 50%; box-shadow: 0 0 3px #fef08a, 0 0 6px #fef08a;"></div>
-                        </div>
-                        
-                        <!-- Wheels -->
-                        <div style="position: absolute; left: 6px; bottom: 0; width: 10px; height: 10px; background: #1e293b; border-radius: 50%; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 3; display: flex; align-items: center; justify-content: center;">
-                            <div style="width: 3px; height: 3px; background: #94a3b8; border-radius: 50%;"></div>
-                        </div>
-                        <div style="position: absolute; right: 10px; bottom: 0; width: 10px; height: 10px; background: #1e293b; border-radius: 50%; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 3; display: flex; align-items: center; justify-content: center;">
-                            <div style="width: 3px; height: 3px; background: #94a3b8; border-radius: 50%;"></div>
-                        </div>
-                        <div style="position: absolute; right: 24px; bottom: 0; width: 10px; height: 10px; background: #1e293b; border-radius: 50%; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 3; display: flex; align-items: center; justify-content: center;">
-                            <div style="width: 3px; height: 3px; background: #94a3b8; border-radius: 50%;"></div>
+                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; color: #0f172a; text-shadow: 0 0 4px rgba(255,255,255,0.9), 0 1px 1px rgba(255,255,255,1); pointer-events: none; letter-spacing: 0.5px;">
+                            ${formatNumber(currentStock)} / ${formatNumber(capacity)} L
                         </div>
                     </div>
                 </div>

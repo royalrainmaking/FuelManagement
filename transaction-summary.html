@@ -589,20 +589,20 @@
                 </div>
             </a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
-                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-light btn-sm"
+                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-outline-light btn-sm"
                     title="ข้อมูลอากาศยาน">
                     <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
                 </a>
-                <a href="index.html" class="btn btn-light btn-sm">
+                <a href="index.html" class="btn btn-outline-light btn-sm">
                     <i class="fas fa-home me-1"></i> หน้าแรก
                 </a>
-                <a href="price-management.html" class="btn btn-light btn-sm" target="_blank">
+                <a href="price-management.html" class="btn btn-outline-light btn-sm" target="_blank">
                     <i class="fas fa-cog me-1"></i> จัดการราคา
                 </a>
-                <a href="monthly-province-summary.html" class="btn btn-info btn-sm text-white" title="สรุปรายจังหวัด">
-                    <i class="fas fa-map-marked-alt me-1"></i> สรุปรายจังหวัด
+                <a href="monthly-province-summary.html" class="btn btn-outline-light btn-sm" title="แผนที่">
+                    <i class="fas fa-map-marked-alt me-1"></i> แผนที่
                 </a>
-                <a href="budget-print.html" class="btn btn-warning btn-sm fw-bold" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
+                <a href="budget-print.html" class="btn btn-outline-light btn-sm" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
                     <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
                 </a>
             </div>
@@ -704,31 +704,31 @@
                     </h5>
                     <div class="row g-3">
                         <div class="col-6">
-                            <div class="budget-item bg-warning bg-opacity-10 border-start border-4 border-warning">
-                                <span class="budget-label"><i class="fas fa-cloud-rain text-warning"
+                            <div class="budget-item bg-success bg-opacity-10 border-start border-4 border-success">
+                                <span class="budget-label"><i class="fas fa-cloud-rain text-success"
                                         style="width: 20px;"></i> บรู</span>
-                                <span class="budget-value text-warning" id="quickRemainingBru">0</span>
+                                <span class="budget-value text-success" id="quickRemainingBru">0</span>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="budget-item bg-primary bg-opacity-10 border-start border-4 border-primary">
-                                <span class="budget-label"><i class="fas fa-shield-alt text-primary"
+                            <div class="budget-item bg-warning bg-opacity-10 border-start border-4 border-warning">
+                                <span class="budget-label"><i class="fas fa-shield-alt text-warning"
                                         style="width: 20px;"></i> ยุทธ</span>
-                                <span class="budget-value text-primary" id="quickRemainingYuttaya">0</span>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="budget-item bg-info bg-opacity-10 border-start border-4 border-info">
-                                <span class="budget-label"><i class="fas fa-smog text-info" style="width: 20px;"></i>
-                                    ฝุ่น</span>
-                                <span class="budget-value text-info" id="quickRemainingDust">0</span>
+                                <span class="budget-value text-warning" id="quickRemainingYuttaya">0</span>
                             </div>
                         </div>
                         <div class="col-6">
                             <div class="budget-item bg-danger bg-opacity-10 border-start border-4 border-danger">
-                                <span class="budget-label"><i class="fas fa-gem text-danger" style="width: 20px;"></i>
+                                <span class="budget-label"><i class="fas fa-smog text-danger" style="width: 20px;"></i>
+                                    ฝุ่น</span>
+                                <span class="budget-value text-danger" id="quickRemainingDust">0</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="budget-item border-start border-4" style="background-color: rgba(111, 66, 193, 0.1); border-color: #6f42c1 !important;">
+                                <span class="budget-label"><i class="fas fa-gem" style="color: #6f42c1; width: 20px;"></i>
                                     ลูกเห็บ</span>
-                                <span class="budget-value text-danger" id="quickRemainingCentral">0</span>
+                                <span class="budget-value" style="color: #6f42c1;" id="quickRemainingCentral">0</span>
                             </div>
                         </div>
                     </div>
@@ -739,26 +739,17 @@
         <!-- Filters -->
         <div class="transaction-filters">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-5">
                     <label class="form-label fw-bold">ค้นหารายการ</label>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
                         <input type="text" class="form-control" id="searchInput"
-                            placeholder="ค้นหาจากชื่อแหล่ง ปลายทาง ผู้บันทึก UID...">
+                            placeholder="พิมพ์ค้นหา (แหล่ง, ปลายทาง, UID, ผู้บันทึก, ภารกิจ, หมายเหตุ...)">
                     </div>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">จำนวนรายการ</label>
-                    <select class="form-select" id="itemsPerPageFilter">
-                        <option value="10" selected>10 รายการ</option>
-                        <option value="25">25 รายการ</option>
-                        <option value="50">50 รายการ</option>
-                        <option value="100">100 รายการ</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">จัดเรียงตาม</label>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">การเรียงลำดับ</label>
                     <select class="form-select" id="sortByFilter">
                         <option value="date_desc">วันที่ใหม่สุด</option>
                         <option value="date_asc">วันที่เก่าสุด</option>
@@ -768,6 +759,16 @@
                     </select>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label fw-bold">แสดงผล</label>
+                    <select class="form-select" id="itemsPerPageFilter">
+                        <option value="10" selected>10 รายการ</option>
+                        <option value="25">25 รายการ</option>
+                        <option value="50">50 รายการ</option>
+                        <option value="100">100 รายการ</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4">
                     <label class="form-label fw-bold">สถานะเบิกจ่าย</label>
                     <div id="paymentStatusCheckboxContainer"
                         class="filter-checkbox-group d-flex align-items-center gap-3"
@@ -784,7 +785,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-8">
                     <label class="form-label fw-bold">แผนของเงิน</label>
                     <div id="planFilterContainer" class="filter-checkbox-group d-flex flex-wrap gap-2"
                         style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white; min-height: 42px;">
@@ -810,13 +811,51 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-bold">กลุ่มการเบิกเงิน (หมายเหตุ)</label>
-                    <div id="noteFilterContainer" class="filter-checkbox-group"
-                        style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background: white;">
+            </div>
+
+            <!-- Additional Filters -->
+            <div id="advancedFiltersPanel" class="mt-3 pt-3 border-top">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">วันที่เริ่มต้น</label>
+                        <input type="date" class="form-control" id="startDateFilter">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">วันที่สิ้นสุด</label>
+                        <input type="date" class="form-control" id="endDateFilter">
                     </div>
                 </div>
-                <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
+                <div class="row g-4">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">แหล่งน้ำมัน</label>
+                        <input type="text" class="form-control" id="sourceFilterInput" list="sourceList" placeholder="พิมพ์ค้นหา...">
+                        <datalist id="sourceList"></datalist>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">ปลายทาง</label>
+                        <input type="text" class="form-control" id="destinationFilterInput" list="destinationList" placeholder="พิมพ์ค้นหา...">
+                        <datalist id="destinationList"></datalist>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">หน่วย</label>
+                        <input type="text" class="form-control" id="unitFilterInput" list="unitList" placeholder="พิมพ์ค้นหา...">
+                        <datalist id="unitList"></datalist>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">ภารกิจ</label>
+                        <input type="text" class="form-control" id="missionFilterInput" list="missionList" placeholder="พิมพ์ค้นหา...">
+                        <datalist id="missionList"></datalist>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">กลุ่มการเบิกเงิน</label>
+                        <input type="text" class="form-control" id="noteFilterInput" list="noteList" placeholder="พิมพ์ค้นหา...">
+                        <datalist id="noteList"></datalist>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-12 d-flex justify-content-end gap-2">
                     <button class="btn btn-primary px-4" id="resetFiltersBtn">
                         <i class="fas fa-redo me-1"></i> รีเซ็ต
                     </button>
@@ -831,53 +870,6 @@
                         title="Export แหล่งน้ำมัน">
                         <i class="fas fa-gas-pump me-1"></i> Export แหล่งน้ำมัน
                     </button>
-                </div>
-            </div>
-
-            <!-- Advanced Filters (Toggle) -->
-            <div class="mt-3 pt-3 border-top">
-                <button class="btn btn-sm btn-outline-primary" id="toggleAdvancedFilters">
-                    <i class="fas fa-sliders-h me-1"></i>ตัวกรองขั้นสูง
-                </button>
-            </div>
-
-            <!-- Advanced Filters Panel -->
-            <div id="advancedFiltersPanel" class="mt-3" style="display: none;">
-                <div class="row g-4 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">วันที่เริ่มต้น</label>
-                        <input type="date" class="form-control" id="startDateFilter">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">วันที่สิ้นสุด</label>
-                        <input type="date" class="form-control" id="endDateFilter">
-                    </div>
-                </div>
-                <div class="row g-4">
-                    <div class="col-md-3">
-                        <label class="form-label fw-bold">แหล่งน้ำมัน</label>
-                        <div id="sourceFilterContainer" class="filter-checkbox-group"
-                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-bold">ปลายทาง</label>
-                        <div id="destinationFilterContainer" class="filter-checkbox-group"
-                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-bold">หน่วย</label>
-                        <div id="unitFilterContainer" class="filter-checkbox-group"
-                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-bold">ภารกิจ</label>
-                        <div id="missionFilterContainer" class="filter-checkbox-group"
-                            style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

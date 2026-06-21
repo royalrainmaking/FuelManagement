@@ -765,13 +765,27 @@
                     <div style="font-size:.68rem;opacity:.75;">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</div>
                 </div>
             </a>
-            <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-warning btn-sm fw-bold shadow-sm me-2" onclick="printDashboard()"><i class="fas fa-print me-1"></i> สั่งปริ้น</button>
-                <button class="btn btn-light btn-sm" id="refreshBtn"><i class="fas fa-sync-alt me-1"></i>รีเฟรช</button>
-                <a href="monthly-province-summary.html" class="btn btn-info btn-sm text-white" title="สรุปรายจังหวัด"><i class="fas fa-map-marked-alt me-1"></i>สรุปรายจังหวัด</a>
-                <a href="transaction-summary.html" class="btn btn-light btn-sm"><i
-                        class="fas fa-list me-1"></i>รายการ</a>
-                <a href="index.html" class="btn btn-light btn-sm"><i class="fas fa-home me-1"></i>หน้าแรก</a>
+            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2 flex-wrap">
+                <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-outline-light btn-sm" title="ข้อมูลอากาศยาน">
+                    <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
+                </a>
+                <a href="index.html" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-home me-1"></i> หน้าแรก
+                </a>
+                <a href="monthly-province-summary.html" class="btn btn-outline-light btn-sm" title="แผนที่">
+                    <i class="fas fa-map-marked-alt me-1"></i> แผนที่
+                </a>
+                <a href="transaction-summary.html" class="btn btn-outline-light btn-sm" title="สรุปรายการเดินบัญชี">
+                    <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
+                </a>
+                <a href="budget-print.html" class="btn btn-outline-light btn-sm" title="สรุปงบ/น้ำมัน พร้อมพิมพ์">
+                    <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
+                </a>
+                
+                <div class="vr bg-light mx-1 opacity-50" style="width: 2px;"></div>
+                
+                <button class="btn btn-outline-light btn-sm" id="refreshBtn"><i class="fas fa-sync-alt me-1"></i>รีเฟรช</button>
+                <button class="btn btn-warning btn-sm fw-bold shadow-sm" onclick="printDashboard()"><i class="fas fa-print me-1"></i> สั่งปริ้น</button>
             </div>
         </div>
     </nav>

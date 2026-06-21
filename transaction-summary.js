@@ -29,12 +29,12 @@ const paginationNav = document.getElementById('paginationNav');
 const detailModalContent = document.getElementById('detailModalContent');
 
 // Advanced Filters
-const toggleAdvancedFiltersBtn = document.getElementById('toggleAdvancedFilters');
 const advancedFiltersPanel = document.getElementById('advancedFiltersPanel');
-const sourceFilterContainer = document.getElementById('sourceFilterContainer');
-const destinationFilterContainer = document.getElementById('destinationFilterContainer');
-const unitFilterContainer = document.getElementById('unitFilterContainer');
-const missionFilterContainer = document.getElementById('missionFilterContainer');
+const sourceFilterInput = document.getElementById('sourceFilterInput');
+const destinationFilterInput = document.getElementById('destinationFilterInput');
+const unitFilterInput = document.getElementById('unitFilterInput');
+const missionFilterInput = document.getElementById('missionFilterInput');
+const noteFilterInput = document.getElementById('noteFilterInput');
 const startDateFilter = document.getElementById('startDateFilter');
 const endDateFilter = document.getElementById('endDateFilter');
 
@@ -151,24 +151,14 @@ function setupEventListeners() {
     
     resetFiltersBtn.addEventListener('click', resetFilters);
     
-    // Advanced Filters
-    if (toggleAdvancedFiltersBtn) {
-        toggleAdvancedFiltersBtn.addEventListener('click', () => {
-            advancedFiltersPanel.style.display = advancedFiltersPanel.style.display === 'none' ? 'block' : 'none';
-        });
-    }
+
     
-    // Advanced Filter Checkboxes
-    sourceFilterContainer.addEventListener('change', applyFilters);
-    destinationFilterContainer.addEventListener('change', applyFilters);
-    unitFilterContainer.addEventListener('change', applyFilters);
-    if (missionFilterContainer) {
-        missionFilterContainer.addEventListener('change', applyFilters);
-    }
-    const noteFilterContainer = document.getElementById('noteFilterContainer');
-    if (noteFilterContainer) {
-        noteFilterContainer.addEventListener('change', applyFilters);
-    }
+    // Advanced Filter Inputs
+    if (sourceFilterInput) sourceFilterInput.addEventListener('input', applyFilters);
+    if (destinationFilterInput) destinationFilterInput.addEventListener('input', applyFilters);
+    if (unitFilterInput) unitFilterInput.addEventListener('input', applyFilters);
+    if (missionFilterInput) missionFilterInput.addEventListener('input', applyFilters);
+    if (noteFilterInput) noteFilterInput.addEventListener('input', applyFilters);
     
     // Date Range Filters
     startDateFilter.addEventListener('change', applyFilters);
@@ -248,7 +238,7 @@ function setupEventListeners() {
 }
 
 /**
- * Populate advanced filter options with checkboxes
+ * Populate advanced filter options with datalists
  */
 function populateFilterOptions() {
     const sources = new Set();
@@ -271,44 +261,24 @@ function populateFilterOptions() {
         }
     });
     
-    // Helper function to create checkboxes
-    const createCheckboxGroup = (values, containerId) => {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
+    // Helper function to create datalist options
+    const populateDatalist = (values, datalistId) => {
+        const datalist = document.getElementById(datalistId);
+        if (!datalist) return;
+        datalist.innerHTML = '';
         
-        Array.from(values).sort().forEach((value, index) => {
-            const checkboxDiv = document.createElement('div');
-            checkboxDiv.className = 'form-check';
-            checkboxDiv.style.marginBottom = '8px';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'form-check-input';
-            checkbox.id = `${containerId}_${index}`;
-            checkbox.value = value;
-            
-            const label = document.createElement('label');
-            label.className = 'form-check-label';
-            label.htmlFor = `${containerId}_${index}`;
-            label.textContent = value;
-            label.style.marginBottom = '0';
-            
-            checkboxDiv.appendChild(checkbox);
-            checkboxDiv.appendChild(label);
-            container.appendChild(checkboxDiv);
+        Array.from(values).sort().forEach((value) => {
+            const option = document.createElement('option');
+            option.value = value;
+            datalist.appendChild(option);
         });
     };
     
-    createCheckboxGroup(sources, 'sourceFilterContainer');
-    createCheckboxGroup(destinations, 'destinationFilterContainer');
-    createCheckboxGroup(units, 'unitFilterContainer');
-    if (missionFilterContainer) {
-        createCheckboxGroup(missions, 'missionFilterContainer');
-    }
-    const noteFilterContainer = document.getElementById('noteFilterContainer');
-    if (noteFilterContainer) {
-        createCheckboxGroup(notes, 'noteFilterContainer');
-    }
+    populateDatalist(sources, 'sourceList');
+    populateDatalist(destinations, 'destinationList');
+    populateDatalist(units, 'unitList');
+    populateDatalist(missions, 'missionList');
+    populateDatalist(notes, 'noteList');
 }
 
 /**
@@ -427,17 +397,15 @@ function getPlanNameFromMissions(missions) {
 function applyFilters() {
     // Get all filter values
     const searchText = searchInput.value.toLowerCase();
-    const selectedSources = Array.from(sourceFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-    const selectedDestinations = Array.from(destinationFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-    const selectedUnits = Array.from(unitFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
-    const selectedMissions = missionFilterContainer ? Array.from(missionFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
+    const sourceVal = sourceFilterInput ? sourceFilterInput.value.trim() : '';
+    const destVal = destinationFilterInput ? destinationFilterInput.value.trim() : '';
+    const unitVal = unitFilterInput ? unitFilterInput.value.trim() : '';
+    const missionVal = missionFilterInput ? missionFilterInput.value.trim() : '';
+    const noteVal = noteFilterInput ? noteFilterInput.value.trim() : '';
     
     const planFilterContainer = document.getElementById('planFilterContainer');
     const selectedPlans = planFilterContainer ? Array.from(planFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
 
-    const noteFilterContainer = document.getElementById('noteFilterContainer');
-    const selectedNotes = noteFilterContainer ? Array.from(noteFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
-    
     const startDate = startDateFilter.value;
     const endDate = endDateFilter.value;
     const sortBy = sortByFilter.value;
@@ -466,7 +434,7 @@ function applyFilters() {
         const matchesSearch = !searchText || 
             transaction.source_name.toLowerCase().includes(searchText) ||
             transaction.destination_name.toLowerCase().includes(searchText) ||
-            transaction.operator_name.toLowerCase().includes(searchText) ||
+            (transaction.operator_name && transaction.operator_name.toLowerCase().includes(searchText)) ||
             transaction.transaction_type.toLowerCase().includes(searchText) ||
             paidStatusText.includes(searchText) ||
             (transaction.paid_note && transaction.paid_note.toLowerCase().includes(searchText)) ||
@@ -475,32 +443,28 @@ function applyFilters() {
             (transaction.book_no && transaction.book_no.toString().toLowerCase().includes(searchText)) ||
             (transaction.receipt_no && transaction.receipt_no.toString().toLowerCase().includes(searchText));
 
-        // Source filter (multiple selection)
-        const matchesSource = selectedSources.length === 0 || 
-            selectedSources.includes(transaction.source_name);
+        // Source filter
+        const matchesSource = !sourceVal || transaction.source_name === sourceVal;
 
-        // Destination filter (multiple selection)
-        const matchesDestination = selectedDestinations.length === 0 || 
-            selectedDestinations.includes(transaction.destination_name);
+        // Destination filter
+        const matchesDestination = !destVal || transaction.destination_name === destVal;
 
-        // Unit filter (multiple selection)
-        const matchesUnit = selectedUnits.length === 0 || 
-            selectedUnits.includes(transaction.unit);
+        // Unit filter
+        const matchesUnit = !unitVal || transaction.unit === unitVal;
 
-        // Mission filter (multiple selection)
-        let matchesMission = selectedMissions.length === 0;
+        // Mission filter
+        let matchesMission = !missionVal;
         if (!matchesMission && transaction.missions) {
             const rowMissions = transaction.missions.split(',').map(m => m.trim());
-            matchesMission = selectedMissions.some(m => rowMissions.includes(m));
+            matchesMission = rowMissions.includes(missionVal);
         }
 
-        // Plan filter (multiple selection)
+        // Plan filter
         const transactionPlan = getPlanNameFromMissions(transaction.missions);
         const matchesPlan = selectedPlans.length === 0 || selectedPlans.includes(transactionPlan);
 
-        // Note filter (multiple selection)
-        const matchesNote = selectedNotes.length === 0 || 
-            (transaction.paid_note && selectedNotes.includes(transaction.paid_note.trim()));
+        // Note filter
+        const matchesNote = !noteVal || (transaction.paid_note && transaction.paid_note.trim() === noteVal);
 
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
@@ -1347,18 +1311,12 @@ function resetFilters() {
         itemsPerPage = 10;
     }
     
-    // Uncheck all dynamic checkboxes
-    sourceFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    destinationFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    unitFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    if (missionFilterContainer) {
-        missionFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    }
-    
-    const noteFilterContainer = document.getElementById('noteFilterContainer');
-    if (noteFilterContainer) {
-        noteFilterContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    }
+    // Clear datalist inputs
+    if (sourceFilterInput) sourceFilterInput.value = '';
+    if (destinationFilterInput) destinationFilterInput.value = '';
+    if (unitFilterInput) unitFilterInput.value = '';
+    if (missionFilterInput) missionFilterInput.value = '';
+    if (noteFilterInput) noteFilterInput.value = '';
 
     // Reset plan filter
     const planFilterCheckboxes = document.querySelectorAll('.plan-filter-checkbox');

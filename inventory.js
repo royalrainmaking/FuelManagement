@@ -2892,15 +2892,38 @@ function updateSummaryUI(summaryData) {
             fuelGaugePercentage.textContent = `${capacityPercentage.toFixed(0)}%`;
         }
 
-        // อัพเดท Progress Bar
+        // อัพเดท Progress Bar เดิม (ถ้ามี)
         if (fuelProgressFill) {
             fuelProgressFill.style.width = `${capacityPercentage}%`;
-            // อัพเดท progress bar color based on status
             fuelProgressFill.classList.remove('low', 'medium');
             if (capacityPercentage < 30) {
                 fuelProgressFill.classList.add('low');
             } else if (capacityPercentage < 70) {
                 fuelProgressFill.classList.add('medium');
+            }
+        }
+        
+        // Update new UI progress bar (ถังน้ำมันแนวตั้ง)
+        const fuelProgressBar = document.getElementById('fuelProgressBar');
+        if (fuelProgressBar) {
+            fuelProgressBar.style.height = `${capacityPercentage}%`; // ใช้ height แทน width สำหรับถังแนวตั้ง
+            
+            // เปลี่ยนสีน้ำมันในถังตามระดับเปอร์เซ็นต์
+            if (capacityPercentage < 30) {
+                // สีแดง (ต่ำ)
+                fuelProgressBar.style.background = 'linear-gradient(180deg, #f87171 0%, #dc2626 100%)';
+                fuelProgressBar.style.boxShadow = '0 -3px 10px rgba(220, 38, 38, 0.5)';
+                if (fuelGaugePercentage) fuelGaugePercentage.style.color = '#991b1b';
+            } else if (capacityPercentage < 70) {
+                // สีส้ม/เหลือง (ปานกลาง)
+                fuelProgressBar.style.background = 'linear-gradient(180deg, #fbb86c 0%, #f59e0b 100%)';
+                fuelProgressBar.style.boxShadow = '0 -3px 10px rgba(245, 158, 11, 0.5)';
+                if (fuelGaugePercentage) fuelGaugePercentage.style.color = '#92400e';
+            } else {
+                // สีฟ้า (ปกติ/เต็ม)
+                fuelProgressBar.style.background = 'linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)';
+                fuelProgressBar.style.boxShadow = '0 -3px 10px rgba(2, 132, 199, 0.5)';
+                if (fuelGaugePercentage) fuelGaugePercentage.style.color = '#1e3a8a';
             }
         }
     } else {
@@ -2915,6 +2938,12 @@ function updateSummaryUI(summaryData) {
         }
         if (fuelProgressFill) {
             fuelProgressFill.style.width = '0%';
+        }
+        const fuelProgressBar = document.getElementById('fuelProgressBar');
+        if (fuelProgressBar) {
+            fuelProgressBar.style.height = '0%'; // เปลี่ยนเป็น height สำหรับถังแนวตั้ง
+            fuelProgressBar.style.background = 'linear-gradient(180deg, #f87171 0%, #dc2626 100%)';
+            fuelProgressBar.style.boxShadow = 'none';
         }
     }
 
