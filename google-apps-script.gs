@@ -129,7 +129,18 @@ function getBudgetData(sheetsId, budgetGid) {
       transData.forEach((row, index) => {
         // รวมทุกรายการที่มีการระบุยอดเงิน (คอลัมน์ I) และภารกิจ (คอลัมน์ R)
         // ยกเลิกการกรองเฉพาะ refill/fuel-card เพื่อให้หักลบยอดตามจริงที่บันทึก
-        const amount = parseFloat(row[8]) || 0; // คอลัมน์ I (ยอดรวม)
+        // ฟังก์ชันแปลงตัวเลขที่รองรับ format แปลกๆ (เช่น มีลูกน้ำ, วงเล็บ, หรือเว้นวรรค)
+        let rawAmount = row[8];
+        let amount = 0;
+        if (rawAmount !== null && rawAmount !== undefined && rawAmount !== '') {
+            let str = rawAmount.toString().trim();
+            if (str.startsWith('(') && str.endsWith(')')) {
+                str = '-' + str.substring(1, str.length - 1);
+            }
+            str = str.replace(/[, ]/g, '');
+            amount = parseFloat(str) || 0;
+        }
+        
         const missions = (row[17] || '').toString().trim(); // คอลัมน์ R (ภารกิจ)
         
         if (amount !== 0) {
@@ -299,9 +310,18 @@ function getSummaryData(sheetsId, gid) {
     let totalPurchaseAmount = 0;
 
     for (let i = 0; i < amountValues.length; i++) {
-      const value = parseFloat(amountValues[i][0]);
+      let rawVal = amountValues[i][0];
+      let value = 0;
+      if (rawVal !== null && rawVal !== undefined && rawVal !== '') {
+          let str = rawVal.toString().trim();
+          if (str.startsWith('(') && str.endsWith(')')) {
+              str = '-' + str.substring(1, str.length - 1);
+          }
+          str = str.replace(/[, ]/g, '');
+          value = parseFloat(str);
+      }
       // ตรวจสอบว่าเป็นตัวเลขและไม่ใช่ NaN
-      if (!isNaN(value) && typeof amountValues[i][0] === 'number') {
+      if (!isNaN(value) && value !== 0) {
         totalPurchaseAmount += value;
       }
     }

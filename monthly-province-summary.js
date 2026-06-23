@@ -337,7 +337,7 @@ function processData() {
         let v = parseFloat(t.volume_liters || t.volume) || 0;
         let c = parseFloat(t.total_cost) || 0;
         let u = (t.unit || '').trim();
-        if (v > 0 && c > 0 && u) {
+        if (v !== 0 && c !== 0 && u) {
             if (!monthlyTotals[m]) monthlyTotals[m] = { provs: {}, sumV: 0, sumC: 0 };
             if (!monthlyTotals[m].provs[u]) monthlyTotals[m].provs[u] = {v: 0, c: 0};
             monthlyTotals[m].provs[u].v += v;
