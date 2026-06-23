@@ -129,21 +129,18 @@ function getBudgetData(sheetsId, budgetGid) {
       transData.forEach((row, index) => {
         // รวมทุกรายการที่มีการระบุยอดเงิน (คอลัมน์ I) และภารกิจ (คอลัมน์ R)
         // ยกเลิกการกรองเฉพาะ refill/fuel-card เพื่อให้หักลบยอดตามจริงที่บันทึก
-        // ฟังก์ชันแปลงตัวเลขที่รองรับ format แปลกๆ (เช่น มีลูกน้ำ, วงเล็บ, หรือเว้นวรรค)
-        let rawAmount = row[8];
-        let amount = 0;
-        if (rawAmount !== null && rawAmount !== undefined && rawAmount !== '') {
-            let str = rawAmount.toString().trim();
-            if (str.startsWith('(') && str.endsWith(')')) {
-                str = '-' + str.substring(1, str.length - 1);
-            }
-            str = str.replace(/[, ]/g, '');
-            amount = parseFloat(str) || 0;
-        }
-        
+        const amount = parseFloat(row[8]) || 0; // คอลัมน์ I (ยอดรวม)
         const missions = (row[17] || '').toString().trim(); // คอลัมน์ R (ภารกิจ)
+        const transactionType = (row[3] || '').toString().toLowerCase(); // คอลัมน์ D (ประเภท)
         
-        if (amount !== 0) {
+        // กรองเฉพาะรายการที่เกี่ยวข้องกับงบประมาณ:
+        // 1. รายการซื้อน้ำมัน (refill / fuel-card / ซื้อ)
+        // 2. รายการปรับลบ (amount < 0) 
+        const isPurchase = transactionType.includes('refill') || 
+                           transactionType.includes('fuel-card') || 
+                           transactionType.includes('ซื้อ');
+                           
+        if (amount !== 0 && (isPurchase || amount < 0)) {
           totalPurchaseAmount += amount;
           
           let targetPlan = 'แผนยุทธศาสตร์'; // ค่าเริ่มต้น
@@ -310,18 +307,9 @@ function getSummaryData(sheetsId, gid) {
     let totalPurchaseAmount = 0;
 
     for (let i = 0; i < amountValues.length; i++) {
-      let rawVal = amountValues[i][0];
-      let value = 0;
-      if (rawVal !== null && rawVal !== undefined && rawVal !== '') {
-          let str = rawVal.toString().trim();
-          if (str.startsWith('(') && str.endsWith(')')) {
-              str = '-' + str.substring(1, str.length - 1);
-          }
-          str = str.replace(/[, ]/g, '');
-          value = parseFloat(str);
-      }
+      const value = parseFloat(amountValues[i][0]);
       // ตรวจสอบว่าเป็นตัวเลขและไม่ใช่ NaN
-      if (!isNaN(value) && value !== 0) {
+      if (!isNaN(value) && typeof amountValues[i][0] === 'number') {
         totalPurchaseAmount += value;
       }
     }
