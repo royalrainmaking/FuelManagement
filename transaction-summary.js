@@ -30,11 +30,6 @@ const detailModalContent = document.getElementById('detailModalContent');
 
 // Advanced Filters
 const advancedFiltersPanel = document.getElementById('advancedFiltersPanel');
-const sourceFilterInput = document.getElementById('sourceFilterInput');
-const destinationFilterInput = document.getElementById('destinationFilterInput');
-const unitFilterInput = document.getElementById('unitFilterInput');
-const missionFilterInput = document.getElementById('missionFilterInput');
-const noteFilterInput = document.getElementById('noteFilterInput');
 const startDateFilter = document.getElementById('startDateFilter');
 const endDateFilter = document.getElementById('endDateFilter');
 
@@ -152,13 +147,8 @@ function setupEventListeners() {
     resetFiltersBtn.addEventListener('click', resetFilters);
     
 
-    
-    // Advanced Filter Inputs
-    if (sourceFilterInput) sourceFilterInput.addEventListener('input', applyFilters);
-    if (destinationFilterInput) destinationFilterInput.addEventListener('input', applyFilters);
-    if (unitFilterInput) unitFilterInput.addEventListener('input', applyFilters);
-    if (missionFilterInput) missionFilterInput.addEventListener('input', applyFilters);
-    if (noteFilterInput) noteFilterInput.addEventListener('input', applyFilters);
+    // Advanced Filter Inputs are now multi-select dropdowns
+    // Event listeners will be set up during populateFilterOptions
     
     // Date Range Filters
     startDateFilter.addEventListener('change', applyFilters);
@@ -238,7 +228,64 @@ function setupEventListeners() {
 }
 
 /**
- * Populate advanced filter options with datalists
+ * Setup Multi-Select Dropdown
+ */
+function setupMultiSelectDropdown(dropdownBtnId, optionsContainerId) {
+    const container = document.getElementById(optionsContainerId);
+    if (!container) return;
+    
+    // Checkbox change listener
+    container.addEventListener('change', function(e) {
+        if (e.target.classList.contains('multi-select-checkbox')) {
+            updateMultiSelectButtonText(dropdownBtnId, optionsContainerId);
+            applyFilters();
+        }
+    });
+
+    // Search input listener
+    const dropdownMenu = container.closest('.dropdown-menu');
+    const searchInput = dropdownMenu ? dropdownMenu.querySelector('.search-input') : null;
+    if (searchInput) {
+        // Remove old listeners to prevent duplicates
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        
+        newSearchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const labels = container.querySelectorAll('.form-check');
+            labels.forEach(label => {
+                const text = label.textContent.toLowerCase();
+                label.style.display = text.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    }
+}
+
+function updateMultiSelectButtonText(btnId, containerId) {
+    const btn = document.getElementById(btnId);
+    const container = document.getElementById(containerId);
+    if (!btn || !container) return;
+
+    const checked = container.querySelectorAll('.multi-select-checkbox:checked');
+    const textSpan = btn.querySelector('.selected-text');
+    
+    if (checked.length === 0) {
+        textSpan.textContent = 'ทั้งหมด';
+    } else if (checked.length === 1) {
+        textSpan.textContent = checked[0].value;
+    } else {
+        textSpan.textContent = `เลือกแล้ว (${checked.length})`;
+    }
+}
+
+function getMultiSelectValues(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.multi-select-checkbox:checked')).map(cb => cb.value);
+}
+
+/**
+ * Populate advanced filter options with checkboxes
  */
 function populateFilterOptions() {
     const sources = new Set();
@@ -261,24 +308,41 @@ function populateFilterOptions() {
         }
     });
     
-    // Helper function to create datalist options
-    const populateDatalist = (values, datalistId) => {
-        const datalist = document.getElementById(datalistId);
-        if (!datalist) return;
-        datalist.innerHTML = '';
+    // Helper function to create checkbox options
+    const populateCheckboxes = (values, containerId, btnId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
         
-        Array.from(values).sort().forEach((value) => {
-            const option = document.createElement('option');
-            option.value = value;
-            datalist.appendChild(option);
+        // Preserve selected values before re-rendering
+        const currentSelected = getMultiSelectValues(containerId);
+        
+        container.innerHTML = '';
+        
+        Array.from(values).sort().forEach((value, index) => {
+            const id = `${containerId}_${index}`;
+            const isChecked = currentSelected.includes(value) ? 'checked' : '';
+            
+            const div = document.createElement('div');
+            div.className = 'form-check border-bottom';
+            div.innerHTML = `
+                <input class="form-check-input multi-select-checkbox" type="checkbox" value="${value}" id="${id}" ${isChecked}>
+                <label class="form-check-label" for="${id}">
+                    ${value}
+                </label>
+            `;
+            container.appendChild(div);
         });
+
+        // Update button text and setup events
+        updateMultiSelectButtonText(btnId, containerId);
+        setupMultiSelectDropdown(btnId, containerId);
     };
     
-    populateDatalist(sources, 'sourceList');
-    populateDatalist(destinations, 'destinationList');
-    populateDatalist(units, 'unitList');
-    populateDatalist(missions, 'missionList');
-    populateDatalist(notes, 'noteList');
+    populateCheckboxes(sources, 'sourceFilterOptions', 'sourceDropdownBtn');
+    populateCheckboxes(destinations, 'destinationFilterOptions', 'destDropdownBtn');
+    populateCheckboxes(units, 'unitFilterOptions', 'unitDropdownBtn');
+    populateCheckboxes(missions, 'missionFilterOptions', 'missionDropdownBtn');
+    populateCheckboxes(notes, 'noteFilterOptions', 'noteDropdownBtn');
 }
 
 /**
@@ -391,17 +455,44 @@ function getPlanNameFromMissions(missions) {
     return 'แผนยุทธศาสตร์';
 }
 
+function getPlanBadge(missions) {
+    const planName = getPlanNameFromMissions(missions);
+    let badgeText = '';
+    let badgeClass = '';
+    let badgeStyle = 'font-size: 0.65rem; font-weight: normal; padding: 0.25em 0.4em;';
+    
+    if (planName === 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)') {
+        badgeText = 'ลูกเห็บ';
+        badgeClass = 'badge';
+        badgeStyle += ' background-color: #6f42c1; color: white;'; // สีม่วง
+    } else if (planName === 'ดัดแปลงสภาพอากาศ (ฝุ่น)') {
+        badgeText = 'ฝุ่น';
+        badgeClass = 'badge bg-danger'; // สีแดง
+    } else if (planName === 'แผนบรู') {
+        badgeText = 'บรู';
+        badgeClass = 'badge bg-success'; // สีเขียว
+    } else if (planName === 'แผนยุทธศาสตร์') {
+        badgeText = 'ยุทธ';
+        badgeClass = 'badge bg-warning text-dark'; // สีเหลือง
+    } else {
+        badgeText = 'ยุทธ';
+        badgeClass = 'badge bg-warning text-dark';
+    }
+    
+    return `<span class="${badgeClass} ms-1" style="${badgeStyle}">${badgeText}</span>`;
+}
+
 /**
  * Apply filters and sorting
  */
 function applyFilters() {
     // Get all filter values
     const searchText = searchInput.value.toLowerCase();
-    const sourceVal = sourceFilterInput ? sourceFilterInput.value.trim() : '';
-    const destVal = destinationFilterInput ? destinationFilterInput.value.trim() : '';
-    const unitVal = unitFilterInput ? unitFilterInput.value.trim() : '';
-    const missionVal = missionFilterInput ? missionFilterInput.value.trim() : '';
-    const noteVal = noteFilterInput ? noteFilterInput.value.trim() : '';
+    const selectedSources = getMultiSelectValues('sourceFilterOptions');
+    const selectedDestinations = getMultiSelectValues('destinationFilterOptions');
+    const selectedUnits = getMultiSelectValues('unitFilterOptions');
+    const selectedMissions = getMultiSelectValues('missionFilterOptions');
+    const selectedNotes = getMultiSelectValues('noteFilterOptions');
     
     const planFilterContainer = document.getElementById('planFilterContainer');
     const selectedPlans = planFilterContainer ? Array.from(planFilterContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value) : [];
@@ -444,19 +535,19 @@ function applyFilters() {
             (transaction.receipt_no && transaction.receipt_no.toString().toLowerCase().includes(searchText));
 
         // Source filter
-        const matchesSource = !sourceVal || transaction.source_name === sourceVal;
+        const matchesSource = selectedSources.length === 0 || selectedSources.includes(transaction.source_name);
 
         // Destination filter
-        const matchesDestination = !destVal || transaction.destination_name === destVal;
+        const matchesDestination = selectedDestinations.length === 0 || selectedDestinations.includes(transaction.destination_name);
 
         // Unit filter
-        const matchesUnit = !unitVal || transaction.unit === unitVal;
+        const matchesUnit = selectedUnits.length === 0 || selectedUnits.includes(transaction.unit);
 
         // Mission filter
-        let matchesMission = !missionVal;
+        let matchesMission = selectedMissions.length === 0;
         if (!matchesMission && transaction.missions) {
             const rowMissions = transaction.missions.split(',').map(m => m.trim());
-            matchesMission = rowMissions.includes(missionVal);
+            matchesMission = rowMissions.some(m => selectedMissions.includes(m));
         }
 
         // Plan filter
@@ -464,7 +555,7 @@ function applyFilters() {
         const matchesPlan = selectedPlans.length === 0 || selectedPlans.includes(transactionPlan);
 
         // Note filter
-        const matchesNote = !noteVal || (transaction.paid_note && transaction.paid_note.trim() === noteVal);
+        const matchesNote = selectedNotes.length === 0 || (transaction.paid_note && selectedNotes.includes(transaction.paid_note.trim()));
 
         // Date range filter
         const matchesDateRange = (!startDate || !endDate || (transaction.date >= startDate && transaction.date <= endDate));
@@ -584,7 +675,7 @@ function renderTable(isAppend = false) {
     if (pageTransactions.length === 0 && currentPage === 1) {
         transactionsTableBody.innerHTML = `
             <tr>
-                <td colspan="10" class="text-center text-muted py-5">
+                <td colspan="11" class="text-center text-muted py-5">
                     <div class="empty-state">
                         <div class="empty-state-icon">
                             <i class="fas fa-inbox"></i>
@@ -623,17 +714,23 @@ function renderTable(isAppend = false) {
                     ${paidNote ? `<br><small class="text-success" style="font-size: 0.75rem; cursor: pointer;" title="คลิกเพื่อแก้ไขหมายเหตุ" onclick="editPaymentNote('${transaction.uid}', '${paidNote.replace(/'/g, "\\'")}')"><i class="fas fa-tag me-1"></i>${paidNote}</small>` : 
                         (isPaid && !isDisabled ? `<br><small class="text-muted" style="font-size: 0.75rem; cursor: pointer;" title="คลิกเพื่อเพิ่มหมายเหตุ" onclick="editPaymentNote('${transaction.uid}', '')"><i class="fas fa-plus-circle me-1"></i>เพิ่มหมายเหตุ</small>` : '')}
                 </td>
-                <td><small class="text-muted">${formatDate(transaction.date)}</small></td>
-                <td>
+                <td class="text-center"><span class="fw-bold" style="font-size: 0.95rem; color: #2c3e50;">${formatDateShort(transaction.date)}</span></td>
+                <td style="display: none;">
                     ${getTransactionTypeBadge(transaction.transaction_type)}
                 </td>
                 <td><small>${transaction.source_name}</small></td>
                 <td><small>${transaction.destination_name}</small></td>
-                <td><small class="text-truncate d-inline-block" style="max-width: 120px;" title="${transaction.missions || '-'}">${transaction.missions || '-'}</small></td>
-                <td class="text-end">
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <small class="text-truncate d-inline-block" style="max-width: 120px;" data-bs-toggle="tooltip" data-bs-placement="top" title="${transaction.missions || '-'}">${transaction.missions || '-'}</small>
+                        ${getPlanBadge(transaction.missions)}
+                    </div>
+                </td>
+                <td><small class="text-nowrap">${transaction.unit || '-'}</small></td>
+                <td class="text-center">
                     <strong>${formatNumber(transaction.volume)}</strong>
                 </td>
-                <td class="text-end">
+                <td class="text-center">
                     <strong>${formatNumber(transaction.total_cost)}</strong>
                 </td>
                 <td class="table-cell-action">
@@ -656,13 +753,23 @@ function renderTable(isAppend = false) {
                 </td>
             </tr>
         `;
-    }).join('');
+    });
     
     if (isAppend && currentPage > 1) {
-        transactionsTableBody.innerHTML += rowsHTML;
+        transactionsTableBody.innerHTML += rowsHTML.join('');
     } else {
-        transactionsTableBody.innerHTML = rowsHTML;
+        transactionsTableBody.innerHTML = rowsHTML.join('');
     }
+    
+    // Initialize tooltips for truncated texts
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        const tooltipTriggerList = [].slice.call(transactionsTableBody.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+
+    updatePagination();
 }
 
 /**
@@ -1311,12 +1418,19 @@ function resetFilters() {
         itemsPerPage = 10;
     }
     
-    // Clear datalist inputs
-    if (sourceFilterInput) sourceFilterInput.value = '';
-    if (destinationFilterInput) destinationFilterInput.value = '';
-    if (unitFilterInput) unitFilterInput.value = '';
-    if (missionFilterInput) missionFilterInput.value = '';
-    if (noteFilterInput) noteFilterInput.value = '';
+    // Clear multi-select dropdowns
+    document.querySelectorAll('.multi-select-checkbox').forEach(cb => cb.checked = false);
+    updateMultiSelectButtonText('sourceDropdownBtn', 'sourceFilterOptions');
+    updateMultiSelectButtonText('destDropdownBtn', 'destinationFilterOptions');
+    updateMultiSelectButtonText('unitDropdownBtn', 'unitFilterOptions');
+    updateMultiSelectButtonText('missionDropdownBtn', 'missionFilterOptions');
+    updateMultiSelectButtonText('noteDropdownBtn', 'noteFilterOptions');
+    
+    // Clear search inputs in dropdowns
+    document.querySelectorAll('.multi-select-search .search-input').forEach(input => {
+        input.value = '';
+        input.dispatchEvent(new Event('input'));
+    });
 
     // Reset plan filter
     const planFilterCheckboxes = document.querySelectorAll('.plan-filter-checkbox');
@@ -1386,6 +1500,19 @@ function formatDate(dateStr) {
     const options = {
         year: 'numeric',
         month: 'long',
+        day: 'numeric'
+    };
+    
+    return date.toLocaleDateString('th-TH', options);
+}
+
+function formatDateShort(dateStr) {
+    if (!dateStr) return '-';
+    
+    const date = new Date(dateStr);
+    const options = {
+        year: '2-digit',
+        month: 'short',
         day: 'numeric'
     };
     

@@ -1,4 +1,4 @@
-// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -3035,7 +3035,7 @@ async function updateBudgetDisplay() {
                     const planData = plans[planName];
                     const el = document.getElementById(elementId);
                     if (el && planData) {
-                        el.textContent = planData.remaining.toLocaleString('th-TH');
+                        el.textContent = planData.remaining.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     }
                 });
 
@@ -3059,9 +3059,9 @@ async function updateBudgetDisplay() {
                         const progressEl = document.getElementById(`progress${suffix}`);
                         const quickEl = document.getElementById(`quickRemaining${suffix}`);
 
-                        if (budgetEl) budgetEl.textContent = `${planData.budget.toLocaleString('th-TH')} บาท`;
-                        if (remainingEl) remainingEl.textContent = `${planData.remaining.toLocaleString('th-TH')} บาท`;
-                        if (quickEl) quickEl.textContent = planData.remaining.toLocaleString('th-TH');
+                        if (budgetEl) budgetEl.textContent = `${planData.budget.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
+                        if (remainingEl) remainingEl.textContent = `${planData.remaining.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
+                        if (quickEl) quickEl.textContent = planData.remaining.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                         if (progressEl) {
                             const percent = planData.budget > 0 ? (planData.used / planData.budget) * 100 : 0;
@@ -6191,3 +6191,4 @@ async function handlePttPurchaseSubmit() {
         setButtonLoading('submitPTTPurchase', false);
     }
 }
+

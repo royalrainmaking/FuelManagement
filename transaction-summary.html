@@ -138,6 +138,54 @@
             flex-grow: 1;
         }
 
+        .multi-select-dropdown .dropdown-menu {
+            max-height: 250px;
+            overflow-y: auto;
+            width: 100%;
+            padding: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .multi-select-dropdown .dropdown-toggle {
+            width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            color: #495057;
+        }
+        .multi-select-dropdown .dropdown-toggle::after {
+            margin-left: auto;
+        }
+        .multi-select-search {
+            padding: 8px;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
+            border-bottom: 1px solid #eee;
+        }
+        .multi-select-search input {
+            font-size: 0.85rem;
+        }
+        .multi-select-dropdown .form-check {
+            padding: 6px 12px 6px 32px;
+            margin: 0;
+            cursor: pointer;
+        }
+        .multi-select-dropdown .form-check:hover {
+            background-color: #f8f9fa;
+        }
+        .multi-select-dropdown .form-check-input {
+            cursor: pointer;
+        }
+        .multi-select-dropdown .form-check-label {
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+
         .payment-sub-card {
             padding: 1.25rem 0.5rem;
             border-radius: 12px;
@@ -588,7 +636,7 @@
                     <small class="opacity-75">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</small>
                 </div>
             </a>
-            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
+            <div class="navbar-nav ms-auto d-grid d-lg-flex align-items-center gap-2" style="grid-template-columns: 1fr 1fr;">
                 <a href="https://royalrainmaking.github.io/AircraftData/index.html" class="btn btn-outline-light btn-sm"
                     title="ข้อมูลอากาศยาน">
                     <i class="fas fa-plane me-1"></i> ข้อมูลอากาศยาน
@@ -828,28 +876,73 @@
                 <div class="row g-4">
                     <div class="col-md-2">
                         <label class="form-label fw-bold">แหล่งน้ำมัน</label>
-                        <input type="text" class="form-control" id="sourceFilterInput" list="sourceList" placeholder="พิมพ์ค้นหา...">
-                        <datalist id="sourceList"></datalist>
+                        <div class="dropdown multi-select-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="sourceDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="sourceDropdownBtn">
+                                <div class="multi-select-search">
+                                    <input type="text" class="form-control form-control-sm search-input" placeholder="ค้นหา...">
+                                </div>
+                                <div class="options-container" id="sourceFilterOptions"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">ปลายทาง</label>
-                        <input type="text" class="form-control" id="destinationFilterInput" list="destinationList" placeholder="พิมพ์ค้นหา...">
-                        <datalist id="destinationList"></datalist>
+                        <div class="dropdown multi-select-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="destDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="destDropdownBtn">
+                                <div class="multi-select-search">
+                                    <input type="text" class="form-control form-control-sm search-input" placeholder="ค้นหา...">
+                                </div>
+                                <div class="options-container" id="destinationFilterOptions"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold">หน่วย</label>
-                        <input type="text" class="form-control" id="unitFilterInput" list="unitList" placeholder="พิมพ์ค้นหา...">
-                        <datalist id="unitList"></datalist>
+                        <div class="dropdown multi-select-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="unitDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="unitDropdownBtn">
+                                <div class="multi-select-search">
+                                    <input type="text" class="form-control form-control-sm search-input" placeholder="ค้นหา...">
+                                </div>
+                                <div class="options-container" id="unitFilterOptions"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">ภารกิจ</label>
-                        <input type="text" class="form-control" id="missionFilterInput" list="missionList" placeholder="พิมพ์ค้นหา...">
-                        <datalist id="missionList"></datalist>
+                        <div class="dropdown multi-select-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="missionDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="missionDropdownBtn">
+                                <div class="multi-select-search">
+                                    <input type="text" class="form-control form-control-sm search-input" placeholder="ค้นหา...">
+                                </div>
+                                <div class="options-container" id="missionFilterOptions"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold">กลุ่มการเบิกเงิน</label>
-                        <input type="text" class="form-control" id="noteFilterInput" list="noteList" placeholder="พิมพ์ค้นหา...">
-                        <datalist id="noteList"></datalist>
+                        <div class="dropdown multi-select-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="noteDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="noteDropdownBtn">
+                                <div class="multi-select-search">
+                                    <input type="text" class="form-control form-control-sm search-input" placeholder="ค้นหา...">
+                                </div>
+                                <div class="options-container" id="noteFilterOptions"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -880,21 +973,22 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th style="width: 5%;" class="text-center">เบิกเงิน</th>
-                            <th style="width: 10%;"><i class="fas fa-hashtag"></i> UID</th>
-                            <th style="width: 10%;">วันที่</th>
-                            <th style="width: 10%;">ประเภท</th>
-                            <th style="width: 12%;">แหล่งน้ำมัน</th>
-                            <th style="width: 12%;">ปลายทาง</th>
-                            <th style="width: 14%;">ภารกิจ</th>
-                            <th style="width: 11%;">ปริมาณ (ลิตร)</th>
-                            <th style="width: 11%;">มูลค่า (บาท)</th>
+                            <th style="width: 4%;" class="text-center">เบิกเงิน</th>
+                            <th style="width: 8%;"><i class="fas fa-hashtag"></i> UID</th>
+                            <th style="width: 8%;">วันที่</th>
+                            <th style="width: 8%; display: none;">ประเภท</th>
+                            <th style="width: 10%;">แหล่งน้ำมัน</th>
+                            <th style="width: 10%;">ปลายทาง</th>
+                            <th style="width: 12%;">ภารกิจ</th>
+                            <th style="width: 10%;">จังหวัด</th>
+                            <th style="width: 10%;" class="text-center">ปริมาณ (ลิตร)</th>
+                            <th style="width: 10%;" class="text-center">มูลค่า (บาท)</th>
                             <th style="width: 10%;" class="table-cell-action">การจัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="transactionsTableBody">
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-4">
+                            <td colspan="11" class="text-center text-muted py-4">
                                 <i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...
                             </td>
                         </tr>
