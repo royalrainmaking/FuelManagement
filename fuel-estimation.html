@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประมาณการน้ำมัน - ระบบจัดการน้ำมัน</title>
+    <link rel="icon" href="img/ptt.png" type="image/png">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;200;300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar-logo {
+            height: 40px;
+            object-fit: contain;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background-color: white;
+            border-bottom: 2px solid #f8f9fa;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+        }
+
+        .result-value {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .result-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .aircraft-image-container {
+            width: 100%;
+            height: 250px;
+            border-radius: 15px;
+            overflow: hidden;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .aircraft-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+
+        .aircraft-placeholder {
+            color: #adb5bd;
+            font-size: 4rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed #dee2e6;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #6c757d;
+        }
+
+        .detail-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .price-info {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="index.html">
+                <img src="img/logo.png" alt="Logo" class="navbar-logo me-2" onerror="this.src='img/ptt.png'">
+                <div>
+                    <div class="fw-bold">ระบบจัดการน้ำมัน</div>
+                    <small class="opacity-75">กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</small>
+                </div>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto d-flex align-items-center gap-2 mt-2 mt-lg-0">
+                    <a href="index.html" class="btn btn-outline-light btn-sm" title="หน้าแรก">
+                        <i class="fas fa-home me-1"></i> หน้าแรก
+                    </a>
+                    <a href="dashboard.html" class="btn btn-outline-light btn-sm" title="Dashboard">
+                        <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                    </a>
+                    <a href="monthly-province-summary.html" class="btn btn-outline-light btn-sm" title="แผนที่">
+                        <i class="fas fa-map-marked-alt me-1"></i> แผนที่
+                    </a>
+                    <a href="transaction-summary.html" class="btn btn-outline-light btn-sm" title="สรุปรายการเดินบัญชี">
+                        <i class="fas fa-chart-bar me-1"></i> สรุปรายการ
+                    </a>
+                    <a href="budget-print.html" class="btn btn-outline-light btn-sm" title="สรุปงบประมาณ/น้ำมัน พร้อมพิมพ์">
+                        <i class="fas fa-print me-1"></i> สรุปงบ/น้ำมัน
+                    </a>
+                    <a href="fuel-estimation.html" class="btn btn-light btn-sm text-primary" title="ประมาณการน้ำมัน">
+                        <i class="fas fa-calculator me-1"></i> ประมาณการน้ำมัน
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-12 mb-4">
+                <h3 class="fw-bold text-primary"><i class="fas fa-calculator me-2"></i>ระบบประมาณการใช้น้ำมัน</h3>
+                <p class="text-muted">คำนวณปริมาณการใช้น้ำมันและงบประมาณสำหรับภารกิจการบินต่างๆ</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Form Section -->
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <i class="fas fa-edit me-2"></i>ระบุข้อมูลภารกิจ
+                    </div>
+                    <div class="card-body">
+                        <form id="estimationForm">
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-7">
+                                    <label class="form-label">ประเภทเครื่องบิน</label>
+                                    <select id="aircraftType" class="form-select" required>
+                                        <option value="">-- เลือกประเภทเครื่องบิน --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">อัตราสิ้นเปลือง (ลิตร/ชม.)</label>
+                                    <div class="input-group">
+                                        <input type="number" id="fuelRate" class="form-control" value="0" required>
+                                        <span class="input-group-text">ลิตร</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">*สามารถปรับแก้ไขได้</small>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">ประเภทภารกิจ</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="missionType" id="missionRain" value="ฝนหลวง" checked>
+                                        <label class="form-check-label" for="missionRain">
+                                            ปฏิบัติการฝนหลวง
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="missionType" id="missionSupport" value="สนับสนุน">
+                                        <label class="form-check-label" for="missionSupport">
+                                            บินสนับสนุน
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Location for Rainmaking -->
+                            <div class="mb-3" id="rainmakingLocation">
+                                <label class="form-label">จังหวัด / หน่วยปฏิบัติการ</label>
+                                <select id="province" class="form-select">
+                                    <option value="">-- เลือกจังหวัด / หน่วยปฏิบัติการ --</option>
+                                </select>
+                            </div>
+
+                            <!-- Route for Support -->
+                            <div class="row mb-3 d-none" id="supportRoute">
+                                <div class="col-md-6">
+                                    <label class="form-label">ต้นทาง</label>
+                                    <input type="text" id="origin" class="form-control" placeholder="ระบุต้นทาง">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">ปลายทาง</label>
+                                    <input type="text" id="destination" class="form-control" placeholder="ระบุปลายทาง">
+                                </div>
+                            </div>
+
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label">จำนวนเครื่อง</label>
+                                    <div class="input-group">
+                                        <input type="number" id="aircraftCount" class="form-control" value="1" min="1" required>
+                                        <span class="input-group-text">ลำ</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">ชั่วโมงบิน/วัน (ต่อลำ)</label>
+                                    <div class="input-group">
+                                        <input type="number" id="hoursPerDay" class="form-control" value="3.5" min="0.1" step="0.1" required>
+                                        <span class="input-group-text">ชม.</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">จำนวนวัน</label>
+                                    <div class="input-group">
+                                        <input type="number" id="daysCount" class="form-control" value="30" min="1" required>
+                                        <span class="input-group-text">วัน</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label">ค่าเดินทางรถทัวร์ (ไป-กลับ)/คน</label>
+                                    <div class="input-group">
+                                        <input type="number" id="busFarePerPerson" class="form-control" value="0" min="0" required>
+                                        <span class="input-group-text">บาท</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">*คำนวณจากนครสวรรค์ (ปรับแก้ได้)</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">ชั่วโมงบินเดินทาง (ไป-กลับ)</label>
+                                    <div class="input-group">
+                                        <input type="number" id="ferryFlightHours" class="form-control" value="0" min="0" step="0.1" required>
+                                        <span class="input-group-text">ชม.</span>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">*สำหรับคิดค่าน้ำมันและไฟท์เปย์</small>
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="button" id="calculateBtn" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-calculator me-2"></i>คำนวณประมาณการ
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Section -->
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white" style="border-radius: 15px 15px 0 0 !important; border-bottom: none;">
+                        <i class="fas fa-chart-pie me-2"></i>ผลการประมาณการ
+                    </div>
+                    <div class="card-body">
+                        <div class="price-info" id="priceInfoBox">
+                            <i class="fas fa-info-circle"></i>
+                            <span id="currentPriceText">อ้างอิงราคาน้ำมัน: 0.00 บาท/ลิตร</span>
+                        </div>
+
+                        <div class="result-box">
+                            <div class="result-label">ปริมาณน้ำมันรวมที่ต้องใช้</div>
+                            <div class="result-value" id="totalLitersResult">0</div>
+                            <div class="result-label">ลิตร</div>
+                        </div>
+
+                        <div class="card bg-light border-0">
+                            <div class="card-body p-3">
+                                <h6 class="fw-bold mb-3 text-secondary">รายละเอียดการคำนวณ</h6>
+                                
+                                <div class="detail-row">
+                                    <span class="detail-label">ชั่วโมงบินปฏิบัติงาน</span>
+                                    <span class="detail-value"><span id="workHoursDetail">0</span> ชม.</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">ชั่วโมงบินเดินทาง</span>
+                                    <span class="detail-value"><span id="ferryHoursDetail">0</span> ชม.</span>
+                                </div>
+                                <div class="detail-row mb-2">
+                                    <span class="detail-label fw-bold text-dark">ชั่วโมงบินรวมทั้งหมด</span>
+                                    <span class="detail-value fw-bold text-dark"><span id="totalHoursDetail">0</span> ชม.</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">งบประมาณน้ำมันที่คาดว่าจะใช้</span>
+                                    <span class="detail-value text-danger fs-5"><span id="totalCostDetail">0.00</span> บาท</span>
+                                </div>
+                                <div class="detail-row mt-2 pt-2" style="border-top: 1px solid #dee2e6;">
+                                    <span class="detail-label text-primary" style="font-size: 0.85rem;">* จำนวนถัง (200 ลิตร) โดยประมาณ</span>
+                                    <span class="detail-value text-primary"><span id="totalDrumsDetail">0</span> ถัง</span>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 mt-4 text-secondary">ค่าใช้จ่ายด้านบุคลากร</h6>
+                                
+                                <div class="detail-row">
+                                    <span class="detail-label">จำนวนเจ้าหน้าที่ประจำหน่วย</span>
+                                    <span class="detail-value"><span id="unitStaffCount">0</span> คน</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">ค่าเดินทางรถทัวร์ (ไป-กลับ)</span>
+                                    <span class="detail-value"><span id="travelCostDetail">0.00</span> บาท</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">ค่าเบี้ยเลี้ยงและที่พัก (1,080 บ./คน/วัน)</span>
+                                    <span class="detail-value"><span id="allowanceCostDetail">0.00</span> บาท</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">ค่าไฟท์เปย์ช่าง/สื่อสาร (ตามชม.บิน)</span>
+                                    <span class="detail-value"><span id="flightPayCostDetail">0.00</span> บาท</span>
+                                </div>
+                                <div class="detail-row mt-2 pt-2" style="border-top: 1px solid #dee2e6;">
+                                    <span class="detail-label fw-bold">รวมค่าใช้จ่ายบุคลากร</span>
+                                    <span class="detail-value text-warning fs-5"><span id="totalPersonnelCost">0.00</span> บาท</span>
+                                </div>
+
+                                <div class="result-box mt-4 bg-dark">
+                                    <div class="result-label text-light">รวมงบประมาณทั้งหมด (น้ำมัน + บุคลากร)</div>
+                                    <div class="result-value text-white" id="grandTotalCost" style="font-size: 2.5rem;">0.00</div>
+                                    <div class="result-label text-light">บาท</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="provinces.js?v=2"></script>
+    <script src="config.js?v=2"></script>
+    <script src="fuel-estimation.js?v=3"></script>
+</body>
+</html>
