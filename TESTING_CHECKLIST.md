@@ -186,7 +186,7 @@ localStorage.removeItem('googleScriptUrl');
 - [ ] เลือกแหล่งน้ำมัน: แท๊ง 1
 - [ ] กรอกข้อมูล:
   - ผู้ปฏิบัติงาน: Test User
-  - หน่วย: Test Unit
+  - สถานีน้ำมัน/จังหวัด: Test Unit
   - จำนวนลิตร: 100
 - [ ] คลิก "บันทึก"
 - [ ] ดู UID Modal
@@ -204,7 +204,7 @@ localStorage.removeItem('googleScriptUrl');
 - [ ] เลือกแหล่งน้ำมัน: ถัง 200L #1
 - [ ] กรอกข้อมูล:
   - ผู้ปฏิบัติงาน: Test User
-  - หน่วย: Test Unit
+  - สถานีน้ำมัน/จังหวัด: Test Unit
   - จำนวนถัง: 2
 - [ ] คลิก "บันทึก"
 - [ ] ดู UID Modal
@@ -221,8 +221,8 @@ localStorage.removeItem('googleScriptUrl');
 - [ ] คลิก "ซื้อจาก ปตท."
 - [ ] กรอกข้อมูล:
   - ผู้ปฏิบัติงาน: Test User
-  - หน่วย: Test Unit
-  - ปลายทาง: แท๊ง 1
+  - สถานีน้ำมัน/จังหวัด: Test Unit
+  - แบบเครื่องบิน/รถน้ำมัน: แท๊ง 1
   - จำนวนลิตร: 500
 - [ ] คลิก "บันทึก"
 - [ ] ดู UID Modal

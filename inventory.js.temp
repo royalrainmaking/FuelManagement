@@ -301,7 +301,7 @@ function showUIDModal(transactionData) {
     const sourceText = transactionData.source || transactionData.sourceName || '-';
     document.getElementById('uidSource').textContent = sourceText;
     
-    // แสดงปลายทาง (ถ้ามี) - รองรับหลายรูปแบบ
+    // แสดงแบบเครื่องบิน/รถน้ำมัน (ถ้ามี) - รองรับหลายรูปแบบ
     const destinationRow = document.getElementById('uidDestinationRow');
     const destinationText = transactionData.destination || transactionData.destinationName || null;
     if (destinationText) {
@@ -2256,7 +2256,7 @@ function openTransactionModal(source) {
     modal.style.display = 'block';
 }
 
-// Populate ตัวเลือกปลายทาง
+// Populate ตัวเลือกแบบเครื่องบิน/รถน้ำมัน
 function populateDestinationOptions() {
     const tankSelect = document.getElementById('tankSelect');
     tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
@@ -2385,7 +2385,7 @@ async function handleReturnDrumSubmit() {
             sourceId: sourceId, // แหล่งที่คืนจาก
             sourceName: drumSource.name,
             sourceType: drumSource.type,
-            destinationId: null, // ไม่มีปลายทางสำหรับการคืน
+            destinationId: null, // ไม่มีแบบเครื่องบิน/รถน้ำมันสำหรับการคืน
             destinationName: null,
             destinationType: null,
             liters: liters,
@@ -2682,12 +2682,12 @@ function showDispenseForm() {
     const literDispenseFields = document.getElementById('literDispenseFields');
     const tankSelect = document.getElementById('tankSelect');
     
-    // ฟังก์ชันตรวจสอบและอัพเดทฟิลด์ตามปลายทาง
+    // ฟังก์ชันตรวจสอบและอัพเดทฟิลด์ตามแบบเครื่องบิน/รถน้ำมัน
     const updateFieldsBasedOnDestination = () => {
         const destinationType = document.getElementById('destinationType').value;
         const destinationId = tankSelect.value;
         
-        // แสดง/ซ่อนฟิลด์ปลายทางตามประเภท
+        // แสดง/ซ่อนฟิลด์แบบเครื่องบิน/รถน้ำมันตามประเภท
         const aircraftDestination = document.getElementById('aircraftDestination');
         const tankDestination = document.getElementById('tankDestination');
         
@@ -2699,7 +2699,7 @@ function showDispenseForm() {
             tankDestination.style.display = 'block';
         }
         
-        // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+        // ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
         let isDestinationDrum = false;
         if (destinationType === 'tank' && destinationId) {
             const destSource = fuelSources.find(s => s.id === destinationId);
@@ -2707,7 +2707,7 @@ function showDispenseForm() {
         }
         
         if (isDestinationDrum) {
-            // ถ้าปลายทางเป็นถัง 200L ให้แสดงฟิลด์ถัง
+            // ถ้าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L ให้แสดงฟิลด์ถัง
             drumDispenseFields.style.display = 'block';
             literDispenseFields.style.display = 'none';
             
@@ -2747,7 +2747,7 @@ function showDispenseForm() {
     // เรียกใช้ครั้งแรกเมื่อเปิดฟอร์ม
     updateFieldsBasedOnDestination();
     
-    // ตั้งค่า event listener สำหรับเปลี่ยนปลายทาง
+    // ตั้งค่า event listener สำหรับเปลี่ยนแบบเครื่องบิน/รถน้ำมัน
     document.getElementById('destinationType').onchange = updateFieldsBasedOnDestination;
     tankSelect.onchange = updateFieldsBasedOnDestination;
 }
@@ -2778,7 +2778,7 @@ async function handleRefillSubmit() {
     const bookNo = document.getElementById('bookNo').value.trim();
     const receiptNo = document.getElementById('receiptNo').value.trim();
     
-    // ✅ ดึงปลายทาง (destination) จากฟอร์ม
+    // ✅ ดึงแบบเครื่องบิน/รถน้ำมัน (destination) จากฟอร์ม
     const pttDestinationType = document.getElementById('pttDestinationType') ? document.getElementById('pttDestinationType').value : 'aircraft';
     let destinationId = null;
     let destinationName = null;
@@ -2793,9 +2793,9 @@ async function handleRefillSubmit() {
         destinationName = destSource ? destSource.name : null;
     }
     
-    // ✅ ตรวจสอบว่าเลือกปลายทางแล้ว
+    // ✅ ตรวจสอบว่าเลือกแบบเครื่องบิน/รถน้ำมันแล้ว
     if (!destinationId || !destinationName) {
-        alert('กรุณาเลือกปลายทาง');
+        alert('กรุณาเลือกแบบเครื่องบิน/รถน้ำมัน');
         return;
     }
     
@@ -2808,7 +2808,7 @@ async function handleRefillSubmit() {
         // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
         const prices = await loadFuelPrices();
         
-        // ✅ ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+        // ✅ ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
         const destSource = fuelSources.find(s => s.id === destinationId);
         const isDestinationDrum = destSource && isDrumSource(destSource);
         
@@ -2838,7 +2838,7 @@ async function handleRefillSubmit() {
             totalAmount = liters * pricePerLiter;
         }
         
-        // ✅ อัพเดท current stock ของปลายทาง (จากฟอร์ม ไม่ใช่ currentSelectedSource)
+        // ✅ อัพเดท current stock ของแบบเครื่องบิน/รถน้ำมัน (จากฟอร์ม ไม่ใช่ currentSelectedSource)
         const destIndex = fuelSources.findIndex(s => s.id === destinationId);
         if (destIndex !== -1) {
             fuelSources[destIndex].currentStock += liters;
@@ -2869,11 +2869,11 @@ async function handleRefillSubmit() {
             date: new Date().toLocaleDateString('th-TH'),
             time: new Date().toLocaleTimeString('th-TH'),
             transactionType: 'refill',
-            sourceId: 'purchase', // แหล่งที่มาคือ ปตท. เสมอ
-            sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาคือ ปตท.
-            destinationId: destinationId, // ✅ ปลายทางจากฟอร์ม ไม่ใช่ currentSelectedSource
-            destinationName: destinationName, // ✅ ชื่อปลายทางจากฟอร์ม
-            destinationType: destinationType, // ✅ ประเภทปลายทางจากฟอร์ม
+            sourceId: 'purchase', // แหล่งที่มาน้ำมันคือ ปตท. เสมอ
+            sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาน้ำมันคือ ปตท.
+            destinationId: destinationId, // ✅ แบบเครื่องบิน/รถน้ำมันจากฟอร์ม ไม่ใช่ currentSelectedSource
+            destinationName: destinationName, // ✅ ชื่อแบบเครื่องบิน/รถน้ำมันจากฟอร์ม
+            destinationType: destinationType, // ✅ ประเภทแบบเครื่องบิน/รถน้ำมันจากฟอร์ม
             liters: liters,
             volume: volumeDisplay, // ✅ ส่งข้อมูลที่จัดรูปแบบแล้ว เช่น "5 ถัง (1000 ลิตร)"
             pricePerLiter: pricePerLiter,
@@ -2923,7 +2923,7 @@ async function handleDispenseSubmit() {
     
     let liters, pricePerLiter = null, totalAmount = null, drums = null, pricePerDrum = null;
     
-    // ตรวจสอบปลายทางว่าเป็นถัง 200L หรือไม่
+    // ตรวจสอบแบบเครื่องบิน/รถน้ำมันว่าเป็นถัง 200L หรือไม่
     let destinationId = null;
     if (destinationType === 'aircraft') {
         destinationId = document.getElementById('aircraftSelect').value;
@@ -2961,7 +2961,7 @@ async function handleDispenseSubmit() {
         }
     }
     
-    // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+    // ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
     if (isDestinationDrum) {
         // สำหรับถัง 200L
         drums = parseFloat(document.getElementById('dispenseDrums').value);
@@ -3013,7 +3013,7 @@ async function handleDispenseSubmit() {
     }
     
     if (!destinationId) {
-        alert('กรุณาเลือกปลายทาง');
+        alert('กรุณาเลือกแบบเครื่องบิน/รถน้ำมัน');
         return;
     }
     
@@ -3031,7 +3031,7 @@ async function handleDispenseSubmit() {
         setButtonLoading('submitDispense', true);
         showLoading('กำลังประมวลผลการจ่ายออก...');
         
-        // อัพเดท stock ของแหล่งต้นทาง
+        // อัพเดท stock ของแหล่งที่มาน้ำมัน
         if (currentSelectedSource.type === 'purchase') {
             // ถ้าเป็น ปตท. ให้เพิ่ม stock (บันทึกว่าซื้อไปทั้งหมดเท่าไหร่)
             const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
@@ -3046,7 +3046,7 @@ async function handleDispenseSubmit() {
             }
         }
         
-        // อัพเดท stock ของปลายทาง (ถ้าเป็นแหล่งน้ำมัน)
+        // อัพเดท stock ของแบบเครื่องบิน/รถน้ำมัน (ถ้าเป็นแหล่งน้ำมัน)
         if (destinationType === 'tank') {
             const destIndex = fuelSources.findIndex(s => s.id === destinationId);
             if (destIndex !== -1) {
@@ -3135,14 +3135,14 @@ function downloadAllTransactions() {
         'วันที่',
         'เวลา',
         'ประเภทรายการ',
-        'แหล่งต้นทาง',
-        'ปลายทาง',
-        'ประเภทปลายทาง',
+        'แหล่งที่มาน้ำมัน',
+        'แบบเครื่องบิน/รถน้ำมัน',
+        'ประเภทแบบเครื่องบิน/รถน้ำมัน',
         'จำนวนลิตร',
         'ราคาต่อลิตร',
         'จำนวนเงิน',
         'ผู้ทำรายการ',
-        'หน่วยปฏิบัติการ',
+        'สถานีน้ำมัน/จังหวัด',
         'Timestamp'
     ];
     
@@ -3212,18 +3212,18 @@ function openPttPurchaseModal() {
         destinationSelect.appendChild(option);
     });
     
-    // ซ่อนฟอร์มทั้งหมดตอนเปิด modal (จนกว่าจะเลือกปลายทาง)
+    // ซ่อนฟอร์มทั้งหมดตอนเปิด modal (จนกว่าจะเลือกแบบเครื่องบิน/รถน้ำมัน)
     document.getElementById('pttLitersGroup').style.display = 'none';
     document.getElementById('pttPricePerLiterGroup').style.display = 'none';
     document.getElementById('pttDrumsGroup').style.display = 'none';
     document.getElementById('pttPricePerDrumGroup').style.display = 'none';
     
-    // เมื่อเลือกปลายทาง ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
+    // เมื่อเลือกแบบเครื่องบิน/รถน้ำมัน ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
     destinationSelect.onchange = function() {
         const selectedOption = this.options[this.selectedIndex];
         const destinationType = selectedOption.dataset.type;
         
-        console.log('เลือกปลายทาง:', selectedOption.textContent, 'ประเภท:', destinationType);
+        console.log('เลือกแบบเครื่องบิน/รถน้ำมัน:', selectedOption.textContent, 'ประเภท:', destinationType);
         
         // แสดง/ซ่อน input groups
         const litersGroup = document.getElementById('pttLitersGroup');
@@ -3348,10 +3348,10 @@ async function handlePttPurchaseSubmit() {
             throw new Error('ไม่พบข้อมูลแหล่งน้ำมัน ปตท.');
         }
         
-        // หาปลายทาง
+        // หาแบบเครื่องบิน/รถน้ำมัน
         const destination = fuelSources.find(source => source.id === destinationId);
         if (!destination) {
-            throw new Error('ไม่พบข้อมูลแหล่งเก็บปลายทาง');
+            throw new Error('ไม่พบข้อมูลแหล่งเก็บแบบเครื่องบิน/รถน้ำมัน');
         }
         
         // โหลดราคาจาก Google Sheets (Real-time) พร้อม fallback ไป localStorage
@@ -3407,7 +3407,7 @@ async function handlePttPurchaseSubmit() {
             }
         }
         
-        // อัปเดตสต็อกปลายทาง
+        // อัปเดตสต็อกแบบเครื่องบิน/รถน้ำมัน
         destination.currentStock += liters;
         
         // สร้าง UID สำหรับธุรกรรมนี้

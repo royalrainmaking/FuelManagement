@@ -1033,13 +1033,13 @@ function showDetailModal(transactionId) {
 
                         <!-- Row: Source -->
                         <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
-                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-out-alt me-2" style="width: 18px;"></i>แหล่งที่มา/ต้นทาง:</span>
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-out-alt me-2" style="width: 18px;"></i>แหล่งที่มาน้ำมัน:</span>
                             <strong style="color: #2c3e50;">${transaction.source_name}</strong>
                         </div>
 
                         <!-- Row: Destination -->
                         <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
-                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-in-alt me-2" style="width: 18px;"></i>ปลายทาง:</span>
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-sign-in-alt me-2" style="width: 18px;"></i>แบบเครื่องบิน/รถน้ำมัน:</span>
                             <strong style="color: #2c3e50;">${transaction.destination_name}</strong>
                         </div>
 
@@ -1072,7 +1072,7 @@ function showDetailModal(transactionId) {
                         <!-- Row: Unit -->
                         ${transaction.unit ? `
                         <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f3f5;">
-                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-building me-2" style="width: 18px;"></i>หน่วย:</span>
+                            <span style="color: #6c757d; font-weight: 500;"><i class="fas fa-building me-2" style="width: 18px;"></i>สถานีน้ำมัน/จังหวัด:</span>
                             <strong style="color: #2c3e50;">${transaction.unit}</strong>
                         </div>
                         ` : ''}
@@ -1539,12 +1539,12 @@ function exportToExcel(exportAll) {
             'เวลา',
             'ประเภทรายการ',
             'แหล่งน้ำมัน',
-            'ปลายทาง',
+            'แบบเครื่องบิน/รถน้ำมัน',
             'ปริมาณ (ลิตร)',
             'ราคา/ลิตร (บาท)',
             'มูลค่ารวม (บาท)',
             'ผู้บันทึก',
-            'หน่วย',
+            'สถานีน้ำมัน/จังหวัด',
             'สถานะเบิกจ่าย',
             'ประเภทอากาศยาน',
             'เลขทะเบียน',
@@ -1638,7 +1638,7 @@ function exportToExcel(exportAll) {
             { wch: 10 },  // เวลา
             { wch: 15 },  // ประเภทรายการ
             { wch: 15 },  // แหล่งน้ำมัน
-            { wch: 15 },  // ปลายทาง
+            { wch: 15 },  // แบบเครื่องบิน/รถน้ำมัน
             { wch: 15 },  // ปริมาณ
             { wch: 15 },  // ราคา/ลิตร
             { wch: 15 },  // มูลค่ารวม
@@ -1927,16 +1927,16 @@ function showCancelConfirmation(transaction) {
             <!-- Section 2: Source & Destination -->
             <div class="detail-section">
                 <div class="detail-section-title">
-                    <i class="fas fa-route"></i> ต้นทางและปลายทาง
+                    <i class="fas fa-route"></i> แหล่งที่มาน้ำมันและแบบเครื่องบิน/รถน้ำมัน
                 </div>
                 
                 <div class="detail-row">
                     <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-location-dot"></i>แหล่งที่มา</div>
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>แหล่งที่มาน้ำมัน</div>
                         <div class="detail-value">${transaction.source_name}</div>
                     </div>
                     <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-location-dot"></i>ปลายทาง</div>
+                        <div class="detail-label"><i class="fas fa-location-dot"></i>แบบเครื่องบิน/รถน้ำมัน</div>
                         <div class="detail-value">${transaction.destination_name}</div>
                     </div>
                 </div>
@@ -1954,7 +1954,7 @@ function showCancelConfirmation(transaction) {
                         <div class="detail-value">${formatNumber(transaction.volume_liters)}<span class="detail-value-unit">ลิตร</span></div>
                     </div>
                     <div class="detail-item">
-                        <div class="detail-label"><i class="fas fa-cube"></i>หน่วย</div>
+                        <div class="detail-label"><i class="fas fa-cube"></i>สถานีน้ำมัน/จังหวัด</div>
                         <div class="detail-value">${transaction.unit || '-'}</div>
                     </div>
                 </div>
@@ -2482,11 +2482,11 @@ function printTransactionReceipt(transactionId) {
                     <td>${transaction.transaction_type}</td>
                 </tr>
                 <tr>
-                    <td>แหล่งที่มา/ต้นทาง</td>
+                    <td>แหล่งที่มาน้ำมัน</td>
                     <td>${transaction.source_name}</td>
                 </tr>
                 <tr>
-                    <td>ปลายทาง</td>
+                    <td>แบบเครื่องบิน/รถน้ำมัน</td>
                     <td>${transaction.destination_name}</td>
                 </tr>
                 <tr class="highlight-row">

@@ -884,7 +884,7 @@ function getInventory(sheetsId, gid) {
 /**
  * ดึงข้อมูล Transaction Logs จาก Google Sheets
  * อ่านข้อมูลจาก sheet ตาม GID ที่กำหนด
- * โครงสร้างคอลัมน์: A=วันที่, B=เวลา, C=ชนิด, D=ชื่อ, E=ปลายทาง, F=จำนวน(ลิตร), G=ราคาต่อลิตร, H=ยอดรวม, I=ผู้ปฏิบัติงาน, J=หน่วย
+ * โครงสร้างคอลัมน์: A=วันที่, B=เวลา, C=ชนิด, D=ชื่อ, E=แบบเครื่องบิน/รถน้ำมัน, F=จำนวน(ลิตร), G=ราคาต่อลิตร, H=ยอดรวม, I=ผู้ปฏิบัติงาน, J=สถานีน้ำมัน/จังหวัด
  */
 function getTransactionLogs(sheetsId, gid) {
   try {
@@ -976,13 +976,13 @@ function getTransactionLogs(sheetsId, gid) {
         date: dateStr,                   // คอลัมน์ B: วันที่
         time: timeStr,                   // คอลัมน์ C: เวลา
         transaction_type: row[3] || '',  // คอลัมน์ D: ประเภท
-        source_name: row[4] || '',       // คอลัมน์ E: แหล่งที่มา
-        destination_name: row[5] || '',  // คอลัมน์ F: ปลายทาง
+        source_name: row[4] || '',       // คอลัมน์ E: แหล่งที่มาน้ำมัน
+        destination_name: row[5] || '',  // คอลัมน์ F: แบบเครื่องบิน/รถน้ำมัน
         volume: row[6] || '',            // คอลัมน์ G: จำนวน(ลิตร) - เก็บเป็น string เพื่อรักษารูปแบบ "5 ถัง (1000 ลิตร)"
         price_per_liter: parseFloat(row[7]) || 0, // คอลัมน์ H: ราคาต่อลิตร
         total_cost: parseFloat(row[8]) || 0,      // คอลัมน์ I: ยอดรวม
         operator_name: row[9] || '',     // คอลัมน์ J: ผู้ปฏิบัติงาน
-        unit: row[10] || '',             // คอลัมน์ K: หน่วย
+        unit: row[10] || '',             // คอลัมน์ K: สถานีน้ำมัน/จังหวัด
         aircraft_type: row[11] || '',    // คอลัมน์ L: ประเภทอากาศยาน
         aircraft_number: row[12] || '',  // คอลัมน์ M: เลขทะเบียน
         notes: row[13] || '',            // คอลัมน์ N: หมายเหตุ
@@ -998,7 +998,7 @@ function getTransactionLogs(sheetsId, gid) {
         paid_note: row[23] || ''          // คอลัมน์ X: หมายเหตุการเบิกเงิน
       };
       
-      // กำหนดประเภทปลายทางตาม destination name (ถ้ามี)
+      // กำหนดประเภทแบบเครื่องบิน/รถน้ำมันตาม destination name (ถ้ามี)
       if (logEntry.destination_name && typeof logEntry.destination_name === 'string') {
         const destName = logEntry.destination_name.toLowerCase();
         if (destName.includes('แท๊ง') || destName.includes('tank')) {
@@ -1299,8 +1299,8 @@ function createTransactionLogSheet(sheetsId) {
     
     // สร้าง header
     logSheet.getRange(1, 1, 1, 13).setValues([[
-      'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
-      'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
+      'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มาน้ำมัน', 'แบบเครื่องบิน/รถน้ำมัน', 'จำนวน(ลิตร)', 
+      'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'สถานีน้ำมัน/จังหวัด', 'ประเภทอากาศยาน', 
       'เลขทะเบียน', 'หมายเหตุ'
     ]]);
     
@@ -1507,8 +1507,8 @@ function logTransaction(dataString, sheetsId) {
       
       // สร้าง header (เพิ่ม UID, Book No., Receipt No., volumeLiters, ภาระกิจ, Image URL, Image Filename, Image Upload Date, Image Drive ID, สถานะการเบิกเงิน, หมายเหตุการเบิกเงิน)
       logSheet.getRange(1, 1, 1, 24).setValues([[
-        'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
-        'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
+        'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มาน้ำมัน', 'แบบเครื่องบิน/รถน้ำมัน', 'จำนวน(ลิตร)', 
+        'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'สถานีน้ำมัน/จังหวัด', 'ประเภทอากาศยาน', 
         'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters', 'ภาระกิจ',
         'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID',
         'สถานะการเบิกเงิน', 'หมายเหตุการเบิกเงิน'
@@ -1840,8 +1840,8 @@ function updateTransactionDetail(uid, sheetsId, data) {
     if (data.date) transactionSheet.getRange(rowIndex, 2).setValue(data.date);           // วันที่ (B=2)
     if (data.time) transactionSheet.getRange(rowIndex, 3).setValue(data.time);           // เวลา (C=3)
     if (data.type) transactionSheet.getRange(rowIndex, 4).setValue(data.type);           // ประเภท (D=4)
-    if (data.source) transactionSheet.getRange(rowIndex, 5).setValue(data.source);       // แหล่งที่มา (E=5)
-    if (data.destination) transactionSheet.getRange(rowIndex, 6).setValue(data.destination); // ปลายทาง (F=6)
+    if (data.source) transactionSheet.getRange(rowIndex, 5).setValue(data.source);       // แหล่งที่มาน้ำมัน (E=5)
+    if (data.destination) transactionSheet.getRange(rowIndex, 6).setValue(data.destination); // แบบเครื่องบิน/รถน้ำมัน (F=6)
     
     if (data.volume !== undefined) {
       transactionSheet.getRange(rowIndex, 7).setValue(data.volume);                     // จำนวน(ลิตร) (G=7) - string
@@ -1851,7 +1851,7 @@ function updateTransactionDetail(uid, sheetsId, data) {
     if (data.pricePerLiter !== undefined) transactionSheet.getRange(rowIndex, 8).setValue(parseFloat(data.pricePerLiter) || 0); // ราคาต่อลิตร (H=8)
     if (data.totalCost !== undefined) transactionSheet.getRange(rowIndex, 9).setValue(parseFloat(data.totalCost) || 0);     // ยอดรวม (I=9)
     if (data.operator) transactionSheet.getRange(rowIndex, 10).setValue(data.operator);   // ผู้ปฏิบัติงาน (J=10)
-    if (data.unit) transactionSheet.getRange(rowIndex, 11).setValue(data.unit);           // หน่วย (K=11)
+    if (data.unit) transactionSheet.getRange(rowIndex, 11).setValue(data.unit);           // สถานีน้ำมัน/จังหวัด (K=11)
     if (data.aircraftType) transactionSheet.getRange(rowIndex, 12).setValue(data.aircraftType); // ประเภทอากาศยาน (L=12)
     if (data.aircraftNumber) transactionSheet.getRange(rowIndex, 13).setValue(data.aircraftNumber); // เลขทะเบียน (M=13)
     if (data.notes !== undefined) transactionSheet.getRange(rowIndex, 14).setValue(data.notes); // หมายเหตุ (N=14)
@@ -1940,8 +1940,8 @@ function createTransactionArchiveSheet(spreadsheet) {
     
     // สร้าง header เดียวกับ Transaction_Log แต่เพิ่ม 2 คอลัมน์สำหรับ metadata
     archiveSheet.getRange(1, 1, 1, 24).setValues([[
-      'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มา', 'ปลายทาง', 'จำนวน(ลิตร)', 
-      'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'หน่วย', 'ประเภทอากาศยาน', 
+      'UID', 'วันที่', 'เวลา', 'ประเภท', 'แหล่งที่มาน้ำมัน', 'แบบเครื่องบิน/รถน้ำมัน', 'จำนวน(ลิตร)', 
+      'ราคาต่อลิตร', 'ยอดรวม', 'ผู้ปฏิบัติงาน', 'สถานีน้ำมัน/จังหวัด', 'ประเภทอากาศยาน', 
       'เลขทะเบียน', 'หมายเหตุ', 'Book No.', 'Receipt No.', 'volumeLiters', 'ภาระกิจ',
       'Image URL', 'Image Filename', 'Image Upload Date', 'Image Drive ID',
       'Cancelled At', 'Cancelled By'
@@ -2043,7 +2043,7 @@ function restoreInventoryFromTransaction(inventorySheet, sourceName, destination
       if (!foundSource) console.warn('⚠️ [Restore] Source row not found in Inventory: ' + cleanSourceName);
     }
     
-    // จัดการกับปลายทาง: ลบจำนวนลิตรออกจากปลายทาง (ถ้าเป็นถัง/แท๊งค์/รถ)
+    // จัดการกับแบบเครื่องบิน/รถน้ำมัน: ลบจำนวนลิตรออกจากแบบเครื่องบิน/รถน้ำมัน (ถ้าเป็นถัง/แท๊งค์/รถ)
     if (cleanDestName) {
       console.log('🎯 [Restore] Destination exists. Searching for: ' + cleanDestName);
       let foundDest = false;
@@ -2511,7 +2511,7 @@ function getPTTPricesByLocationName(locationName, sheetsId, gid) {
 }
 
 /**
- * ดึงรายการหน่วยปฏิบัติการ (Operating Units) จาก PTT_PRICES sheet
+ * ดึงรายการสถานีน้ำมัน/จังหวัด (Operating Units) จาก PTT_PRICES sheet
  * @param {string} sheetsId - Google Sheets ID
  * @param {string} gid - Sheet GID (1828300695 สำหรับ PTT_PRICES)
  * @returns {ContentService} JSON response with array of operating units
@@ -2555,7 +2555,7 @@ function getPTTOperatingUnits(sheetsId, gid) {
     const dataRange = pttSheet.getRange(2, 1, lastRow - 1, 1);
     const values = dataRange.getValues();
     
-    // สกัดชื่อหน่วยปฏิบัติการที่ไม่ซ้ำกัน
+    // สกัดชื่อสถานีน้ำมัน/จังหวัดที่ไม่ซ้ำกัน
     const operatingUnits = [];
     for (let i = 0; i < values.length; i++) {
       const unit = values[i][0];
@@ -3300,7 +3300,7 @@ function sendLineNotification(transactionData, accessToken, groupId) {
 
 /**
  * จัดรูปแบบข้อความ transaction เป็นภาษาไทย
- * รูปแบบ: จ่ายน้ำมัน [วันเวลา] [ปริมาณ] ลิตร จาก [ที่มา] → [ปลายทาง : โอโดมิเตอร์] | โดย [ผู้ปฏิบัติงาน]
+ * รูปแบบ: จ่ายน้ำมัน [วันเวลา] [ปริมาณ] ลิตร จาก [ที่มา] → [แบบเครื่องบิน/รถน้ำมัน : โอโดมิเตอร์] | โดย [ผู้ปฏิบัติงาน]
  */
 function formatTransactionMessage(transactionData) {
   try {
@@ -3556,7 +3556,7 @@ function formatTransactionMessageWithImage(transactionData) {
                 contents: [
                   {
                     type: 'text',
-                    text: '🏢 หน่วย:',
+                    text: '🏢 สถานีน้ำมัน/จังหวัด:',
                     color: '#aaaaaa',
                     size: 'sm',
                     flex: 3
@@ -3601,7 +3601,7 @@ function formatTransactionMessageWithImage(transactionData) {
 
 /**
  * จัดรูปแบบข้อความ Daily Confirmation เป็นภาษาไทย
- * รูปแบบ: ยืนยันยอดน้ำมัน [วันเวลา] [แหล่งที่มา] จำนวน [ปัจจุบัน] ลิตร | โดย [ผู้ปฏิบัติงาน]
+ * รูปแบบ: ยืนยันยอดน้ำมัน [วันเวลา] [แหล่งที่มาน้ำมัน] จำนวน [ปัจจุบัน] ลิตร | โดย [ผู้ปฏิบัติงาน]
  */
 function formatConfirmationMessage(confirmationData) {
   try {
@@ -3613,7 +3613,7 @@ function formatConfirmationMessage(confirmationData) {
     const operatorName = confirmationData.operatorName || '-';
 
     // สร้างข้อความสำหรับการยืนยันยอด
-    const message = `📊 ยืนยันยอดน้ำมัน\n📅 ${dateTimeStr}\n\n📍 แหล่งที่มา: ${sourceName}\n🔹 จำนวนปัจจุบัน: ${currentStock} ลิตร\n\n👤 โดย: ${operatorName}`;
+    const message = `📊 ยืนยันยอดน้ำมัน\n📅 ${dateTimeStr}\n\n📍 แหล่งที่มาน้ำมัน: ${sourceName}\n🔹 จำนวนปัจจุบัน: ${currentStock} ลิตร\n\n👤 โดย: ${operatorName}`;
     
     return message;
   } catch (error) {

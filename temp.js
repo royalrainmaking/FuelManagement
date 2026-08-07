@@ -171,7 +171,7 @@
                 const vol = getVol(t);
                 const cost = parseFloat(t.total_cost) || 0;
                 
-                // The user explicitly requested: "แยกตามต้นทาง (รับเข้า/จ่ายออก) อันนี้ให้เอามาจาก คอลั่ม E"
+                // The user explicitly requested: "แยกตามแหล่งที่มาน้ำมัน (รับเข้า/จ่ายออก) อันนี้ให้เอามาจาก คอลั่ม E"
                 // So ONLY use t.source_name (Column E) for this table. Do not add t.destination_name to sources!
                 const srcRaw = (t.source_name || 'ไม่ระบุ').trim();
                 const destRaw = (t.destination_name || 'ไม่ระบุ').trim();
@@ -494,7 +494,7 @@
                             <!-- Right Col: Tables -->
                             <div class="col-xl-7">
                                 ${renderTable(data.missions, 'fas fa-tasks', 'แยกตามภารกิจ (แผน)', true)}
-                                ${renderTable(data.sources, 'fas fa-gas-pump', 'แยกตามต้นทาง (ยอดเบิกจ่าย)', false, 'hide-on-print')}
+                                ${renderTable(data.sources, 'fas fa-gas-pump', 'แยกตามแหล่งที่มาน้ำมัน (ยอดเบิกจ่าย)', false, 'hide-on-print')}
                                 ${renderTable(data.aircrafts, 'fas fa-plane', 'แยกตามเครื่องบิน (ระบุแผนและจังหวัด)', false, 'hide-on-print')}
                             </div>
                         </div>

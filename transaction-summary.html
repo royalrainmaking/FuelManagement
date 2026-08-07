@@ -795,7 +795,7 @@
                     <div class="search-box">
                         <i class="fas fa-search"></i>
                         <input type="text" class="form-control" id="searchInput"
-                            placeholder="พิมพ์ค้นหา (แหล่ง, ปลายทาง, UID, ผู้บันทึก, ภารกิจ, หมายเหตุ...)">
+                            placeholder="พิมพ์ค้นหา (แหล่ง, แบบเครื่องบิน/รถน้ำมัน, UID, ผู้บันทึก, ภารกิจ, หมายเหตุ...)">
                     </div>
                 </div>
 
@@ -892,7 +892,7 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">ปลายทาง</label>
+                        <label class="form-label fw-bold">แบบเครื่องบิน/รถน้ำมัน</label>
                         <div class="dropdown multi-select-dropdown">
                             <button class="btn dropdown-toggle" type="button" id="destDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                 <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
@@ -906,7 +906,7 @@
                         </div>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label fw-bold">หน่วย</label>
+                        <label class="form-label fw-bold">สถานีน้ำมัน/จังหวัด</label>
                         <div class="dropdown multi-select-dropdown">
                             <button class="btn dropdown-toggle" type="button" id="unitDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                 <span class="selected-text text-truncate" style="max-width: 80%;">ทั้งหมด</span>
@@ -981,7 +981,7 @@
                             <th style="width: 8%;">วันที่</th>
                             <th style="width: 8%; display: none;">ประเภท</th>
                             <th style="width: 10%;">แหล่งน้ำมัน</th>
-                            <th style="width: 10%;">ปลายทาง</th>
+                            <th style="width: 10%;">แบบเครื่องบิน/รถน้ำมัน</th>
                             <th style="width: 12%;">ภารกิจ</th>
                             <th style="width: 10%;">จังหวัด</th>
                             <th style="width: 10%;" class="text-center">ปริมาณ (ลิตร)</th>
@@ -1106,7 +1106,7 @@
                             <div class="col-md-6">
                                 <div class="p-3 bg-white rounded border h-100">
                                     <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
-                                            class="fas fa-sign-out-alt me-1"></i>แหล่งที่มา (ต้นทาง)</label>
+                                            class="fas fa-sign-out-alt me-1"></i>แหล่งที่มาน้ำมัน</label>
                                     <div id="editSourceDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editSource">
                                 </div>
@@ -1114,7 +1114,7 @@
                             <div class="col-md-6">
                                 <div class="p-3 bg-white rounded border h-100">
                                     <label class="form-label text-muted small fw-bold text-uppercase mb-1"><i
-                                            class="fas fa-sign-in-alt me-1"></i>ปลายทาง</label>
+                                            class="fas fa-sign-in-alt me-1"></i>แบบเครื่องบิน/รถน้ำมัน</label>
                                     <div id="editDestinationDisplay" class="fw-bold text-dark">-</div>
                                     <input type="hidden" id="editDestination">
                                 </div>
@@ -1144,10 +1144,10 @@
 
                             <!-- Unit (Searchable Dropdown) -->
                             <div class="col-md-12">
-                                <label class="form-label fw-bold">หน่วย</label>
+                                <label class="form-label fw-bold">สถานีน้ำมัน/จังหวัด</label>
                                 <div class="searchable-dropdown" data-dropdown-id="editUnit">
                                     <input type="text" class="form-control dropdown-search" id="editUnit"
-                                        placeholder="ค้นหาหน่วย..." required autocomplete="off">
+                                        placeholder="ค้นหาสถานีน้ำมัน/จังหวัด..." required autocomplete="off">
                                     <div class="dropdown-options"></div>
                                     <input type="hidden" class="dropdown-value" id="editUnitValue">
                                 </div>

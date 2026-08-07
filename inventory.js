@@ -1,4 +1,4 @@
-﻿// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
+// ⚠️ Configuration ถูกย้ายไปที่ config.js แล้ว
 // ไฟล์นี้จะโหลด config จาก config.js ที่ include ไว้ใน HTML
 // ตรวจสอบว่า config ถูกโหลดหรือยัง
 if (typeof GOOGLE_SCRIPT_URL === 'undefined') {
@@ -785,6 +785,35 @@ const ImageUpload = {
 };
 
 // ===== UID Modal Management =====
+// ฟังก์ชันแปลงวันที่เป็นแบบไทย
+function formatThaiDateTime(dateInput) {
+    let d;
+    if (!dateInput) {
+        d = new Date();
+    } else {
+        // บางครั้ง dateInput อาจจะเป็น string แบบ 'th-TH' แล้ว ให้ลอง parse ดู
+        d = new Date(dateInput);
+        if (isNaN(d.getTime())) {
+            // ถ้ารูปแบบเก่าเป็น 7/8/2569 ...
+            return dateInput;
+        }
+    }
+    
+    const thaiMonths = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    
+    const day = d.getDate();
+    const month = thaiMonths[d.getMonth()];
+    const year = d.getFullYear() + 543;
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const seconds = d.getSeconds().toString().padStart(2, '0');
+    
+    return `${day} ${month} ${year} เวลา ${hours}:${minutes}:${seconds} น.`;
+}
+
 // ฟังก์ชันแสดง UID Modal หลังทำรายการสำเร็จ
 function showUIDModal(transactionData) {
     const modal = document.getElementById('uidModal');
@@ -811,7 +840,7 @@ function showUIDModal(transactionData) {
     const sourceText = transactionData.source || transactionData.sourceName || '-';
     document.getElementById('uidSource').textContent = sourceText;
 
-    // แสดงปลายทาง (ถ้ามี) - รองรับหลายรูปแบบ
+    // แสดงแบบเครื่องบิน/รถน้ำมัน (ถ้ามี) - รองรับหลายรูปแบบ
     const destinationRow = document.getElementById('uidDestinationRow');
     const destinationText = transactionData.destination || transactionData.destinationName || null;
     if (destinationText) {
@@ -906,7 +935,7 @@ function showUIDModal(transactionData) {
     }
 
     // แสดงเวลา - ใช้เวลาที่ส่งมา หรือเวลาปัจจุบัน
-    const timestamp = transactionData.timestamp || new Date().toLocaleString('th-TH');
+    const timestamp = formatThaiDateTime(transactionData.timestamp || new Date());
     document.getElementById('uidTimestamp').textContent = timestamp;
 
     // แสดง modal
@@ -1039,7 +1068,7 @@ function setupUIDModalListeners(transactionData) {
                         </tr>
                         ${(transactionData.destinationName || transactionData.destination) ? `
                         <tr>
-                            <td>ปลายทาง:</td>
+                            <td>แบบเครื่องบิน/รถน้ำมัน:</td>
                             <td>${transactionData.destinationName || transactionData.destination}</td>
                         </tr>
                         ` : ''}
@@ -1049,7 +1078,7 @@ function setupUIDModalListeners(transactionData) {
                         </tr>
                         ${(transactionData.unit || transactionData.operatingUnit) ? `
                         <tr>
-                            <td>หน่วย:</td>
+                            <td>สถานีน้ำมัน/จังหวัด:</td>
                             <td>${transactionData.unit || transactionData.operatingUnit}</td>
                         </tr>
                         ` : ''}
@@ -1101,12 +1130,12 @@ function setupUIDModalListeners(transactionData) {
                         </tr>
                         <tr>
                             <td>เวลาทำรายการ:</td>
-                            <td>${transactionData.timestamp || new Date().toLocaleString('th-TH')}</td>
+                            <td>${formatThaiDateTime(transactionData.timestamp || new Date())}</td>
                         </tr>
                     </table>
                     <div class="footer">
                         <p>ระบบจัดการน้ำมัน - กองบริหารการบินเกษตร กรมฝนหลวงและการบินเกษตร</p>
-                        <p>พิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+                        <p>พิมพ์เมื่อ: ${formatThaiDateTime(new Date())}</p>
                     </div>
                 </body>
                 </html>
@@ -3449,7 +3478,7 @@ function openTransactionModal(source) {
     modal.style.display = 'block';
 }
 
-// Populate ตัวเลือกปลายทาง
+// Populate ตัวเลือกแบบเครื่องบิน/รถน้ำมัน
 function populateDestinationOptions() {
     const tankSelect = document.getElementById('tankSelect');
     tankSelect.innerHTML = '<option value="">เลือกแหล่งน้ำมัน</option>';
@@ -3601,7 +3630,7 @@ async function handleReturnDrumSubmit() {
             sourceId: sourceId, // แหล่งที่คืนจาก
             sourceName: drumSource.name,
             sourceType: drumSource.type,
-            destinationId: null, // ไม่มีปลายทางสำหรับการคืน
+            destinationId: null, // ไม่มีแบบเครื่องบิน/รถน้ำมันสำหรับการคืน
             destinationName: null,
             destinationType: null,
             liters: liters,
@@ -5147,12 +5176,12 @@ function showDispenseForm() {
     const literDispenseFields = document.getElementById('literDispenseFields');
     const tankSelect = document.getElementById('tankSelect');
 
-    // ฟังก์ชันตรวจสอบและอัพเดทฟิลด์ตามปลายทาง
+    // ฟังก์ชันตรวจสอบและอัพเดทฟิลด์ตามแบบเครื่องบิน/รถน้ำมัน
     const updateFieldsBasedOnDestination = () => {
         const destinationType = document.getElementById('destinationType').value;
         const destinationId = tankSelect.value;
 
-        // แสดง/ซ่อนฟิลด์ปลายทางตามประเภท
+        // แสดง/ซ่อนฟิลด์แบบเครื่องบิน/รถน้ำมันตามประเภท
         const aircraftDestination = document.getElementById('aircraftDestination');
         const tankDestination = document.getElementById('tankDestination');
 
@@ -5167,7 +5196,7 @@ function showDispenseForm() {
             tankDestination.style.display = 'block';
         }
 
-        // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+        // ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
         let isDestinationDrum = false;
         if (destinationType === 'tank' && destinationId) {
             const destSource = fuelSources.find(s => s.id === destinationId);
@@ -5175,7 +5204,7 @@ function showDispenseForm() {
         }
 
         if (isDestinationDrum) {
-            // ถ้าปลายทางเป็นถัง 200L ให้แสดงฟิลด์ถัง
+            // ถ้าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L ให้แสดงฟิลด์ถัง
             drumDispenseFields.style.display = 'block';
             literDispenseFields.style.display = 'none';
 
@@ -5215,7 +5244,7 @@ function showDispenseForm() {
     // เรียกใช้ครั้งแรกเมื่อเปิดฟอร์ม
     updateFieldsBasedOnDestination();
 
-    // ตั้งค่า event listener สำหรับเปลี่ยนปลายทาง
+    // ตั้งค่า event listener สำหรับเปลี่ยนแบบเครื่องบิน/รถน้ำมัน
     document.getElementById('destinationType').onchange = updateFieldsBasedOnDestination;
     tankSelect.onchange = updateFieldsBasedOnDestination;
 }
@@ -5246,7 +5275,7 @@ async function handleRefillSubmit() {
     const bookNo = document.getElementById('bookNo').value.trim();
     const receiptNo = document.getElementById('receiptNo').value.trim();
 
-    // ✅ ดึงปลายทาง (destination) จากฟอร์ม
+    // ✅ ดึงแบบเครื่องบิน/รถน้ำมัน (destination) จากฟอร์ม
     const pttDestinationType = document.getElementById('pttDestinationType') ? document.getElementById('pttDestinationType').value : 'aircraft';
     let destinationId = null;
     let destinationName = null;
@@ -5326,9 +5355,9 @@ async function handleRefillSubmit() {
         destinationName = destSource ? destSource.name : null;
     }
 
-    // ✅ ตรวจสอบว่าเลือกปลายทางแล้ว
+    // ✅ ตรวจสอบว่าเลือกแบบเครื่องบิน/รถน้ำมันแล้ว
     if (!destinationId || !destinationName) {
-        alert('กรุณาเลือกปลายทาง');
+        alert('กรุณาเลือกแบบเครื่องบิน/รถน้ำมัน');
         return;
     }
 
@@ -5345,7 +5374,7 @@ async function handleRefillSubmit() {
             throw new Error('ไม่พบข้อมูลราคาสำหรับจังหวัด: ' + operatingUnit);
         }
 
-        // ✅ ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+        // ✅ ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
         const destSource = fuelSources.find(s => s.id === destinationId);
         const isDestinationDrum = destSource && isDrumSource(destSource);
 
@@ -5375,7 +5404,7 @@ async function handleRefillSubmit() {
             totalAmount = liters * pricePerLiter;
         }
 
-        // ✅ อัพเดท current stock ของปลายทาง (จากฟอร์ม ไม่ใช่ currentSelectedSource)
+        // ✅ อัพเดท current stock ของแบบเครื่องบิน/รถน้ำมัน (จากฟอร์ม ไม่ใช่ currentSelectedSource)
         const destIndex = fuelSources.findIndex(s => s.id === destinationId);
         if (destIndex !== -1) {
             fuelSources[destIndex].currentStock += liters;
@@ -5407,11 +5436,11 @@ async function handleRefillSubmit() {
             date: now.toLocaleDateString('th-TH'),
             time: now.toLocaleTimeString('th-TH'),
             transactionType: 'refill',
-            sourceId: 'purchase', // แหล่งที่มาคือ ปตท. เสมอ
-            sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาคือ ปตท.
-            destinationId: destinationId, // ✅ ปลายทางจากฟอร์ม ไม่ใช่ currentSelectedSource
-            destinationName: destinationName, // ✅ ชื่อปลายทางจากฟอร์ม
-            destinationType: destinationType, // ✅ ประเภทปลายทางจากฟอร์ม
+            sourceId: 'purchase', // แหล่งที่มาน้ำมันคือ ปตท. เสมอ
+            sourceName: 'จัดซื้อจาก ปตท.', // แหล่งที่มาน้ำมันคือ ปตท.
+            destinationId: destinationId, // ✅ แบบเครื่องบิน/รถน้ำมันจากฟอร์ม ไม่ใช่ currentSelectedSource
+            destinationName: destinationName, // ✅ ชื่อแบบเครื่องบิน/รถน้ำมันจากฟอร์ม
+            destinationType: destinationType, // ✅ ประเภทแบบเครื่องบิน/รถน้ำมันจากฟอร์ม
             liters: liters,
             volume: volumeDisplay, // ✅ ส่งข้อมูลที่จัดรูปแบบแล้ว เช่น "5 ถัง (1000 ลิตร)"
             pricePerLiter: pricePerLiter,
@@ -5560,7 +5589,7 @@ async function handleDispenseSubmit() {
         return;
     }
 
-    // ตรวจสอบปลายทางว่าเป็นถัง 200L หรือไม่
+    // ตรวจสอบแบบเครื่องบิน/รถน้ำมันว่าเป็นถัง 200L หรือไม่
     let destinationId = null;
     if (destinationType === 'aircraft') {
         destinationId = document.getElementById('aircraftSelect').value;
@@ -5598,7 +5627,7 @@ async function handleDispenseSubmit() {
         }
     }
 
-    // ตรวจสอบว่าปลายทางเป็นถัง 200L หรือไม่
+    // ตรวจสอบว่าแบบเครื่องบิน/รถน้ำมันเป็นถัง 200L หรือไม่
     if (isDestinationDrum) {
         // สำหรับถัง 200L
         drums = parseFloat(document.getElementById('dispenseDrums').value);
@@ -5650,7 +5679,7 @@ async function handleDispenseSubmit() {
     }
 
     if (!destinationId) {
-        alert('กรุณาเลือกปลายทาง');
+        alert('กรุณาเลือกแบบเครื่องบิน/รถน้ำมัน');
         return;
     }
 
@@ -5668,7 +5697,7 @@ async function handleDispenseSubmit() {
         setButtonLoading('submitDispense', true);
         showLoading('กำลังประมวลผลการจ่ายออก...');
 
-        // อัพเดท stock ของแหล่งต้นทาง
+        // อัพเดท stock ของแหล่งที่มาน้ำมัน
         if (currentSelectedSource.type === 'purchase') {
             // ถ้าเป็น ปตท. ให้เพิ่ม stock (บันทึกว่าซื้อไปทั้งหมดเท่าไหร่)
             const pttIndex = fuelSources.findIndex(s => s.id === 'purchase');
@@ -5683,7 +5712,7 @@ async function handleDispenseSubmit() {
             }
         }
 
-        // อัพเดท stock ของปลายทาง (ถ้าเป็นแหล่งน้ำมัน)
+        // อัพเดท stock ของแบบเครื่องบิน/รถน้ำมัน (ถ้าเป็นแหล่งน้ำมัน)
         if (['tank', 'truck', 'drum'].includes(destinationType)) {
             const destIndex = fuelSources.findIndex(s => s.id === destinationId);
             if (destIndex !== -1) {
@@ -5795,14 +5824,14 @@ function downloadAllTransactions() {
         'วันที่',
         'เวลา',
         'ประเภทรายการ',
-        'แหล่งต้นทาง',
-        'ปลายทาง',
-        'ประเภทปลายทาง',
+        'แหล่งที่มาน้ำมัน',
+        'แบบเครื่องบิน/รถน้ำมัน',
+        'ประเภทแบบเครื่องบิน/รถน้ำมัน',
         'จำนวนลิตร',
         'ราคาต่อลิตร',
         'จำนวนเงิน',
         'ผู้ทำรายการ',
-        'หน่วยปฏิบัติการ',
+        'สถานีน้ำมัน/จังหวัด',
         'Timestamp'
     ];
 
@@ -5900,19 +5929,19 @@ function openPttPurchaseModal() {
         destinationSelect.appendChild(option);
     });
 
-    // ซ่อนฟอร์มทั้งหมดตอนเปิด modal (จนกว่าจะเลือกปลายทาง)
+    // ซ่อนฟอร์มทั้งหมดตอนเปิด modal (จนกว่าจะเลือกแบบเครื่องบิน/รถน้ำมัน)
     document.getElementById('pttLitersGroup').style.display = 'none';
     document.getElementById('pttPricePerLiterGroup').style.display = 'none';
     document.getElementById('pttDrumsGroup').style.display = 'none';
     document.getElementById('pttPricePerDrumGroup').style.display = 'none';
 
-    // เมื่อเลือกปลายทาง ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
+    // เมื่อเลือกแบบเครื่องบิน/รถน้ำมัน ให้แสดง/ซ่อน input ตามประเภท (ตั้งค่าทุกครั้งที่เปิด modal)
     destinationSelect.onchange = async function () {
         const selectedOption = this.options[this.selectedIndex];
         const destinationType = selectedOption.dataset.type;
         const destinationName = selectedOption.textContent;
 
-        console.log('เลือกปลายทาง:', destinationName, 'ประเภท:', destinationType);
+        console.log('เลือกแบบเครื่องบิน/รถน้ำมัน:', destinationName, 'ประเภท:', destinationType);
 
         // แสดง/ซ่อน input groups
         const litersGroup = document.getElementById('pttLitersGroup');
@@ -5938,7 +5967,7 @@ function openPttPurchaseModal() {
             document.getElementById('pttDrums').setAttribute('required', 'required');
             document.getElementById('pttPricePerDrum').setAttribute('required', 'required');
 
-            // ดึงราคาจาก location name เมื่อเลือกปลายทาง drum
+            // ดึงราคาจาก location name เมื่อเลือกแบบเครื่องบิน/รถน้ำมัน drum
             console.log('ดึงราคาสำหรับ location:', destinationName);
             const prices = await fetchPTTPricesByLocationName(destinationName);
             if (prices.pricePerDrum > 0) {
@@ -6048,10 +6077,10 @@ async function handlePttPurchaseSubmit() {
             throw new Error('ไม่พบข้อมูลแหล่งน้ำมัน ปตท.');
         }
 
-        // หาปลายทาง
+        // หาแบบเครื่องบิน/รถน้ำมัน
         const destination = fuelSources.find(source => source.id === destinationId);
         if (!destination) {
-            throw new Error('ไม่พบข้อมูลแหล่งเก็บปลายทาง');
+            throw new Error('ไม่พบข้อมูลแหล่งเก็บแบบเครื่องบิน/รถน้ำมัน');
         }
 
         // ดึงราคาจากฟอร์ม (ราคาที่โหลดมาจาก gid=1828300695 ตามจังหวัด)
@@ -6060,7 +6089,7 @@ async function handlePttPurchaseSubmit() {
 
         // ตรวจสอบว่าราคาถูกโหลดมาแล้ว
         if (pricePerLiterFromForm === 0 && pricePerDrumFromForm === 0) {
-            alert('ยังไม่ได้โหลดราคาจากจังหวัด\nกรุณาเลือกจังหวัด (หน่วยปฏิบัติการ) ใหม่');
+            alert('ยังไม่ได้โหลดราคาจากจังหวัด\nกรุณาเลือกจังหวัด (สถานีน้ำมัน/จังหวัด) ใหม่');
             return;
         }
 
@@ -6114,10 +6143,10 @@ async function handlePttPurchaseSubmit() {
             }
         }
 
-        // อัปเดตสต็อกปลายทาง
+        // อัปเดตสต็อกแบบเครื่องบิน/รถน้ำมัน
         destination.currentStock += liters;
 
-        // อัปเดตสต็อก ปตท. (แหล่งที่มา)
+        // อัปเดตสต็อก ปตท. (แหล่งที่มาน้ำมัน)
         if (pttSource) {
             pttSource.currentStock += liters;
         }
