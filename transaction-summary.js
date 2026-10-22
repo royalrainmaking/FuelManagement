@@ -372,6 +372,12 @@ function loadBudgetData() {
                     if (dustEl && plans['ดัดแปลงสภาพอากาศ (ฝุ่น)']) dustEl.textContent = formatNumber(plans['ดัดแปลงสภาพอากาศ (ฝุ่น)'].remaining);
                     if (centralEl && plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)']) centralEl.textContent = formatNumber(plans['ดัดแปลงสภาพอากาศ (ลูกเห็บ)'].remaining);
                 }
+                if (data.data.research) {
+                    const rEl = document.getElementById('quickRemainingResearch');
+                    const rUsed = document.getElementById('researchUsed');
+                    if (rEl) rEl.textContent = formatNumber(data.data.research.remaining);
+                    if (rUsed) rUsed.textContent = formatNumber(data.data.research.used);
+                }
                 
                 // 2. Legacy/Global element if it still exists
                 const remainingBudgetEl = document.getElementById('remainingBudget');
@@ -448,6 +454,7 @@ function loadTransactionData() {
  */
 function getPlanNameFromMissions(missions) {
     const name = (missions || '').toString().trim();
+    if (name.includes('วิจัย')) return 'งานวิจัย';
     if (name.includes('ลูกเห็บ')) return 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)';
     if (name.includes('ฝุ่น') || name.includes('ดัดแปลงสภาพอากาศ')) return 'ดัดแปลงสภาพอากาศ (ฝุ่น)';
     if (name.includes('บรู') || name.includes('ฝนหลวง') || name.includes('บินสำรวจ')) return 'แผนบรู';
@@ -461,7 +468,10 @@ function getPlanBadge(missions) {
     let badgeClass = '';
     let badgeStyle = 'font-size: 0.65rem; font-weight: normal; padding: 0.25em 0.4em;';
     
-    if (planName === 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)') {
+    if (planName === 'งานวิจัย') {
+        badgeText = 'วิจัย';
+        badgeClass = 'badge bg-info text-dark';
+    } else if (planName === 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)') {
         badgeText = 'ลูกเห็บ';
         badgeClass = 'badge';
         badgeStyle += ' background-color: #6f42c1; color: white;'; // สีม่วง

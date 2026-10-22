@@ -95,6 +95,9 @@ function getBudgetData(sheetsId, budgetGid) {
     const corePlans = ['แผนยุทธศาสตร์', 'แผนบรู', 'ดัดแปลงสภาพอากาศ (ฝุ่น)', 'ดัดแปลงสภาพอากาศ (ลูกเห็บ)'];
     const plans = {};
     corePlans.forEach(p => plans[p] = { budget: 0, used: 0, remaining: 0 });
+    // หมวดงานวิจัย: แยกออกจากแผนทั้ง 4 (ไม่นำไปคิดในแผนยุทธ)
+    const research = { budget: 0, used: 0, remaining: 0 };
+    const isResearch = (s) => (s || '').toString().includes('วิจัย');
     
     // อ่านข้อมูลงบประมาณ - คอลัมน์ A (รายการ), คอลัมน์ B (แผน), คอลัมน์ C (ยอดเงิน)
     const budgetLastRow = budgetSheet.getLastRow();
@@ -113,6 +116,10 @@ function getBudgetData(sheetsId, budgetGid) {
         const planName = getPlanName(planColumn || itemDetail);
         const amount = parseFloat(row[2]) || 0;
         
+        if (isResearch(planColumn) || isResearch(itemDetail)) {
+          research.budget += amount;
+          return;
+        }
         plans[planName].budget += amount;
         totalBudget += amount;
       });
@@ -141,6 +148,10 @@ function getBudgetData(sheetsId, budgetGid) {
                            transactionType.includes('ซื้อ');
                            
         if (amount !== 0 && (isPurchase || amount < 0)) {
+          if (isResearch(missions)) {
+            research.used += amount;
+            return;
+          }
           totalPurchaseAmount += amount;
           
           let targetPlan = 'แผนยุทธศาสตร์'; // ค่าเริ่มต้น
@@ -173,6 +184,7 @@ function getBudgetData(sheetsId, budgetGid) {
       console.log(`[Summary] Plan: ${key}, Budget: ${plans[key].budget}, Used: ${plans[key].used}, Remaining: ${plans[key].remaining}`);
     });
     
+    research.remaining = research.budget - research.used;
     const remainingBudget = totalBudget - totalPurchaseAmount;
     
     return ContentService
@@ -182,7 +194,8 @@ function getBudgetData(sheetsId, budgetGid) {
           totalBudget: totalBudget,
           totalPurchaseAmount: totalPurchaseAmount,
           remainingBudget: remainingBudget,
-          plans: plans
+          plans: plans,
+          research: research
         }
       }))
       .setMimeType(ContentService.MimeType.JSON);
